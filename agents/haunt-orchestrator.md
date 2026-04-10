@@ -1,14 +1,9 @@
 # Haunt Orchestrator
 
-You run phantom test sessions by roleplaying as AI-driven personas that navigate a web app.
-The MCP server controls the browser — you decide what to do as the persona.
-
-## On invocation
-
-Parse from the command arguments:
-- `target_url` — the URL to test
-- `personas` — list of persona names (default: ["confused-beginner"])
-- `headless` — boolean (default: true, false when --headed is passed)
+You run phantom test sessions using a plan-then-parallelize approach:
+1. Quick recon to map the app
+2. Spawn parallel sub-agents, one per area
+3. Aggregate results and generate the report
 
 ## Before anything else
 
@@ -16,92 +11,88 @@ Print:
 ```
 haunt v0.1.0
 ──────────────────────────────────────────
+⏳ Starting session...
 ```
 
 If `haunt_spawn` is not available as a tool, print:
+```
+⏳ haunt is installing Chromium (first run, ~2 min).
+   Restart Claude Code once ready and run the command again.
+```
+Then stop. Do NOT search files or debug.
+
+## Parse arguments
+
+From the command:
+- `target_url` — URL to test
+- `personas` — list of persona names (default: ["confused-beginner"])
+- `headless` — boolean (default: true)
+- `steps` — max steps per area (default: 5)
+
+## Phase 1 — Recon (fast mapping, 1 session)
+
+Spawn one browser session with the first persona and `timeout: 5`.
 
 ```
-⏳ haunt MCP server is starting up (first run installs Chromium, ~2 min).
-   Restart Claude Code once it's ready and try again.
+🔍 Mapping app structure...
 ```
 
-Then stop. Do NOT search files, check configs, or debug. Just stop.
+Do 3–5 steps to discover:
+- The main navigation links and routes
+- Distinct sections (landing, auth, dashboard, pricing, etc.)
 
-## Session flow
+Call `haunt_end_session` and build a **page plan**: a list of areas to test, e.g.:
+```
+Areas: / (landing) | /login | /pricing | /dashboard
+```
 
-For each persona:
+Print the plan:
+```
+📋 Plan: <area1> | <area2> | <area3> | ...
+```
 
-### 1. Spawn
+## Phase 2 — Parallel testing
 
-Call `haunt_spawn` with the persona name and target_url.
+For each persona × area combination, dispatch a `haunt-page-tester` sub-agent **in parallel**.
 
-On error (URL not reachable, persona not found): print the error and stop.
-
-The response gives you:
-- `session_id` — use this for all subsequent calls
-- `persona_name`, `persona_description`, `persona_goal` — your role for this session
+Pass to each sub-agent:
+- `session_description`: "Testing /pricing as confused-beginner"
+- `target_url`: the specific page URL
+- `persona`: persona name
+- `headless`: same as parent
+- `max_steps`: steps argument (default 5)
 
 Print:
 ```
-Spawning phantom: <persona_name>
-  Target: <target_url>
-  Goal:   <persona_goal>
+🚀 Launching <N> agents in parallel...
+   confused-beginner → /
+   confused-beginner → /login
+   confused-beginner → /pricing
+   ...
 ```
 
-### 2. Navigation loop (max steps from spawn response)
+Wait for all agents to complete.
 
-Repeat until you decide the session is done or `steps_remaining` reaches 0:
+## Phase 3 — Aggregate
 
-**Step A — Capture page state**
+Collect all `EndSessionOutput` objects from the sub-agents.
 
-Call `haunt_capture_state` with `include_screenshot: true`.
-
-**Step B — Reason as the persona**
-
-You ARE this persona. Think:
-- What does this person see? (accessibility_tree, title, url)
-- What would they naturally do next given their goal and personality?
-- Do you notice any UX/accessibility/security issues?
-
-Print your thought: `[<persona_name>] <what you're thinking as this persona>`
-
-**Step C — Report issues (if any)**
-
-If you spotted a problem (confusing label, missing ARIA attribute, suspicious form, etc.),
-include it in the `issues` array on your next `haunt_navigate` call.
-
-**Step D — Act**
-
-Call `haunt_navigate` with:
-- `action`: what you do as the persona — "click Login", "fill test@example.com in Email", "goto http://...", "press Tab"
-- `issues`: any issues you observed on the current page (before acting)
-
-If `success: false`: print the error. Count it as a UX issue if you haven't already. Continue.
-
-If `steps_remaining` is 0 or your goal is achieved: exit the loop.
-
-### 3. End session
-
-Call `haunt_end_session` with:
-- `session_id`
-- `overall_impression`: 1–2 sentences from the persona's perspective on the experience
-
-Print:
+Print a summary:
 ```
 ──────────────────────────────────────────
-Session complete  <duration_seconds>s  <step_count> steps
-Issues: <critical count> critical  <major count> major  <minor count> minor
+✓ All sessions complete
+  <N> areas tested | <total issues> issues found
+  <critical count> critical · <major count> major · <minor count> minor
 ```
 
-## After all personas complete
+Pass all results to `haunt-reporter` to generate the Markdown report.
 
-Pass all EndSessionOutput results to the haunt-reporter agent.
-Then print:
+Print:
 ```
 Report: .haunt-reports/<date>-<personas>.md
 ```
 
 ## Error handling
 
-- URL not reachable → print error from haunt_spawn, stop entirely
-- haunt_navigate fails → log as UX issue, call haunt_end_session anyway, continue with next persona
+- haunt_spawn fails → print error, skip that area, continue
+- Sub-agent fails → treat as 0 issues for that area, continue
