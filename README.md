@@ -1,63 +1,129 @@
 # Haunt
 
-Synthetic phantom users that test your localhost app while you code.
+**AI phantom users that test your app while you code.**
 
-## What it does
+Haunt spawns browser agents that navigate your localhost like real users would — a confused beginner, a malicious attacker, a screen reader user. Each phantom explores your app, logs what breaks, and hands you an actionable report.
 
-Haunt spawns AI-driven phantom agents that navigate your web app as real users would:
-a confused beginner, a malicious attacker, a screen reader user.
-Each phantom explores your app, captures UX issues, errors, and accessibility problems,
-and produces an actionable Markdown report.
+```
+/haunt:haunt-test http://localhost:3000
+```
+
+```
+haunt v0.1.0
+──────────────────────────────────────────
+🔍 Mapping app structure...
+📋 Plan: / | /login | /pricing | /dashboard
+
+🚀 Launching 4 agents in parallel...
+   confused-beginner → /
+   confused-beginner → /login
+   confused-beginner → /pricing
+   confused-beginner → /dashboard
+
+──────────────────────────────────────────
+✓ All sessions complete
+  4 areas tested | 15 issues found
+  4 critical · 9 major · 2 minor
+
+Report: .haunt-reports/2026-04-10-confused-beginner.md
+```
+
+---
+
+## What it finds
+
+Real bugs, caught before your users do:
+
+- **Broken auth flows** — login crashes, dashboard accessible without a session
+- **Exposed internals** — stack traces and env var names leaking to the browser console
+- **Missing content** — 404 videos, empty sections, broken CTAs
+- **Accessibility gaps** — buttons with no label, missing ARIA, keyboard traps
+- **UX friction** — confusing copy, dead-end flows, duplicate routes
+
+---
 
 ## Install
 
-```bash
-/plugin install github:<your-username>/haunt
+```
+/plugin marketplace add Chocolatine75/haunt
+/plugin install haunt
+/reload-plugins
 ```
 
-Install the Playwright browser (one-time setup):
+That's it. No API key required. Chromium installs automatically on first run.
 
-```bash
-npx playwright install chromium
-```
+> **Requires:** Claude Code · Node.js 18+
 
-## Requirements
-
-- Claude Code with `ANTHROPIC_API_KEY` set
-- Node.js 18+
+---
 
 ## Usage
 
 ```bash
-# Test with the default persona (confused-beginner)
-/haunt-test http://localhost:3000
+# Test with the default persona
+/haunt:haunt-test http://localhost:3000
 
-# Test with multiple personas
-/haunt-test http://localhost:3000 --personas malicious-user,screen-reader-user
+# Test multiple personas
+/haunt:haunt-test http://localhost:3000 --personas confused-beginner,malicious-user
 
-# Watch the phantom navigate in real time
-/haunt-test http://localhost:3000 --headed
+# Watch the browser in real time
+/haunt:haunt-test http://localhost:3000 --headed
+
+# Faster scan (fewer steps per area)
+/haunt:haunt-test http://localhost:3000 --steps 3
 ```
 
 Reports are saved to `.haunt-reports/`.
 
+---
+
 ## Built-in personas
 
-| Persona | What it tests |
-|---|---|
-| `confused-beginner` | UX clarity, onboarding friction, confusing labels |
-| `malicious-user` | XSS, SQL injection, auth bypasses, exposed data |
-| `screen-reader-user` | Keyboard navigation, ARIA labels, focus management |
+| Persona | Simulates | Finds |
+|---|---|---|
+| `confused-beginner` | First-time user, no prior context | UX friction, broken flows, missing onboarding |
+| `malicious-user` | Attacker probing for weaknesses | Auth bypasses, exposed data, injection vectors |
+| `screen-reader-user` | Keyboard-only navigation | Missing ARIA, focus traps, inaccessible controls |
+
+---
 
 ## Custom personas
 
-Add a YAML file to your project and pass its path:
+Drop a YAML file anywhere in your project:
 
-```bash
-/haunt-test http://localhost:3000 --personas ./personas/my-persona.yaml
+```yaml
+name: Impatient Power User
+description: Moves fast, skips instructions, expects things to just work
+system_prompt: |
+  You are an experienced user who moves quickly and has no patience for unclear UI.
+  You skip tutorials, click fast, and get frustrated when things don't work as expected.
+browser:
+  headless: true
+  viewport: { width: 1440, height: 900 }
+scenarios:
+  - name: Core workflow
+    goal: Complete the main task as fast as possible
+    max_steps: 10
 ```
 
-See `personas/confused-beginner.yaml` for the format.
+```bash
+/haunt:haunt-test http://localhost:3000 --personas ./personas/power-user.yaml
+```
+
+See `personas/confused-beginner.yaml` for the full format.
+
+---
+
+## How it works
+
+Haunt is a [Claude Code](https://claude.ai/code) plugin built on three layers:
+
+1. **MCP server** — controls a real Chromium browser via Playwright
+2. **Orchestrator agent** — maps your app, then dispatches parallel sub-agents
+3. **Persona agents** — each runs as a specific user type, reporting issues as they navigate
+
+No AI vision required for navigation — the orchestrator reads the accessibility tree and acts on it, the same way a screen reader would.
+
+---
 
 ## License
 
