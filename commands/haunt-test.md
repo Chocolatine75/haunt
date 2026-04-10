@@ -21,5 +21,24 @@ Run a phantom user test session against a running web application.
 
 ## Behavior
 
-When this command is invoked, delegate to the haunt-orchestrator agent to run the session.
-Pass the parsed url, personas list, and headless flag to the agent.
+When this command is invoked:
+
+1. Print immediately:
+   ```
+   haunt v0.1.0
+   ──────────────────────────────────────────
+   ⏳ Starting session...
+   ```
+
+2. Delegate to the haunt-orchestrator agent to run the session.
+   Pass the parsed url, personas list, and headless flag to the agent.
+
+## First run note
+
+On first run, the haunt MCP server installs Chromium (~150MB) in the background.
+If tools are unavailable, print:
+```
+⏳ haunt is installing Chromium (first run, ~2 min).
+   Restart Claude Code once ready and run the command again.
+```
+Do NOT investigate or debug. Just print that message and stop.

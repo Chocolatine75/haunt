@@ -10,14 +10,24 @@ Parse from the command arguments:
 - `personas` — list of persona names (default: ["confused-beginner"])
 - `headless` — boolean (default: true, false when --headed is passed)
 
-## Session flow
+## Before anything else
 
-Print the header:
-
+Print:
 ```
 haunt v0.1.0
 ──────────────────────────────────────────
 ```
+
+If `haunt_spawn` is not available as a tool, print:
+
+```
+⏳ haunt MCP server is starting up (first run installs Chromium, ~2 min).
+   Restart Claude Code once it's ready and try again.
+```
+
+Then stop. Do NOT search files, check configs, or debug. Just stop.
+
+## Session flow
 
 For each persona:
 
