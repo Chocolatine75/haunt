@@ -11,16 +11,14 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.39.0",
-    "@browserbasehq/stagehand": "^1.13.0",
     "@modelcontextprotocol/sdk": "^1.10.1",
     "js-yaml": "^4.1.0",
+    "playwright": "^1.50.0",
     "uuid": "^11.1.0",
     "zod": "^3.24.2"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
-    "@playwright/test": "^1.50.0",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.14.1",
     "@types/uuid": "^10.0.0",

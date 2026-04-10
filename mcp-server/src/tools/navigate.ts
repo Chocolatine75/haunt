@@ -1,50 +1,80 @@
 // mcp-server/src/tools/navigate.ts
-import Anthropic from '@anthropic-ai/sdk';
 import { mkdirSync } from 'fs';
+import type { Page } from 'playwright';
 import type { SessionManager } from '../session/manager.js';
 import type { Issue } from '../types.js';
 
-const anthropic = new Anthropic();
 const SCREENSHOTS_DIR = '.haunt-reports/screenshots';
 
 export interface NavigateInput {
   session_id: string;
-  think_aloud?: boolean;
+  // Natural language action decided by the orchestrator, e.g.:
+  //   "click Login"  |  "fill Email with test@example.com"  |  "goto http://..."
+  action: string;
+  // Issues the orchestrator observed during this step
+  issues?: Issue[];
 }
 
 export interface NavigateOutput {
   success: boolean;
   page_url: string;
   page_title: string;
-  thought?: string;
   console_errors: string[];
   network_errors: string[];
   screenshot_path?: string;
-  done: boolean;
+  error?: string;
   step: number;
+  steps_remaining: number;
 }
 
-interface HaikuAction {
-  action: string;
-  thought: string;
-  done: boolean;
-}
+async function executeAction(page: Page, action: string): Promise<void> {
+  const trimmed = action.trim();
 
-function parseHaikuResponse(raw: string): HaikuAction {
-  try {
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]) as Partial<HaikuAction>;
-      return {
-        action: parsed.action ?? '',
-        thought: parsed.thought ?? '',
-        done: parsed.done ?? false,
-      };
-    }
-  } catch {
-    // fall through
+  // goto / navigate
+  if (/^(goto|navigate to|go to)\s+/i.test(trimmed)) {
+    const url = trimmed.replace(/^(goto|navigate to|go to)\s+/i, '').trim();
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15_000 });
+    return;
   }
-  return { action: raw.slice(0, 200), thought: '', done: false };
+
+  // press / key
+  if (/^(press|hit|key)\s+/i.test(trimmed)) {
+    const key = trimmed.replace(/^(press|hit|key)\s+/i, '').trim();
+    await page.keyboard.press(key);
+    return;
+  }
+
+  // fill/type/enter <text> in/into <field>
+  const fillMatch = trimmed.match(/^(?:fill|type|enter|input)\s+(.+?)\s+in(?:to)?\s+(.+)/i);
+  if (fillMatch) {
+    const text = fillMatch[1].replace(/^['"]|['"]$/g, '');
+    const field = fillMatch[2].replace(/^['"]|['"]$/g, '');
+    const loc = page
+      .getByLabel(field, { exact: false })
+      .or(page.getByPlaceholder(field, { exact: false }))
+      .or(page.getByRole('textbox', { name: field }));
+    await loc.first().fill(text);
+    return;
+  }
+
+  // click / tap
+  const clickTarget = trimmed.replace(/^(click|tap|select)\s+/i, '').trim();
+
+  // Try role-based locators first (most reliable)
+  for (const role of ['button', 'link', 'menuitem', 'tab', 'option'] as const) {
+    try {
+      await page
+        .getByRole(role, { name: clickTarget, exact: false })
+        .first()
+        .click({ timeout: 3_000 });
+      return;
+    } catch {
+      // try next
+    }
+  }
+
+  // Fall back to text content
+  await page.getByText(clickTarget, { exact: false }).first().click({ timeout: 5_000 });
 }
 
 export async function hauntNavigate(
@@ -52,110 +82,23 @@ export async function hauntNavigate(
   input: NavigateInput,
 ): Promise<NavigateOutput> {
   const session = manager.get(input.session_id);
-  const { stagehand, persona, messages } = session;
-  const page = stagehand.page;
+  const { page } = session;
 
-  // Step budget exhausted
-  if (session.step_count >= session.max_steps) {
-    return {
-      success: true,
-      page_url: page.url(),
-      page_title: await page.title(),
-      console_errors: [],
-      network_errors: [],
-      done: true,
-      step: session.step_count,
-    };
-  }
-
-  // Loop detection: same URL three times in a row
-  const recent = session.pages_visited.slice(-3);
-  if (recent.length === 3 && recent.every((u) => u === page.url())) {
-    return {
-      success: true,
-      page_url: page.url(),
-      page_title: await page.title(),
-      thought: 'Navigation loop detected — ending session early',
-      console_errors: [],
-      network_errors: [],
-      done: true,
-      step: session.step_count,
-    };
-  }
-
-  // Get page state via Stagehand observe (accessibility tree + fallback)
-  let pageState: string;
-  try {
-    const observations = await page.observe({
-      instruction: 'Describe what is visible and what actions are available to the user',
-    });
-    pageState = (observations as Array<{ description: string }>)
-      .map((o) => o.description)
-      .join('; ');
-  } catch {
-    pageState = `title: ${await page.title()}`;
+  // Record any issues the orchestrator flagged for this step
+  if (input.issues?.length) {
+    session.issues.push(...input.issues);
   }
 
   // Drain captured errors for this step
   const stepConsoleErrors = session.console_errors.splice(0);
   const stepNetworkErrors = session.network_errors.splice(0);
 
-  const userMessage = [
-    `Current page: ${page.url()}`,
-    `Title: ${await page.title()}`,
-    `What you see: ${pageState}`,
-    stepConsoleErrors.length > 0 ? `Console errors: ${stepConsoleErrors.join(' | ')}` : null,
-    '',
-    'Respond with JSON only:',
-    '{ "action": "what you do next in natural language", "thought": "your internal reasoning as this persona", "done": false }',
-    'Set done: true if your goal is complete or you are stuck.',
-  ]
-    .filter(Boolean)
-    .join('\n');
-
-  const updatedMessages: Anthropic.MessageParam[] = [
-    ...messages,
-    { role: 'user', content: userMessage },
-  ];
-
-  const response = await anthropic.messages.create({
-    model: 'claude-3-5-haiku-20241022',
-    max_tokens: 512,
-    system: [
-      persona.system_prompt,
-      `Goal: ${persona.scenarios[0]?.goal ?? 'Explore the application'}`,
-    ].join('\n\n'),
-    messages: updatedMessages,
-  });
-
-  const rawText =
-    response.content[0].type === 'text' ? response.content[0].text : '';
-  const { action, thought, done } = parseHaikuResponse(rawText);
-
-  session.messages = [
-    ...updatedMessages,
-    { role: 'assistant', content: rawText },
-  ];
   session.step_count++;
 
-  if (done || !action) {
-    return {
-      success: true,
-      page_url: page.url(),
-      page_title: await page.title(),
-      thought: input.think_aloud ? thought : undefined,
-      console_errors: stepConsoleErrors,
-      network_errors: stepNetworkErrors,
-      done: true,
-      step: session.step_count,
-    };
-  }
-
-  // Execute via Stagehand (handles hybrid accessibility tree + screenshot fallback internally)
   let screenshotPath: string | undefined;
 
   try {
-    await page.act({ action });
+    await executeAction(page, input.action);
   } catch (error) {
     mkdirSync(SCREENSHOTS_DIR, { recursive: true });
     screenshotPath = `${session.id}-step-${session.step_count}.png`;
@@ -164,13 +107,24 @@ export async function hauntNavigate(
     const issue: Issue = {
       severity: 'major',
       category: 'ux',
-      description: `Action failed: "${action}". ${error instanceof Error ? error.message : String(error)}`,
+      description: `Action failed: "${input.action}". ${error instanceof Error ? error.message : String(error)}`,
       page_url: page.url(),
       screenshot_path: screenshotPath,
-      recommendation:
-        'Ensure this interaction is reachable and clearly labeled for all users.',
+      recommendation: 'Ensure this interaction is reachable and clearly labeled.',
     };
     session.issues.push(issue);
+
+    return {
+      success: false,
+      page_url: page.url(),
+      page_title: await page.title(),
+      console_errors: stepConsoleErrors,
+      network_errors: stepNetworkErrors,
+      screenshot_path: screenshotPath,
+      error: error instanceof Error ? error.message : String(error),
+      step: session.step_count,
+      steps_remaining: session.max_steps - session.step_count,
+    };
   }
 
   const currentUrl = page.url();
@@ -180,11 +134,10 @@ export async function hauntNavigate(
     success: true,
     page_url: currentUrl,
     page_title: await page.title(),
-    thought: input.think_aloud ? thought : undefined,
     console_errors: stepConsoleErrors,
     network_errors: stepNetworkErrors,
     screenshot_path: screenshotPath,
-    done: false,
     step: session.step_count,
+    steps_remaining: session.max_steps - session.step_count,
   };
 }

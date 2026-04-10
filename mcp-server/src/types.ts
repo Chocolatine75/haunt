@@ -1,5 +1,4 @@
-import type { Stagehand } from '@browserbasehq/stagehand';
-import type Anthropic from '@anthropic-ai/sdk';
+import type { Browser, Page } from 'playwright';
 
 export type IssueSeverity = 'critical' | 'major' | 'minor' | 'suggestion';
 export type IssueCategory = 'ux' | 'accessibility' | 'performance' | 'security' | 'content';
@@ -34,8 +33,8 @@ export interface PersonaConfig {
 export interface HauntSession {
   id: string;
   persona: PersonaConfig;
-  stagehand: Stagehand;
-  messages: Anthropic.MessageParam[];
+  browser: Browser;
+  page: Page;
   issues: Issue[];
   pages_visited: string[];
   start_time: number;

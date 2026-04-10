@@ -4,6 +4,7 @@ import type { Issue } from '../types.js';
 
 export interface EndSessionInput {
   session_id: string;
+  overall_impression?: string;
 }
 
 export interface EndSessionOutput {
@@ -22,16 +23,9 @@ export async function hauntEndSession(
 ): Promise<EndSessionOutput> {
   const session = manager.get(input.session_id);
 
-  await session.stagehand.close();
+  await session.browser.close();
 
   const duration_seconds = Math.round((Date.now() - session.start_time) / 1_000);
-
-  // Use last assistant message as overall impression if available
-  const lastAssistant = [...session.messages].reverse().find((m) => m.role === 'assistant');
-  const overall_impression =
-    typeof lastAssistant?.content === 'string'
-      ? lastAssistant.content.slice(0, 300)
-      : `Completed ${session.step_count} steps across ${session.pages_visited.length} pages.`;
 
   const output: EndSessionOutput = {
     session_id: session.id,
@@ -40,7 +34,9 @@ export async function hauntEndSession(
     pages_visited: session.pages_visited.length,
     step_count: session.step_count,
     issues_found: session.issues,
-    overall_impression,
+    overall_impression:
+      input.overall_impression ??
+      `Completed ${session.step_count} steps across ${session.pages_visited.length} pages.`,
   };
 
   manager.delete(input.session_id);

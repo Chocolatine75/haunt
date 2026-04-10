@@ -22,13 +22,15 @@ export function createServer(): Server {
     tools: [
       {
         name: 'haunt_spawn',
-        description: 'Create and initialize a phantom browser session for a persona',
+        description:
+          'Open a browser session for a persona and navigate to the target URL. Returns persona details (name, goal, system prompt) so the orchestrator can roleplay as that persona.',
         inputSchema: {
           type: 'object',
           properties: {
             persona: {
               type: 'string',
-              description: 'Persona name (e.g. confused-beginner) or absolute path to a YAML file',
+              description:
+                'Persona name (e.g. confused-beginner) or absolute path to a YAML file',
             },
             target_url: {
               type: 'string',
@@ -49,29 +51,48 @@ export function createServer(): Server {
       {
         name: 'haunt_navigate',
         description:
-          'Execute one navigation step: phantom reasons via Haiku, Stagehand executes in browser',
+          'Execute a browser action decided by the orchestrator (as the persona). Actions: "click <target>", "fill <text> in <field>", "goto <url>", "press <key>".',
         inputSchema: {
           type: 'object',
           properties: {
             session_id: { type: 'string', description: 'Session ID from haunt_spawn' },
-            think_aloud: {
-              type: 'boolean',
-              description: "Include the phantom's internal reasoning in the output",
+            action: {
+              type: 'string',
+              description:
+                'Action to perform, e.g. "click Login", "fill test@example.com in Email", "goto http://localhost:3000/about", "press Enter"',
+            },
+            issues: {
+              type: 'array',
+              description: 'Issues the orchestrator observed during this step',
+              items: {
+                type: 'object',
+                properties: {
+                  severity: { type: 'string', enum: ['critical', 'major', 'minor', 'suggestion'] },
+                  category: { type: 'string', enum: ['ux', 'accessibility', 'performance', 'security', 'content'] },
+                  description: { type: 'string' },
+                  page_url: { type: 'string' },
+                  recommendation: { type: 'string' },
+                },
+                required: ['severity', 'category', 'description', 'page_url', 'recommendation'],
+              },
             },
           },
-          required: ['session_id'],
+          required: ['session_id', 'action'],
         },
       },
       {
         name: 'haunt_capture_state',
         description:
-          'Capture a snapshot of the current page (screenshot, accessibility tree, DOM)',
+          'Capture the current page state: accessibility tree, optional screenshot, optional DOM. Call this before deciding each action.',
         inputSchema: {
           type: 'object',
           properties: {
             session_id: { type: 'string' },
             include_screenshot: { type: 'boolean', description: 'Default: true' },
-            include_dom: { type: 'boolean', description: 'Include raw HTML snapshot (capped at 5000 chars). Default: false' },
+            include_dom: {
+              type: 'boolean',
+              description: 'Include raw HTML snapshot (capped at 5000 chars). Default: false',
+            },
           },
           required: ['session_id'],
         },
@@ -79,11 +100,15 @@ export function createServer(): Server {
       {
         name: 'haunt_end_session',
         description:
-          'Close the phantom session and return the structured report of all issues found',
+          'Close the browser session and return the structured report of all issues found.',
         inputSchema: {
           type: 'object',
           properties: {
             session_id: { type: 'string' },
+            overall_impression: {
+              type: 'string',
+              description: "The orchestrator's summary of the session from the persona's perspective",
+            },
           },
           required: ['session_id'],
         },

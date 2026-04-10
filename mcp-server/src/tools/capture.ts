@@ -23,7 +23,7 @@ export async function hauntCaptureState(
   input: CaptureInput,
 ): Promise<CaptureOutput> {
   const session = manager.get(input.session_id);
-  const page = session.stagehand.page;
+  const { page } = session;
 
   const url = page.url();
   const title = await page.title();
@@ -35,14 +35,11 @@ export async function hauntCaptureState(
     await page.screenshot({ path: `${SCREENSHOTS_DIR}/${screenshot_path}` });
   }
 
+  // Playwright's built-in accessibility snapshot — no AI needed
   let accessibility_tree: string | undefined;
   try {
-    const observations = await page.observe({
-      instruction: 'List all interactive elements and their accessible labels',
-    });
-    accessibility_tree = (observations as Array<{ description: string }>)
-      .map((o) => o.description)
-      .join('\n');
+    const snapshot = await page.accessibility.snapshot();
+    accessibility_tree = JSON.stringify(snapshot, null, 2).slice(0, 4_000);
   } catch {
     accessibility_tree = undefined;
   }

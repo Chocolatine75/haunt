@@ -32,7 +32,7 @@ var SessionManager = class {
 };
 
 // src/tools/spawn.ts
-import { Stagehand } from "@browserbasehq/stagehand";
+import { chromium } from "playwright";
 import { v4 as uuidv4 } from "uuid";
 
 // src/persona/loader.ts
@@ -69,38 +69,33 @@ function loadPersona(nameOrPath) {
 
 // src/tools/spawn.ts
 async function hauntSpawn(manager, input) {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    throw new Error(
-      "ANTHROPIC_API_KEY not set. Set it in your environment and restart Claude Code."
-    );
-  }
   const personaConfig = loadPersona(input.persona);
   const sessionId = uuidv4();
-  const stagehand = new Stagehand({
-    env: "LOCAL",
-    verbose: 0,
-    headless: input.headless ?? personaConfig.browser.headless,
-    modelName: "claude-3-5-haiku-20241022",
-    modelClientOptions: { apiKey: process.env.ANTHROPIC_API_KEY }
+  const browser = await chromium.launch({
+    headless: input.headless ?? personaConfig.browser.headless
   });
-  await stagehand.init();
+  const context = await browser.newContext({
+    viewport: personaConfig.browser.viewport ?? { width: 1280, height: 720 },
+    locale: personaConfig.browser.locale
+  });
+  const page = await context.newPage();
   const consoleErrors = [];
   const networkErrors = [];
-  stagehand.page.on("console", (msg) => {
+  page.on("console", (msg) => {
     if (msg.type() === "error") consoleErrors.push(msg.text());
   });
-  stagehand.page.on("requestfailed", (request) => {
+  page.on("requestfailed", (request) => {
     networkErrors.push(
       `${request.method()} ${request.url()} \u2014 ${request.failure()?.errorText ?? "unknown"}`
     );
   });
   try {
-    await stagehand.page.goto(input.target_url, {
+    await page.goto(input.target_url, {
       waitUntil: "domcontentloaded",
       timeout: 15e3
     });
   } catch {
-    await stagehand.close();
+    await browser.close();
     throw new Error(
       `${input.target_url} is not reachable. Make sure your dev server is running.`
     );
@@ -108,8 +103,8 @@ async function hauntSpawn(manager, input) {
   const session = {
     id: sessionId,
     persona: personaConfig,
-    stagehand,
-    messages: [],
+    browser,
+    page,
     issues: [],
     pages_visited: [input.target_url],
     start_time: Date.now(),
@@ -121,114 +116,57 @@ async function hauntSpawn(manager, input) {
   manager.set(sessionId, session);
   return {
     session_id: sessionId,
-    persona_summary: `${personaConfig.name}: ${personaConfig.description}`
+    persona_name: personaConfig.name,
+    persona_goal: personaConfig.scenarios[0]?.goal ?? "Explore the application",
+    persona_description: personaConfig.system_prompt
   };
 }
 
 // src/tools/navigate.ts
-import Anthropic from "@anthropic-ai/sdk";
 import { mkdirSync } from "fs";
-var anthropic = new Anthropic();
 var SCREENSHOTS_DIR = ".haunt-reports/screenshots";
-function parseHaikuResponse(raw) {
-  try {
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
-      return {
-        action: parsed.action ?? "",
-        thought: parsed.thought ?? "",
-        done: parsed.done ?? false
-      };
-    }
-  } catch {
+async function executeAction(page, action) {
+  const trimmed = action.trim();
+  if (/^(goto|navigate to|go to)\s+/i.test(trimmed)) {
+    const url = trimmed.replace(/^(goto|navigate to|go to)\s+/i, "").trim();
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 15e3 });
+    return;
   }
-  return { action: raw.slice(0, 200), thought: "", done: false };
+  if (/^(press|hit|key)\s+/i.test(trimmed)) {
+    const key = trimmed.replace(/^(press|hit|key)\s+/i, "").trim();
+    await page.keyboard.press(key);
+    return;
+  }
+  const fillMatch = trimmed.match(/^(?:fill|type|enter|input)\s+(.+?)\s+in(?:to)?\s+(.+)/i);
+  if (fillMatch) {
+    const text = fillMatch[1].replace(/^['"]|['"]$/g, "");
+    const field = fillMatch[2].replace(/^['"]|['"]$/g, "");
+    const loc = page.getByLabel(field, { exact: false }).or(page.getByPlaceholder(field, { exact: false })).or(page.getByRole("textbox", { name: field }));
+    await loc.first().fill(text);
+    return;
+  }
+  const clickTarget = trimmed.replace(/^(click|tap|select)\s+/i, "").trim();
+  for (const role of ["button", "link", "menuitem", "tab", "option"]) {
+    try {
+      await page.getByRole(role, { name: clickTarget, exact: false }).first().click({ timeout: 3e3 });
+      return;
+    } catch {
+    }
+  }
+  await page.getByText(clickTarget, { exact: false }).first().click({ timeout: 5e3 });
 }
 async function hauntNavigate(manager, input) {
   const session = manager.get(input.session_id);
-  const { stagehand, persona, messages } = session;
-  const page = stagehand.page;
-  if (session.step_count >= session.max_steps) {
-    return {
-      success: true,
-      page_url: page.url(),
-      page_title: await page.title(),
-      console_errors: [],
-      network_errors: [],
-      done: true,
-      step: session.step_count
-    };
-  }
-  const recent = session.pages_visited.slice(-3);
-  if (recent.length === 3 && recent.every((u) => u === page.url())) {
-    return {
-      success: true,
-      page_url: page.url(),
-      page_title: await page.title(),
-      thought: "Navigation loop detected \u2014 ending session early",
-      console_errors: [],
-      network_errors: [],
-      done: true,
-      step: session.step_count
-    };
-  }
-  let pageState;
-  try {
-    const observations = await page.observe({
-      instruction: "Describe what is visible and what actions are available to the user"
-    });
-    pageState = observations.map((o) => o.description).join("; ");
-  } catch {
-    pageState = `title: ${await page.title()}`;
+  const { page } = session;
+  if (input.issues?.length) {
+    session.issues.push(...input.issues);
   }
   const stepConsoleErrors = session.console_errors.splice(0);
   const stepNetworkErrors = session.network_errors.splice(0);
-  const userMessage = [
-    `Current page: ${page.url()}`,
-    `Title: ${await page.title()}`,
-    `What you see: ${pageState}`,
-    stepConsoleErrors.length > 0 ? `Console errors: ${stepConsoleErrors.join(" | ")}` : null,
-    "",
-    "Respond with JSON only:",
-    '{ "action": "what you do next in natural language", "thought": "your internal reasoning as this persona", "done": false }',
-    "Set done: true if your goal is complete or you are stuck."
-  ].filter(Boolean).join("\n");
-  const updatedMessages = [
-    ...messages,
-    { role: "user", content: userMessage }
-  ];
-  const response = await anthropic.messages.create({
-    model: "claude-3-5-haiku-20241022",
-    max_tokens: 512,
-    system: [
-      persona.system_prompt,
-      `Goal: ${persona.scenarios[0]?.goal ?? "Explore the application"}`
-    ].join("\n\n"),
-    messages: updatedMessages
-  });
-  const rawText = response.content[0].type === "text" ? response.content[0].text : "";
-  const { action, thought, done } = parseHaikuResponse(rawText);
-  session.messages = [
-    ...updatedMessages,
-    { role: "assistant", content: rawText }
-  ];
   session.step_count++;
-  if (done || !action) {
-    return {
-      success: true,
-      page_url: page.url(),
-      page_title: await page.title(),
-      thought: input.think_aloud ? thought : void 0,
-      console_errors: stepConsoleErrors,
-      network_errors: stepNetworkErrors,
-      done: true,
-      step: session.step_count
-    };
-  }
   let screenshotPath;
   try {
-    await page.act({ action });
+    await executeAction(page, input.action);
   } catch (error) {
     mkdirSync(SCREENSHOTS_DIR, { recursive: true });
     screenshotPath = `${session.id}-step-${session.step_count}.png`;
@@ -236,12 +174,23 @@ async function hauntNavigate(manager, input) {
     const issue = {
       severity: "major",
       category: "ux",
-      description: `Action failed: "${action}". ${error instanceof Error ? error.message : String(error)}`,
+      description: `Action failed: "${input.action}". ${error instanceof Error ? error.message : String(error)}`,
       page_url: page.url(),
       screenshot_path: screenshotPath,
-      recommendation: "Ensure this interaction is reachable and clearly labeled for all users."
+      recommendation: "Ensure this interaction is reachable and clearly labeled."
     };
     session.issues.push(issue);
+    return {
+      success: false,
+      page_url: page.url(),
+      page_title: await page.title(),
+      console_errors: stepConsoleErrors,
+      network_errors: stepNetworkErrors,
+      screenshot_path: screenshotPath,
+      error: error instanceof Error ? error.message : String(error),
+      step: session.step_count,
+      steps_remaining: session.max_steps - session.step_count
+    };
   }
   const currentUrl = page.url();
   session.pages_visited.push(currentUrl);
@@ -249,12 +198,11 @@ async function hauntNavigate(manager, input) {
     success: true,
     page_url: currentUrl,
     page_title: await page.title(),
-    thought: input.think_aloud ? thought : void 0,
     console_errors: stepConsoleErrors,
     network_errors: stepNetworkErrors,
     screenshot_path: screenshotPath,
-    done: false,
-    step: session.step_count
+    step: session.step_count,
+    steps_remaining: session.max_steps - session.step_count
   };
 }
 
@@ -263,7 +211,7 @@ import { mkdirSync as mkdirSync2 } from "fs";
 var SCREENSHOTS_DIR2 = ".haunt-reports/screenshots";
 async function hauntCaptureState(manager, input) {
   const session = manager.get(input.session_id);
-  const page = session.stagehand.page;
+  const { page } = session;
   const url = page.url();
   const title = await page.title();
   let screenshot_path;
@@ -274,10 +222,8 @@ async function hauntCaptureState(manager, input) {
   }
   let accessibility_tree;
   try {
-    const observations = await page.observe({
-      instruction: "List all interactive elements and their accessible labels"
-    });
-    accessibility_tree = observations.map((o) => o.description).join("\n");
+    const snapshot = await page.accessibility.snapshot();
+    accessibility_tree = JSON.stringify(snapshot, null, 2).slice(0, 4e3);
   } catch {
     accessibility_tree = void 0;
   }
@@ -291,10 +237,8 @@ async function hauntCaptureState(manager, input) {
 // src/tools/end-session.ts
 async function hauntEndSession(manager, input) {
   const session = manager.get(input.session_id);
-  await session.stagehand.close();
+  await session.browser.close();
   const duration_seconds = Math.round((Date.now() - session.start_time) / 1e3);
-  const lastAssistant = [...session.messages].reverse().find((m) => m.role === "assistant");
-  const overall_impression = typeof lastAssistant?.content === "string" ? lastAssistant.content.slice(0, 300) : `Completed ${session.step_count} steps across ${session.pages_visited.length} pages.`;
   const output = {
     session_id: session.id,
     persona: session.persona.name,
@@ -302,7 +246,7 @@ async function hauntEndSession(manager, input) {
     pages_visited: session.pages_visited.length,
     step_count: session.step_count,
     issues_found: session.issues,
-    overall_impression
+    overall_impression: input.overall_impression ?? `Completed ${session.step_count} steps across ${session.pages_visited.length} pages.`
   };
   manager.delete(input.session_id);
   return output;
@@ -319,7 +263,7 @@ function createServer() {
     tools: [
       {
         name: "haunt_spawn",
-        description: "Create and initialize a phantom browser session for a persona",
+        description: "Open a browser session for a persona and navigate to the target URL. Returns persona details (name, goal, system prompt) so the orchestrator can roleplay as that persona.",
         inputSchema: {
           type: "object",
           properties: {
@@ -345,39 +289,61 @@ function createServer() {
       },
       {
         name: "haunt_navigate",
-        description: "Execute one navigation step: phantom reasons via Haiku, Stagehand executes in browser",
+        description: 'Execute a browser action decided by the orchestrator (as the persona). Actions: "click <target>", "fill <text> in <field>", "goto <url>", "press <key>".',
         inputSchema: {
           type: "object",
           properties: {
             session_id: { type: "string", description: "Session ID from haunt_spawn" },
-            think_aloud: {
+            action: {
+              type: "string",
+              description: 'Action to perform, e.g. "click Login", "fill test@example.com in Email", "goto http://localhost:3000/about", "press Enter"'
+            },
+            issues: {
+              type: "array",
+              description: "Issues the orchestrator observed during this step",
+              items: {
+                type: "object",
+                properties: {
+                  severity: { type: "string", enum: ["critical", "major", "minor", "suggestion"] },
+                  category: { type: "string", enum: ["ux", "accessibility", "performance", "security", "content"] },
+                  description: { type: "string" },
+                  page_url: { type: "string" },
+                  recommendation: { type: "string" }
+                },
+                required: ["severity", "category", "description", "page_url", "recommendation"]
+              }
+            }
+          },
+          required: ["session_id", "action"]
+        }
+      },
+      {
+        name: "haunt_capture_state",
+        description: "Capture the current page state: accessibility tree, optional screenshot, optional DOM. Call this before deciding each action.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            session_id: { type: "string" },
+            include_screenshot: { type: "boolean", description: "Default: true" },
+            include_dom: {
               type: "boolean",
-              description: "Include the phantom's internal reasoning in the output"
+              description: "Include raw HTML snapshot (capped at 5000 chars). Default: false"
             }
           },
           required: ["session_id"]
         }
       },
       {
-        name: "haunt_capture_state",
-        description: "Capture a snapshot of the current page (screenshot, accessibility tree, DOM)",
+        name: "haunt_end_session",
+        description: "Close the browser session and return the structured report of all issues found.",
         inputSchema: {
           type: "object",
           properties: {
             session_id: { type: "string" },
-            include_screenshot: { type: "boolean", description: "Default: true" },
-            include_dom: { type: "boolean", description: "Include raw HTML snapshot (capped at 5000 chars). Default: false" }
-          },
-          required: ["session_id"]
-        }
-      },
-      {
-        name: "haunt_end_session",
-        description: "Close the phantom session and return the structured report of all issues found",
-        inputSchema: {
-          type: "object",
-          properties: {
-            session_id: { type: "string" }
+            overall_impression: {
+              type: "string",
+              description: "The orchestrator's summary of the session from the persona's perspective"
+            }
           },
           required: ["session_id"]
         }
