@@ -14,6 +14,7 @@ export class SessionManager {
   }
 
   delete(id: string): void {
+    if (!this.sessions.has(id)) throw new Error(`Session not found: ${id}`);
     this.sessions.delete(id);
   }
 

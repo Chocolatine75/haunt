@@ -31,4 +31,18 @@ describe('SessionManager', () => {
     manager.delete('test-id');
     expect(manager.has('test-id')).toBe(false);
   });
+
+  it('returns all stored sessions', () => {
+    const sessionA = { id: 'a' } as unknown as HauntSession;
+    const sessionB = { id: 'b' } as unknown as HauntSession;
+    manager.set('a', sessionA);
+    manager.set('b', sessionB);
+    expect(manager.all()).toHaveLength(2);
+    expect(manager.all()).toContain(sessionA);
+    expect(manager.all()).toContain(sessionB);
+  });
+
+  it('throws when deleting a non-existent session', () => {
+    expect(() => manager.delete('missing')).toThrow('Session not found: missing');
+  });
 });
