@@ -1,0 +1,12 @@
+name: "Test Persona"
+description: "A test persona for unit tests"
+system_prompt: "You are testing."
+browser:
+  headless: true
+  viewport:
+    width: 1280
+    height: 720
+scenarios:
+  - name: "Explore"
+    goal: "Explore the app"
+    max_steps: 10
