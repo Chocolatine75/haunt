@@ -1,16 +1,11 @@
 #!/bin/sh
-# Auto-install dependencies and browser on first run
+# Install Chromium browser on first run (one-time per machine, ~150MB)
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$SCRIPT_DIR"
 
-if [ ! -d node_modules ]; then
-  echo "[haunt] Installing dependencies (first run)..." >&2
-  npm install --production --silent
+if [ ! -f "$HOME/.haunt-chromium-installed" ]; then
+  echo "[haunt] Installing Chromium (one-time setup)..." >&2
+  node "$SCRIPT_DIR/node_modules/.bin/playwright" install chromium >&2 \
+    && touch "$HOME/.haunt-chromium-installed"
 fi
 
-if [ ! -f node_modules/.playwright-installed ]; then
-  echo "[haunt] Installing Chromium browser (first run, ~150MB)..." >&2
-  node_modules/.bin/playwright install chromium >&2 && touch node_modules/.playwright-installed
-fi
-
-exec node dist/server.js
+exec node "$SCRIPT_DIR/dist/server.js"
