@@ -1,9 +1,9 @@
-# phantom-users — Design Spec
+# Haunt — Design Spec
 Date: 2026-04-10
 
 ## Vision
 
-**phantom-users** is an open-source Claude Code plugin that simulates LLM-driven synthetic users to automatically test web applications during development. Each "phantom" is an AI agent with a distinct persona that navigates the real application through a headless browser and reports UX bugs, friction points, accessibility issues, and security flaws.
+**haunt** is an open-source Claude Code plugin that simulates LLM-driven synthetic users to automatically test web applications during development. Each "phantom" is an AI agent with a distinct persona that navigates the real application through a headless browser and reports UX bugs, friction points, accessibility issues, and security flaws.
 
 Target users: developers who want to test their localhost app while coding — not designers or PMs testing Figma mockups.
 
@@ -28,7 +28,7 @@ Target users: developers who want to test their localhost app while coding — n
 ## Architecture
 
 ```
-/plugin install github:<user>/phantom-users
+/plugin install github:<user>/haunt
         |
         v
 Claude Code reads plugin.json + .mcp.json
@@ -41,17 +41,17 @@ Claude Code reads plugin.json + .mcp.json
         |
         +-- Loads commands / agents / skills from plugin
 
-User types: /phantom-test http://localhost:3000
+User types: /haunt-test http://localhost:3000
 
-        phantom-orchestrator agent (Claude Code)
+        haunt-orchestrator agent (Claude Code)
                 |
-                |-- phantom_spawn      -> MCP server opens browser + inits Haiku session
-                |-- phantom_navigate   -> Haiku decides action, Stagehand executes (loop)
-                |-- phantom_capture_state -> screenshots, logs, DOM on issue detection
-                +-- phantom_end_session -> structured JSON report
+                |-- haunt_spawn      -> MCP server opens browser + inits Haiku session
+                |-- haunt_navigate   -> Haiku decides action, Stagehand executes (loop)
+                |-- haunt_capture_state -> screenshots, logs, DOM on issue detection
+                +-- haunt_end_session -> structured JSON report
                         |
                         v
-                phantom-reporter agent aggregates -> final Markdown report
+                haunt-reporter agent aggregates -> final Markdown report
 ```
 
 **Internal session model:**
@@ -72,18 +72,18 @@ Each phantom session is a `Map<sessionId, { stagehand, haiku_messages }>` entry 
 ## Plugin Structure
 
 ```
-phantom-users/
+haunt/
 |-- plugin.json                    # Claude Code plugin manifest
 |-- .mcp.json                      # MCP config -> points to dist/server.js
 |
 |-- commands/
-|   |-- phantom-test.md            # /phantom-test <url> [--personas] [--headed]
-|   |-- phantom-create.md          # /phantom-create <name>
-|   +-- phantom-report.md          # /phantom-report [--latest] [--diff]
+|   |-- haunt-test.md            # /haunt-test <url> [--personas] [--headed]
+|   |-- haunt-create.md          # /haunt-create <name>
+|   +-- haunt-report.md          # /haunt-report [--latest] [--diff]
 |
 |-- agents/
-|   |-- phantom-orchestrator.md    # Coordinates sessions, calls MCP tools
-|   +-- phantom-reporter.md        # Aggregates JSON reports -> Markdown
+|   |-- haunt-orchestrator.md    # Coordinates sessions, calls MCP tools
+|   +-- haunt-reporter.md        # Aggregates JSON reports -> Markdown
 |
 |-- personas/                      # Built-in personas (YAML, version-controllable)
 |   |-- confused-beginner.yaml
@@ -96,35 +96,35 @@ phantom-users/
 |   |   +-- server.js              # Pre-compiled bundle (committed to git)
 |   +-- package.json
 |
-+-- .phantom-reports/              # Generated reports (gitignored)
++-- .haunt-reports/              # Generated reports (gitignored)
 ```
 
 ---
 
 ## MCP Tools
 
-### `phantom_spawn`
+### `haunt_spawn`
 Creates a browser session and initializes a Haiku conversation with the persona's system prompt.
 ```typescript
 input:  { persona: string, target_url: string, headless?: boolean, timeout?: number }
 output: { session_id: string, persona_summary: string }
 ```
 
-### `phantom_navigate`
+### `haunt_navigate`
 Sends current page state to Haiku, executes the returned action via Stagehand, captures errors.
 ```typescript
 input:  { session_id: string, think_aloud?: boolean }
 output: { success: boolean, page_url: string, thought?: string, console_errors: string[], network_errors: string[], screenshot_path?: string }
 ```
 
-### `phantom_capture_state`
+### `haunt_capture_state`
 Captures a full snapshot of the current page (called when an issue is detected).
 ```typescript
 input:  { session_id: string, include_screenshot?: boolean, include_dom?: boolean }
 output: { url: string, title: string, dom_snapshot?: string, accessibility_tree?: string, screenshot_path?: string }
 ```
 
-### `phantom_end_session`
+### `haunt_end_session`
 Closes the browser session and returns the structured individual report.
 ```typescript
 input:  { session_id: string }
@@ -138,7 +138,7 @@ output: { session_id: string, persona: string, duration_seconds: number, pages_v
 Clean, no emojis — consistent with Claude Code plugin conventions:
 
 ```
-phantom-users v0.1.0
+haunt v0.1.0
 ──────────────────────────────────────────
 
 Spawning phantom: confused-beginner
@@ -158,7 +158,7 @@ Spawning phantom: confused-beginner
 ──────────────────────────────────────────
 Session complete  1m 52s  12 steps
 Issues: 1 critical  1 major  1 minor
-Report: .phantom-reports/2026-04-10-confused-beginner.md
+Report: .haunt-reports/2026-04-10-confused-beginner.md
 ```
 
 ---
@@ -167,27 +167,27 @@ Report: .phantom-reports/2026-04-10-confused-beginner.md
 
 ### In
 
-- Working `/plugin install github:<user>/phantom-users`
+- Working `/plugin install github:<user>/haunt`
 - MCP server with Stagehand + Haiku 3.5
 - 3 built-in personas: confused-beginner, malicious-user, screen-reader-user
-- MCP tools: `phantom_spawn`, `phantom_navigate`, `phantom_capture_state`, `phantom_end_session`
-- `/phantom-test <url> [--personas] [--headed]` command
-- Basic Markdown report in `.phantom-reports/`
+- MCP tools: `haunt_spawn`, `haunt_navigate`, `haunt_capture_state`, `haunt_end_session`
+- `/haunt-test <url> [--personas] [--headed]` command
+- Basic Markdown report in `.haunt-reports/`
 - Clean terminal output with step-by-step progress
 - README: installation in under 2 minutes
 
 ### Out (v0.2.0+)
 
-- `phantom_audit_accessibility` (axe-core)
+- `haunt_audit_accessibility` (axe-core)
 - Scoring and multi-persona aggregation
-- `/phantom-create` guided persona creation
-- `/phantom-report --diff` comparison
+- `/haunt-create` guided persona creation
+- `/haunt-report --diff` comparison
 - Parallel multi-phantom execution
 - CI/CD integration
 
 ### MVP success criteria
 
-A developer installs the plugin, runs `/phantom-test localhost:3000 --personas confused-beginner`, watches the phantom navigate their app step by step in the terminal, and receives a report with real actionable issues. That's it.
+A developer installs the plugin, runs `/haunt-test localhost:3000 --personas confused-beginner`, watches the phantom navigate their app step by step in the terminal, and receives a report with real actionable issues. That's it.
 
 ---
 
@@ -197,7 +197,7 @@ A developer installs the plugin, runs `/phantom-test localhost:3000 --personas c
 ```
 Error: Playwright not found
 Run: npx playwright install chromium
-Then retry: /phantom-test http://localhost:3000
+Then retry: /haunt-test http://localhost:3000
 
 Error: ANTHROPIC_API_KEY not set
 Set it in your environment and restart Claude Code
@@ -237,7 +237,7 @@ Make sure your dev server is running
 Working end-to-end: install -> run -> report.
 
 ### v0.2.0 — Core Features
-All 8 personas, accessibility audits (axe-core), report comparison, `/phantom-create`, scoring.
+All 8 personas, accessibility audits (axe-core), report comparison, `/haunt-create`, scoring.
 
 ### v0.3.0 — Advanced
-Parallel execution, PostToolUse hook (auto-trigger on frontend file changes), CI/CD GitHub Action, community persona registry, `/phantom-report --fix`.
+Parallel execution, PostToolUse hook (auto-trigger on frontend file changes), CI/CD GitHub Action, community persona registry, `/haunt-report --fix`.
