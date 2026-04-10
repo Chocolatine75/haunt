@@ -7,7 +7,8 @@
   "scripts": {
     "build": "tsup",
     "test": "vitest run",
-    "lint": "biome check src"
+    "lint": "biome check src",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
@@ -19,6 +20,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
+    "@playwright/test": "^1.50.0",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.14.1",
     "@types/uuid": "^10.0.0",

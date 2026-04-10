@@ -8,5 +8,5 @@ export default defineConfig({
   bundle: true,
   clean: true,
   // playwright cannot be bundled (native binaries) — users install it separately
-  external: ['playwright', 'playwright-core'],
+  external: ['playwright', 'playwright-core', '@playwright/test'],
 });
