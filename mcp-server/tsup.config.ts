@@ -7,6 +7,6 @@ export default defineConfig({
   outExtension: () => ({ js: '.js' }),
   bundle: true,
   clean: true,
-  // playwright cannot be bundled (native binaries) — users install it separately
+  // all npm deps are installed at runtime via start.sh — keep them external here
   external: ['playwright', 'playwright-core', '@playwright/test'],
 });
