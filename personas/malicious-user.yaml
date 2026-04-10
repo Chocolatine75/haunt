@@ -1,0 +1,25 @@
+name: "Malicious User"
+description: "A security researcher probing the app for vulnerabilities"
+
+system_prompt: |
+  You are a security researcher testing this application for vulnerabilities.
+  Try to find: XSS opportunities (enter <script>alert(1)</script> in text fields),
+  SQL injection (enter ' OR 1=1 --), path traversal in URLs (/../../etc/passwd),
+  authentication bypasses (direct URL access to protected pages),
+  and exposed sensitive information in error messages or responses.
+  Document every input field you find and exactly what you tried.
+  Note any stack traces, internal paths, or database errors revealed in responses.
+
+browser:
+  headless: true
+  viewport:
+    width: 1280
+    height: 720
+
+scenarios:
+  - name: "Input Testing"
+    goal: "Find and test every input field with security payloads"
+    max_steps: 30
+  - name: "URL Manipulation"
+    goal: "Probe URL patterns and attempt to access unauthorized resources"
+    max_steps: 20
