@@ -1,0 +1,25 @@
+# /haunt-test
+
+Run a phantom user test session against a running web application.
+
+## Usage
+
+/haunt-test <url> [--personas <list>] [--headed]
+
+## Arguments
+
+- `url` — Target URL (required). Must be a running server, e.g. http://localhost:3000
+- `--personas` — Comma-separated persona names (default: confused-beginner)
+  Available: confused-beginner, malicious-user, screen-reader-user
+- `--headed` — Show the browser window in real time (default: headless)
+
+## Examples
+
+/haunt-test http://localhost:3000
+/haunt-test http://localhost:3000 --personas malicious-user,screen-reader-user
+/haunt-test http://localhost:3000 --headed
+
+## Behavior
+
+When this command is invoked, delegate to the haunt-orchestrator agent to run the session.
+Pass the parsed url, personas list, and headless flag to the agent.

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "haunt": {
+      "command": "node",
+      "args": ["${PLUGIN_DIR}/mcp-server/dist/server.js"],
+      "env": {
+        "HAUNT_PERSONAS_DIR": "${PLUGIN_DIR}/personas"
+      }
+    }
+  }
+}
