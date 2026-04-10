@@ -1,0 +1,7 @@
+{
+  "name": "haunt",
+  "version": "0.1.0",
+  "description": "Synthetic phantom users that test your localhost app while you code",
+  "author": "haunt contributors",
+  "license": "MIT"
+}
