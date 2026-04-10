@@ -4,7 +4,8 @@
       "command": "node",
       "args": ["${PLUGIN_DIR}/mcp-server/dist/server.js"],
       "env": {
-        "HAUNT_PERSONAS_DIR": "${PLUGIN_DIR}/personas"
+        "HAUNT_PERSONAS_DIR": "${PLUGIN_DIR}/personas",
+        "ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}"
       }
     }
   }
