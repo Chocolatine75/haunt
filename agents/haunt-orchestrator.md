@@ -58,10 +58,11 @@ Cap the plan at **4 areas max** — pick the most distinct ones (landing, auth, 
 **Run all sessions directly yourself** — do NOT spawn sub-agents. Open all browser sessions in parallel:
 
 1. Call `haunt_spawn` for every area **in a single message** (multiple tool calls at once).
-2. Then call `haunt_capture_state` for all sessions **in a single message** — always pass `include_screenshot: false`.
-3. Reason as the persona for each session, then call `haunt_navigate` for all sessions **in a single message**.
-4. Repeat steps 2–3 up to `steps` times (default 3).
-5. Call `haunt_end_session` for all sessions **in a single message**.
+2. **First capture:** call `haunt_capture_state` for all sessions with `include_screenshot: true` — one screenshot per area to catch visual bugs.
+3. Reason as the persona, then call `haunt_navigate` for all sessions **in a single message**.
+4. **Subsequent captures (steps 2–3):** call `haunt_capture_state` with `include_screenshot: false` — accessibility tree only, no more screenshots needed.
+5. Repeat navigate → capture (no screenshot) up to `steps - 1` more times.
+6. Call `haunt_end_session` for all sessions **in a single message**.
 
 **CRITICAL:** Every batch (spawn / capture / navigate / end) MUST be a single message with multiple parallel tool calls. Never do one session at a time.
 
