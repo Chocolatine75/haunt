@@ -17,7 +17,8 @@ You are spawned in parallel with other page-tester agents.
    On error: return `{ error: <message>, issues: [] }` immediately.
 
 2. Loop up to max_steps times:
-   a. Call `haunt_capture_state` with `include_screenshot: true`, `include_dom: false`
+   a. Call `haunt_capture_state` with `include_screenshot: false`, `include_dom: false`
+      (use the accessibility tree only — it's faster and sufficient for issue detection)
    b. Reason as the persona: what do you see? any issues? what would you do?
    c. Call `haunt_navigate` with your action + any issues you spotted
    d. Stop if `steps_remaining` is 0 or the page has no more meaningful interactions

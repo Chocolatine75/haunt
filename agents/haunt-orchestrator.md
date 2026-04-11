@@ -27,7 +27,7 @@ From the command:
 - `target_url` — URL to test
 - `personas` — list of persona names (default: ["confused-beginner"])
 - `headless` — boolean (default: true)
-- `steps` — max steps per area (default: 5)
+- `steps` — max steps per area (default: 3)
 
 ## Phase 1 — Recon (fast mapping, 1 session)
 
@@ -55,12 +55,14 @@ Print the plan:
 
 For each persona × area combination, dispatch a `haunt-page-tester` sub-agent **in parallel**.
 
+**CRITICAL — true parallelism:** You MUST dispatch ALL sub-agents in a **single message** with multiple Agent tool calls at once. Do NOT call them one-by-one — that serializes the work and defeats the purpose.
+
 Pass to each sub-agent:
 - `session_description`: "Testing /pricing as confused-beginner"
 - `target_url`: the specific page URL
 - `persona`: persona name
 - `headless`: same as parent
-- `max_steps`: steps argument (default 5)
+- `max_steps`: steps argument (default 3)
 
 Print:
 ```
