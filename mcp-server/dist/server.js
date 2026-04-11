@@ -20665,6 +20665,9 @@ async function hauntSpawn(manager, input) {
     viewport: personaConfig.browser.viewport ?? { width: 1280, height: 720 },
     locale: personaConfig.browser.locale
   });
+  if (input.cookies && input.cookies.length > 0) {
+    await context.addCookies(input.cookies);
+  }
   const page = await context.newPage();
   const consoleErrors = [];
   const networkErrors = [];
@@ -20839,6 +20842,13 @@ async function hauntEndSession(manager, input) {
   return output;
 }
 
+// src/tools/get-cookies.ts
+async function hauntGetCookies(manager, input) {
+  const session = manager.get(input.session_id);
+  const cookies = await session.page.context().cookies();
+  return { cookies };
+}
+
 // src/server.ts
 function createServer() {
   const manager = new SessionManager();
@@ -20869,9 +20879,38 @@ function createServer() {
             timeout: {
               type: "number",
               description: "Maximum navigation steps for this session. Default: 30"
+            },
+            cookies: {
+              type: "array",
+              description: "Session cookies to inject before navigation (for authenticated testing)",
+              items: {
+                type: "object",
+                properties: {
+                  name: { type: "string" },
+                  value: { type: "string" },
+                  domain: { type: "string" },
+                  path: { type: "string" },
+                  expires: { type: "number" },
+                  httpOnly: { type: "boolean" },
+                  secure: { type: "boolean" },
+                  sameSite: { type: "string", enum: ["Strict", "Lax", "None"] }
+                },
+                required: ["name", "value"]
+              }
             }
           },
           required: ["persona", "target_url"]
+        }
+      },
+      {
+        name: "haunt_get_cookies",
+        description: "Extract all cookies from the current browser session. Use after a successful login to capture the session cookies for reuse in authenticated test sessions.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            session_id: { type: "string", description: "Session ID from haunt_spawn" }
+          },
+          required: ["session_id"]
         }
       },
       {
@@ -20949,6 +20988,8 @@ function createServer() {
         result = await hauntCaptureState(manager, args);
       } else if (name === "haunt_end_session") {
         result = await hauntEndSession(manager, args);
+      } else if (name === "haunt_get_cookies") {
+        result = await hauntGetCookies(manager, args);
       } else {
         throw new Error(`Unknown tool: ${name}`);
       }

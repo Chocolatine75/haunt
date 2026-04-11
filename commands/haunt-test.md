@@ -13,6 +13,8 @@ Run a phantom user test session against a running web application.
   Available: confused-beginner, malicious-user, screen-reader-user
 - `--headed` — Show the browser window in real time (default: headless)
 - `--steps` — Max navigation steps per area (default: 3)
+- `--email` — Email to log in with before testing
+- `--password` — Password to log in with (use with --email)
 
 ## First run
 
@@ -34,6 +36,28 @@ Print exactly:
 ```
 haunt v0.1.0  —  phantom user testing
 ```
+
+### Phase 0.5 — Auth (only if --email and --password are provided)
+
+If credentials are present:
+
+Print: `logging in as <email>...`
+
+1. `haunt_spawn` at `target_url` with timeout: 5
+2. `haunt_capture_state` (`include_dom: true`) — look for a login form or link
+3. If not already on a login page, `haunt_navigate` to find and go to the login page (look for a "Login", "Sign in", or "Se connecter" link in the accessibility tree or DOM)
+4. `haunt_navigate` — fill `<email>` in the email field
+5. `haunt_navigate` — fill `<password>` in the password field
+6. `haunt_navigate` — click the submit/login button
+7. `haunt_capture_state` — verify auth succeeded: URL is no longer the login page, or a logged-in element (avatar, dashboard, username) is visible
+8. `haunt_get_cookies` — extract the session cookies
+9. `haunt_end_session`
+
+Print: `authenticated  —  cookies captured`
+
+Store the cookies. Pass them to every `haunt_spawn` call in Phase 2 via the `cookies` parameter.
+
+If login fails (still on login page after submit, or error visible): print `login failed — check your credentials` and stop.
 
 ### Phase 1 — Recon (route discovery from real links)
 
@@ -62,7 +86,7 @@ Print: `testing N areas...`
 
 Run all sessions yourself — do NOT spawn sub-agents or agents.
 
-1. `haunt_spawn` for every area in a single message (all in parallel).
+1. `haunt_spawn` for every area in a single message (all in parallel). If auth cookies were captured in Phase 0.5, pass them via the `cookies` parameter to every `haunt_spawn` call.
 2. `haunt_capture_state` for all sessions (`include_screenshot: false`, `include_dom: false`) — all in parallel.
 3. Reason as each persona with a **corner-case mindset — NOT the happy path**:
    - What non-obvious action would this user take that a developer would never think to test?

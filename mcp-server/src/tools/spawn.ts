@@ -5,11 +5,23 @@ import { loadPersona } from '../persona/loader.js';
 import type { SessionManager } from '../session/manager.js';
 import type { HauntSession } from '../types.js';
 
+export interface CookieParam {
+  name: string;
+  value: string;
+  domain?: string;
+  path?: string;
+  expires?: number;
+  httpOnly?: boolean;
+  secure?: boolean;
+  sameSite?: 'Strict' | 'Lax' | 'None';
+}
+
 export interface SpawnInput {
   persona: string;
   target_url: string;
   headless?: boolean;
   timeout?: number;
+  cookies?: CookieParam[];
 }
 
 export interface SpawnOutput {
@@ -34,6 +46,10 @@ export async function hauntSpawn(
     viewport: personaConfig.browser.viewport ?? { width: 1280, height: 720 },
     locale: personaConfig.browser.locale,
   });
+
+  if (input.cookies && input.cookies.length > 0) {
+    await context.addCookies(input.cookies);
+  }
 
   const page = await context.newPage();
 
