@@ -17944,6 +17944,150 @@ var SessionManager = class {
   }
 };
 
+// src/tools/capture.ts
+import { mkdirSync } from "fs";
+
+// src/constants.ts
+var SCREENSHOTS_DIR = ".haunt-reports/screenshots";
+
+// src/tools/capture.ts
+async function hauntCaptureState(manager, input) {
+  const session = manager.get(input.session_id);
+  const { page } = session;
+  const url = page.url();
+  const title = await page.title();
+  let screenshot_path;
+  if (input.include_screenshot ?? true) {
+    mkdirSync(SCREENSHOTS_DIR, { recursive: true });
+    screenshot_path = `${session.id}-capture-${Date.now()}.png`;
+    await page.screenshot({ path: `${SCREENSHOTS_DIR}/${screenshot_path}` });
+  }
+  let accessibility_tree;
+  try {
+    const snapshot = await page.accessibility.snapshot();
+    accessibility_tree = JSON.stringify(snapshot, null, 2).slice(0, 4e3);
+  } catch {
+    accessibility_tree = void 0;
+  }
+  let dom_snapshot;
+  if (input.include_dom) {
+    dom_snapshot = (await page.content()).slice(0, 5e3);
+  }
+  return { url, title, accessibility_tree, dom_snapshot, screenshot_path };
+}
+
+// src/tools/end-session.ts
+async function hauntEndSession(manager, input) {
+  const session = manager.get(input.session_id);
+  await session.browser.close();
+  const duration_seconds = Math.round((Date.now() - session.start_time) / 1e3);
+  const output = {
+    session_id: session.id,
+    persona: session.persona.name,
+    duration_seconds,
+    pages_visited: session.pages_visited.length,
+    step_count: session.step_count,
+    issues_found: session.issues,
+    overall_impression: input.overall_impression ?? `Completed ${session.step_count} steps across ${session.pages_visited.length} pages.`
+  };
+  manager.delete(input.session_id);
+  return output;
+}
+
+// src/tools/get-cookies.ts
+async function hauntGetCookies(manager, input) {
+  const session = manager.get(input.session_id);
+  const raw = await session.page.context().cookies();
+  const cookies = raw.map((c) => ({
+    ...c,
+    sameSite: c.sameSite ?? "None"
+  }));
+  return { cookies };
+}
+
+// src/tools/navigate.ts
+import { mkdirSync as mkdirSync2 } from "fs";
+mkdirSync2(SCREENSHOTS_DIR, { recursive: true });
+async function executeAction(page, action) {
+  const trimmed = action.trim();
+  if (/^(goto|navigate to|go to)\s+/i.test(trimmed)) {
+    const url = trimmed.replace(/^(goto|navigate to|go to)\s+/i, "").trim();
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 15e3 });
+    return;
+  }
+  if (/^(press|hit|key)\s+/i.test(trimmed)) {
+    const key = trimmed.replace(/^(press|hit|key)\s+/i, "").trim();
+    await page.keyboard.press(key);
+    return;
+  }
+  const fillMatch = trimmed.match(/^(?:fill|type|enter|input)\s+(.+?)\s+in(?:to)?\s+(.+)/i);
+  if (fillMatch) {
+    const text = fillMatch[1].replace(/^['"]|['"]$/g, "");
+    const field = fillMatch[2].replace(/^['"]|['"]$/g, "");
+    const loc = page.getByLabel(field, { exact: false }).or(page.getByPlaceholder(field, { exact: false })).or(page.getByRole("textbox", { name: field }));
+    await loc.first().fill(text);
+    return;
+  }
+  const clickTarget = trimmed.replace(/^(click|tap|select)\s+/i, "").trim();
+  for (const role of ["button", "link", "menuitem", "tab", "option"]) {
+    try {
+      await page.getByRole(role, { name: clickTarget, exact: false }).first().click({ timeout: 3e3 });
+      return;
+    } catch {
+    }
+  }
+  await page.getByText(clickTarget, { exact: false }).first().click({ timeout: 5e3 });
+}
+async function hauntNavigate(manager, input) {
+  const session = manager.get(input.session_id);
+  const { page } = session;
+  if (input.issues?.length) {
+    session.issues.push(...input.issues);
+  }
+  const stepConsoleErrors = session.console_errors.splice(0);
+  const stepNetworkErrors = session.network_errors.splice(0);
+  session.step_count++;
+  let screenshotPath;
+  try {
+    await executeAction(page, input.action);
+  } catch (error2) {
+    screenshotPath = `${session.id}-step-${session.step_count}.png`;
+    await page.screenshot({ path: `${SCREENSHOTS_DIR}/${screenshotPath}` });
+    const issue2 = {
+      severity: "major",
+      category: "ux",
+      description: `Action failed: "${input.action}". ${error2 instanceof Error ? error2.message : String(error2)}`,
+      page_url: page.url(),
+      screenshot_path: screenshotPath,
+      recommendation: "Ensure this interaction is reachable and clearly labeled."
+    };
+    session.issues.push(issue2);
+    return {
+      success: false,
+      page_url: page.url(),
+      page_title: await page.title(),
+      console_errors: stepConsoleErrors,
+      network_errors: stepNetworkErrors,
+      screenshot_path: screenshotPath,
+      error: error2 instanceof Error ? error2.message : String(error2),
+      step: session.step_count,
+      steps_remaining: session.max_steps - session.step_count
+    };
+  }
+  const currentUrl = page.url();
+  session.pages_visited.push(currentUrl);
+  return {
+    success: true,
+    page_url: currentUrl,
+    page_title: await page.title(),
+    console_errors: stepConsoleErrors,
+    network_errors: stepNetworkErrors,
+    screenshot_path: screenshotPath,
+    step: session.step_count,
+    steps_remaining: session.max_steps - session.step_count
+  };
+}
+
 // src/tools/spawn.ts
 import { chromium } from "playwright";
 
@@ -20710,143 +20854,6 @@ async function hauntSpawn(manager, input) {
     persona_goal: personaConfig.scenarios[0]?.goal ?? "Explore the application",
     persona_description: personaConfig.system_prompt
   };
-}
-
-// src/tools/navigate.ts
-import { mkdirSync } from "fs";
-var SCREENSHOTS_DIR = ".haunt-reports/screenshots";
-async function executeAction(page, action) {
-  const trimmed = action.trim();
-  if (/^(goto|navigate to|go to)\s+/i.test(trimmed)) {
-    const url = trimmed.replace(/^(goto|navigate to|go to)\s+/i, "").trim();
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 15e3 });
-    return;
-  }
-  if (/^(press|hit|key)\s+/i.test(trimmed)) {
-    const key = trimmed.replace(/^(press|hit|key)\s+/i, "").trim();
-    await page.keyboard.press(key);
-    return;
-  }
-  const fillMatch = trimmed.match(/^(?:fill|type|enter|input)\s+(.+?)\s+in(?:to)?\s+(.+)/i);
-  if (fillMatch) {
-    const text = fillMatch[1].replace(/^['"]|['"]$/g, "");
-    const field = fillMatch[2].replace(/^['"]|['"]$/g, "");
-    const loc = page.getByLabel(field, { exact: false }).or(page.getByPlaceholder(field, { exact: false })).or(page.getByRole("textbox", { name: field }));
-    await loc.first().fill(text);
-    return;
-  }
-  const clickTarget = trimmed.replace(/^(click|tap|select)\s+/i, "").trim();
-  for (const role of ["button", "link", "menuitem", "tab", "option"]) {
-    try {
-      await page.getByRole(role, { name: clickTarget, exact: false }).first().click({ timeout: 3e3 });
-      return;
-    } catch {
-    }
-  }
-  await page.getByText(clickTarget, { exact: false }).first().click({ timeout: 5e3 });
-}
-async function hauntNavigate(manager, input) {
-  const session = manager.get(input.session_id);
-  const { page } = session;
-  if (input.issues?.length) {
-    session.issues.push(...input.issues);
-  }
-  const stepConsoleErrors = session.console_errors.splice(0);
-  const stepNetworkErrors = session.network_errors.splice(0);
-  session.step_count++;
-  let screenshotPath;
-  try {
-    await executeAction(page, input.action);
-  } catch (error2) {
-    mkdirSync(SCREENSHOTS_DIR, { recursive: true });
-    screenshotPath = `${session.id}-step-${session.step_count}.png`;
-    await page.screenshot({ path: `${SCREENSHOTS_DIR}/${screenshotPath}` });
-    const issue2 = {
-      severity: "major",
-      category: "ux",
-      description: `Action failed: "${input.action}". ${error2 instanceof Error ? error2.message : String(error2)}`,
-      page_url: page.url(),
-      screenshot_path: screenshotPath,
-      recommendation: "Ensure this interaction is reachable and clearly labeled."
-    };
-    session.issues.push(issue2);
-    return {
-      success: false,
-      page_url: page.url(),
-      page_title: await page.title(),
-      console_errors: stepConsoleErrors,
-      network_errors: stepNetworkErrors,
-      screenshot_path: screenshotPath,
-      error: error2 instanceof Error ? error2.message : String(error2),
-      step: session.step_count,
-      steps_remaining: session.max_steps - session.step_count
-    };
-  }
-  const currentUrl = page.url();
-  session.pages_visited.push(currentUrl);
-  return {
-    success: true,
-    page_url: currentUrl,
-    page_title: await page.title(),
-    console_errors: stepConsoleErrors,
-    network_errors: stepNetworkErrors,
-    screenshot_path: screenshotPath,
-    step: session.step_count,
-    steps_remaining: session.max_steps - session.step_count
-  };
-}
-
-// src/tools/capture.ts
-import { mkdirSync as mkdirSync2 } from "fs";
-var SCREENSHOTS_DIR2 = ".haunt-reports/screenshots";
-async function hauntCaptureState(manager, input) {
-  const session = manager.get(input.session_id);
-  const { page } = session;
-  const url = page.url();
-  const title = await page.title();
-  let screenshot_path;
-  if (input.include_screenshot ?? true) {
-    mkdirSync2(SCREENSHOTS_DIR2, { recursive: true });
-    screenshot_path = `${session.id}-capture-${Date.now()}.png`;
-    await page.screenshot({ path: `${SCREENSHOTS_DIR2}/${screenshot_path}` });
-  }
-  let accessibility_tree;
-  try {
-    const snapshot = await page.accessibility.snapshot();
-    accessibility_tree = JSON.stringify(snapshot, null, 2).slice(0, 4e3);
-  } catch {
-    accessibility_tree = void 0;
-  }
-  let dom_snapshot;
-  if (input.include_dom) {
-    dom_snapshot = (await page.content()).slice(0, 5e3);
-  }
-  return { url, title, accessibility_tree, dom_snapshot, screenshot_path };
-}
-
-// src/tools/end-session.ts
-async function hauntEndSession(manager, input) {
-  const session = manager.get(input.session_id);
-  await session.browser.close();
-  const duration_seconds = Math.round((Date.now() - session.start_time) / 1e3);
-  const output = {
-    session_id: session.id,
-    persona: session.persona.name,
-    duration_seconds,
-    pages_visited: session.pages_visited.length,
-    step_count: session.step_count,
-    issues_found: session.issues,
-    overall_impression: input.overall_impression ?? `Completed ${session.step_count} steps across ${session.pages_visited.length} pages.`
-  };
-  manager.delete(input.session_id);
-  return output;
-}
-
-// src/tools/get-cookies.ts
-async function hauntGetCookies(manager, input) {
-  const session = manager.get(input.session_id);
-  const cookies = await session.page.context().cookies();
-  return { cookies };
 }
 
 // src/server.ts

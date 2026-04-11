@@ -5,11 +5,11 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { SessionManager } from './session/manager.js';
-import { hauntSpawn } from './tools/spawn.js';
-import { hauntNavigate } from './tools/navigate.js';
 import { hauntCaptureState } from './tools/capture.js';
 import { hauntEndSession } from './tools/end-session.js';
 import { hauntGetCookies } from './tools/get-cookies.js';
+import { hauntNavigate } from './tools/navigate.js';
+import { hauntSpawn } from './tools/spawn.js';
 
 export function createServer(): Server {
   const manager = new SessionManager();

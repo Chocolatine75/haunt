@@ -1,10 +1,12 @@
 // mcp-server/src/tools/navigate.ts
-import { mkdirSync } from 'fs';
+import { mkdirSync } from 'node:fs';
 import type { Page } from 'playwright';
+import { SCREENSHOTS_DIR } from '../constants.js';
 import type { SessionManager } from '../session/manager.js';
 import type { Issue } from '../types.js';
 
-const SCREENSHOTS_DIR = '.haunt-reports/screenshots';
+// Ensure screenshot dir exists at module load — avoids a syscall on every action failure
+mkdirSync(SCREENSHOTS_DIR, { recursive: true });
 
 export interface NavigateInput {
   session_id: string;
@@ -89,7 +91,7 @@ export async function hauntNavigate(
     session.issues.push(...input.issues);
   }
 
-  // Drain captured errors for this step
+  // Drain and clear accumulated errors — splice(0) returns all elements and empties the array
   const stepConsoleErrors = session.console_errors.splice(0);
   const stepNetworkErrors = session.network_errors.splice(0);
 
@@ -100,7 +102,6 @@ export async function hauntNavigate(
   try {
     await executeAction(page, input.action);
   } catch (error) {
-    mkdirSync(SCREENSHOTS_DIR, { recursive: true });
     screenshotPath = `${session.id}-step-${session.step_count}.png`;
     await page.screenshot({ path: `${SCREENSHOTS_DIR}/${screenshotPath}` });
 

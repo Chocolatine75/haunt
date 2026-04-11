@@ -1,8 +1,7 @@
 // mcp-server/src/tools/capture.ts
-import { mkdirSync } from 'fs';
+import { mkdirSync } from 'node:fs';
 import type { SessionManager } from '../session/manager.js';
-
-const SCREENSHOTS_DIR = '.haunt-reports/screenshots';
+import { SCREENSHOTS_DIR } from '../constants.js';
 
 export interface CaptureInput {
   session_id: string;

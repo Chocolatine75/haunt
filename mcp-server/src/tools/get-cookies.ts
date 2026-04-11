@@ -1,4 +1,5 @@
 // mcp-server/src/tools/get-cookies.ts
+import type { Cookie } from 'playwright';
 import type { SessionManager } from '../session/manager.js';
 
 export interface GetCookiesInput {
@@ -6,16 +7,7 @@ export interface GetCookiesInput {
 }
 
 export interface GetCookiesOutput {
-  cookies: Array<{
-    name: string;
-    value: string;
-    domain: string;
-    path: string;
-    expires: number;
-    httpOnly: boolean;
-    secure: boolean;
-    sameSite: 'Strict' | 'Lax' | 'None' | undefined;
-  }>;
+  cookies: Cookie[];
 }
 
 export async function hauntGetCookies(
@@ -23,6 +15,11 @@ export async function hauntGetCookies(
   input: GetCookiesInput,
 ): Promise<GetCookiesOutput> {
   const session = manager.get(input.session_id);
-  const cookies = await session.page.context().cookies();
+  const raw = await session.page.context().cookies();
+  // Normalize sameSite: undefined → 'None' so cookies round-trip cleanly into haunt_spawn
+  const cookies: Cookie[] = raw.map((c) => ({
+    ...c,
+    sameSite: c.sameSite ?? 'None',
+  }));
   return { cookies };
 }

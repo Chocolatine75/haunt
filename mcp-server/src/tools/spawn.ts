@@ -1,27 +1,17 @@
 // mcp-server/src/tools/spawn.ts
 import { chromium } from 'playwright';
+import type { Cookie } from 'playwright';
 import { v4 as uuidv4 } from 'uuid';
 import { loadPersona } from '../persona/loader.js';
 import type { SessionManager } from '../session/manager.js';
 import type { HauntSession } from '../types.js';
-
-export interface CookieParam {
-  name: string;
-  value: string;
-  domain?: string;
-  path?: string;
-  expires?: number;
-  httpOnly?: boolean;
-  secure?: boolean;
-  sameSite?: 'Strict' | 'Lax' | 'None';
-}
 
 export interface SpawnInput {
   persona: string;
   target_url: string;
   headless?: boolean;
   timeout?: number;
-  cookies?: CookieParam[];
+  cookies?: Cookie[];
 }
 
 export interface SpawnOutput {
