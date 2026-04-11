@@ -35,7 +35,7 @@ Print exactly:
 haunt v0.1.0  —  phantom user testing
 ```
 
-### Phase 1 — Recon
+### Phase 1 — Recon (route discovery from real links)
 
 Parse arguments:
 - `target_url` — the URL argument
@@ -46,8 +46,13 @@ Parse arguments:
 Print: `scouting...`
 
 Spawn one browser session with the first persona and `timeout: 5`.
-Do 3–5 steps to map the main routes.
-Call `haunt_end_session`. Build a page plan capped at 4 areas.
+Call `haunt_capture_state` with `include_dom: true`.
+
+**Read real links from the DOM snapshot** — look for `href` attributes in `<a>` tags that start with `/` or the target origin. Extract distinct path segments. Do NOT guess common routes like /login or /dashboard unless you actually see them in the DOM.
+
+Also read the accessibility tree for nav elements and any button/link text that suggests routes.
+
+Call `haunt_end_session`. Build a page plan of up to 4 areas from the **real links you found**. If fewer than 4 real routes exist, test those — do not pad with guesses.
 
 Print the discovered routes, e.g.: `routes: /  /login  /pricing  /dashboard`
 
@@ -55,18 +60,18 @@ Print the discovered routes, e.g.: `routes: /  /login  /pricing  /dashboard`
 
 Print: `testing N areas...`
 
-Run all sessions yourself — do NOT spawn sub-agents.
+Run all sessions yourself — do NOT spawn sub-agents or agents.
 
 1. `haunt_spawn` for every area in a single message (all in parallel).
 2. `haunt_capture_state` for all sessions (`include_screenshot: false`, `include_dom: false`) — all in parallel.
-3. Reason as each persona with a corner-case mindset — NOT the happy path:
+3. Reason as each persona with a **corner-case mindset — NOT the happy path**:
    - What non-obvious action would this user take that a developer would never think to test?
-   - What happens if they submit the form empty, enter the wrong data type, or go back after submitting?
+   - What happens if they submit empty forms, enter wrong data types, go back after submitting?
    - What if they navigate directly to a URL they shouldn't have access to?
    - What breaks when they don't follow the expected flow?
-   Prioritize actions that probe unexpected behavior over actions that complete intended flows.
+   Prioritize unexpected behavior over intended flows.
 4. `haunt_navigate` for all sessions in a single message, with any `issues` spotted.
-   Choose corner-case actions: submit empty forms, enter bad data, navigate to protected URLs directly, trigger the same action twice.
+   Choose corner-case actions: submit empty forms, enter bad data, access protected URLs directly, trigger the same action twice.
 5. Repeat capture → navigate up to `steps - 1` more times.
 6. `haunt_end_session` for all sessions in a single message.
 
@@ -74,11 +79,58 @@ CRITICAL: every batch of the same tool MUST be a single message with parallel to
 
 On `haunt_spawn` failure: print `skipped /area: <error>` and continue.
 
-### Phase 3 — Report + Summary
+### Phase 3 — Report
 
-Pass all EndSessionOutput objects to the `haunt-reporter` agent with the target URL.
+Do NOT spawn any agent or sub-agent. Generate the report yourself and save it with the Write tool.
 
-After the reporter returns the file path, print:
+**Compute from all EndSessionOutput objects:**
+- total, critical, major, minor issue counts
+- top fix: the single highest-impact recommendation across all sessions
+- date: today's date (YYYY-MM-DD)
+- persona names used
+
+**Write to `.haunt-reports/YYYY-MM-DD-<persona-names>.md`** using this exact format:
+
+```markdown
+---
+haunt: true
+target: <url>
+date: <YYYY-MM-DD>
+personas: [<persona1>]
+areas_tested: <N>
+issues:
+  total: <N>
+  critical: <N>
+  major: <N>
+  minor: <N>
+top_fix: "<single highest-impact fix, one sentence>"
+---
+
+# Haunt Report — <url>
+<YYYY-MM-DD> · <N> areas · <total> issues · <persona names>
+
+## Issues
+
+### 1. [CRITICAL] <description>
+- **Page:** `<page_url>`
+- **Fix:** <concrete recommendation>
+
+### 2. [MAJOR] <description>
+- **Page:** `<page_url>`
+- **Fix:** <concrete recommendation>
+
+## Session Impressions
+
+**<area> — <persona>:** "<overall_impression>"
+
+## Top Fix
+
+<highest-impact single action>
+```
+
+Sort issues: critical first, then major, then minor. Number sequentially.
+
+**Then print the summary:**
 
 ```
 ----------------------------------------
@@ -99,4 +151,4 @@ report: .haunt-reports/YYYY-MM-DD-persona.md
 
 Omit severity lines where count is 0.
 If no criticals, replace `>` lines with: `no critical issues`
-If no issues at all, omit `fix first`.
+If no issues, omit `fix first`.
