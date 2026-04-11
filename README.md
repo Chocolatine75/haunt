@@ -1,10 +1,22 @@
-# Haunt
+![Haunt — Claude Plugin](Gemini_Generated_Image_jqfqajqfqajqfqaj.png)
 
-**AI phantom users that find what developers never test.**
+---
 
-Haunt spawns browser agents that behave like real users — not the happy path, but the corner cases. A confused beginner who submits empty forms. A malicious user who probes your API routes without a token. A screen reader user who tabs through every element.
+You vibe-coded the feature. You tested it yourself. It works.
 
-They find things developers miss because developers know their own app.
+You know where to click, what to fill in, how the flow goes — because you built it.
+
+**Your users don't.**
+
+They'll submit the form empty and get a blank screen. They'll land on a page they shouldn't have access to. They'll type something weird in a field and hit a 500. They'll find the API endpoint that returns everyone's data with no auth.
+
+You won't catch this by testing it yourself. You never do.
+
+---
+
+**Haunt runs before you deploy.**
+
+It spawns phantom users against your localhost — a confused beginner who does everything wrong, a malicious user who probes every input and route, a keyboard-only user who tabs through everything. They don't know your app. They find what real users find.
 
 ```
 /haunt:haunt-test http://localhost:3000 --personas malicious-user
@@ -24,28 +36,14 @@ testing 4 areas...
 [!!!] 2 critical
  [!!] 3 major
 
-> Unauthenticated GET /api/hrflow/profiles exposes 10,000 candidate profiles (name, email, phone, DOB, GPS, full CV)  [/api/hrflow/profiles]
-> /dashboard loads for any anonymous user with no redirect to login  [/dashboard]
+> Unauthenticated GET /api/hrflow/profiles exposes 10,000 candidate profiles with full PII  [/api/hrflow/profiles]
+> /dashboard loads for any anonymous user — no auth redirect  [/dashboard]
 
-fix first: add server-side auth to every API route — /api/hrflow/profiles leaks 10,000 PII records to the open internet
+fix first: add server-side auth to every API route before deploying
 
 report: .haunt-reports/2026-04-11-malicious-user.md
 ----------------------------------------
 ```
-
----
-
-## What it finds
-
-Things only discovered by users who don't know what they're doing — or users who do:
-
-- **Missing auth guards** — protected pages and API routes accessible without a session
-- **PII exposure** — API endpoints returning user data with no authentication
-- **IDOR vulnerabilities** — user_id in query params, incrementable IDs, enumerable resources
-- **Broken form validation** — empty submissions accepted, wrong data types pass, no error feedback
-- **Stack traces in the browser** — internal paths, dependency names, database errors exposed
-- **Accessibility failures** — keyboard traps, unlabeled buttons, focus lost after modal close
-- **UX dead ends** — actions with no feedback, errors with no explanation, flows that silently fail
 
 ---
 
@@ -57,7 +55,7 @@ Things only discovered by users who don't know what they're doing — or users w
 /reload-plugins
 ```
 
-No API key required. Chromium installs automatically on first run.
+No API key. No config. Chromium installs automatically on first run.
 
 > **Requires:** Claude Code · Node.js 18+
 
@@ -66,50 +64,44 @@ No API key required. Chromium installs automatically on first run.
 ## Usage
 
 ```bash
-# Test with the default persona (confused beginner)
+# Default — confused beginner who does everything wrong
 /haunt:haunt-test http://localhost:3000
 
-# Security audit
+# Security pass — probes auth, APIs, inputs
 /haunt:haunt-test http://localhost:3000 --personas malicious-user
 
-# Accessibility audit
+# Accessibility pass — keyboard only
 /haunt:haunt-test http://localhost:3000 --personas screen-reader-user
 
-# Multiple personas
-/haunt:haunt-test http://localhost:3000 --personas confused-beginner,malicious-user
+# Full sweep
+/haunt:haunt-test http://localhost:3000 --personas confused-beginner,malicious-user,screen-reader-user
 
-# Watch the browser live
+# Watch it live
 /haunt:haunt-test http://localhost:3000 --headed
-
-# Faster scan
-/haunt:haunt-test http://localhost:3000 --steps 2
 ```
 
-Reports are saved to `.haunt-reports/`.
+Reports land in `.haunt-reports/`.
 
 ---
 
-## Built-in personas
+## What it finds
 
-| Persona | Behavior | Finds |
+| Persona | Does | Catches |
 |---|---|---|
-| `confused-beginner` | Submits empty forms, enters wrong data types, goes back after submit, modifies URLs | Missing validation, silent failures, broken error states |
-| `malicious-user` | XSS/SQLi payloads in every input, direct URL access to protected pages, IDOR enumeration | Auth bypasses, PII exposure, injection vectors, server errors |
-| `screen-reader-user` | Keyboard-only navigation, triggers modal/focus edge cases, checks ARIA | Focus traps, unlabeled elements, inaccessible error messages |
+| `confused-beginner` | Submits empty forms, enters wrong data, modifies URLs, goes back after submit | Missing validation, silent failures, broken error states |
+| `malicious-user` | XSS/SQLi in every input, direct access to protected routes, IDOR enumeration | Auth bypasses, PII exposure, injection vectors, leaked stack traces |
+| `screen-reader-user` | Keyboard-only, triggers every modal and focus edge case | Focus traps, unlabeled buttons, inaccessible errors |
 
 ---
 
 ## Custom personas
 
-Drop a YAML file anywhere in your project:
-
 ```yaml
 name: Impatient Power User
 description: Moves fast, skips steps, expects things to just work
 system_prompt: |
-  You are an experienced user who moves quickly.
-  Skip tutorials. Click fast. If something requires more than 2 steps, try to skip one.
-  Double-click buttons. Refresh mid-flow. Try keyboard shortcuts that may not exist.
+  You move fast and skip instructions.
+  Double-click buttons. Refresh mid-flow. Skip required steps and submit anyway.
   Report anything that breaks when you don't follow the expected sequence.
 browser:
   headless: true
@@ -123,17 +115,6 @@ scenarios:
 ```bash
 /haunt:haunt-test http://localhost:3000 --personas ./personas/power-user.yaml
 ```
-
----
-
-## How it works
-
-1. **Recon** — a browser reads real navigation links from your app's DOM to find areas to test
-2. **Parallel sessions** — one browser per area, all running simultaneously
-3. **Corner-case navigation** — each persona tries unexpected actions, not the happy path
-4. **Report** — issues sorted by severity, with concrete fixes and a single highest-impact recommendation
-
-No AI vision required. The browser reads the accessibility tree, the same way a screen reader does.
 
 ---
 
