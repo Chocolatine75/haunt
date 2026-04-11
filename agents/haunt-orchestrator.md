@@ -53,27 +53,26 @@ Print the plan:
 
 ## Phase 2 — Parallel testing
 
-For each persona × area combination, dispatch a `haunt-page-tester` sub-agent **in parallel**.
+Cap the plan at **4 areas max** — pick the most distinct ones (landing, auth, pricing, dashboard).
 
-**CRITICAL — true parallelism:** You MUST dispatch ALL sub-agents in a **single message** with multiple Agent tool calls at once. Do NOT call them one-by-one — that serializes the work and defeats the purpose.
+**Run all sessions directly yourself** — do NOT spawn sub-agents. Open all browser sessions in parallel:
 
-Pass to each sub-agent:
-- `session_description`: "Testing /pricing as confused-beginner"
-- `target_url`: the specific page URL
-- `persona`: persona name
-- `headless`: same as parent
-- `max_steps`: steps argument (default 3)
+1. Call `haunt_spawn` for every area **in a single message** (multiple tool calls at once).
+2. Then call `haunt_capture_state` for all sessions **in a single message** — always pass `include_screenshot: false`.
+3. Reason as the persona for each session, then call `haunt_navigate` for all sessions **in a single message**.
+4. Repeat steps 2–3 up to `steps` times (default 3).
+5. Call `haunt_end_session` for all sessions **in a single message**.
 
-Print:
+**CRITICAL:** Every batch (spawn / capture / navigate / end) MUST be a single message with multiple parallel tool calls. Never do one session at a time.
+
+Print before starting:
 ```
-🚀 Launching <N> agents in parallel...
+🚀 Testing <N> areas in parallel...
    confused-beginner → /
    confused-beginner → /login
    confused-beginner → /pricing
    ...
 ```
-
-Wait for all agents to complete.
 
 ## Phase 3 — Aggregate
 
