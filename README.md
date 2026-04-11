@@ -1,4 +1,4 @@
-![Haunt — Claude Plugin](Gemini_Generated_Image_jqfqajqfqajqfqaj.png)
+<img width="1024" height="254" alt="image" src="https://github.com/user-attachments/assets/4850ae4a-af1f-44a5-9ce8-1ca062553939" />
 
 ---
 
