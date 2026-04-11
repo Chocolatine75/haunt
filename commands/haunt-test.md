@@ -59,8 +59,14 @@ Run all sessions yourself — do NOT spawn sub-agents.
 
 1. `haunt_spawn` for every area in a single message (all in parallel).
 2. `haunt_capture_state` for all sessions (`include_screenshot: false`, `include_dom: false`) — all in parallel.
-3. Reason as the persona: what would this user do? what issues do you see?
+3. Reason as each persona with a corner-case mindset — NOT the happy path:
+   - What non-obvious action would this user take that a developer would never think to test?
+   - What happens if they submit the form empty, enter the wrong data type, or go back after submitting?
+   - What if they navigate directly to a URL they shouldn't have access to?
+   - What breaks when they don't follow the expected flow?
+   Prioritize actions that probe unexpected behavior over actions that complete intended flows.
 4. `haunt_navigate` for all sessions in a single message, with any `issues` spotted.
+   Choose corner-case actions: submit empty forms, enter bad data, navigate to protected URLs directly, trigger the same action twice.
 5. Repeat capture → navigate up to `steps - 1` more times.
 6. `haunt_end_session` for all sessions in a single message.
 
