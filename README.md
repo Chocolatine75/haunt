@@ -1,86 +1,90 @@
-<img width="1024" height="254" alt="image" src="https://github.com/user-attachments/assets/4850ae4a-af1f-44a5-9ce8-1ca062553939" />
+<img width="1024" height="254" alt="Haunt" src="https://github.com/user-attachments/assets/4850ae4a-af1f-44a5-9ce8-1ca062553939" />
+
+<div align="center">
+
+**AI phantom users that test your app the way real users actually use it.**
+
+[![Claude Code](https://img.shields.io/badge/Claude%20Code-Plugin-blueviolet?style=flat-square)](https://claude.ai/code)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
+[![Install](https://img.shields.io/badge/install-one%20command-brightgreen?style=flat-square)](#install)
+
+</div>
 
 ---
 
-AI writes your code in minutes. You ship it in hours.
+You built an experience. You know exactly how it's supposed to feel.
 
-And somewhere in that speed, you skipped something. A route that loads without auth. An API that returns everyone's data to anyone who asks. A form that crashes when someone types the wrong thing.
+You click through it yourself — it's smooth, it works, it's exactly what you imagined.
 
-You didn't catch it because **you tested it like a developer** — you knew where to click, what to fill in, what not to break. Your users don't have that context. They'll find every edge case you never imagined.
+Then someone else uses it.
 
-**Haunt finds them first.**
+They don't click where you clicked. They skip the step you assumed was obvious. They type something unexpected. They land on a page from a bookmark instead of the onboarding flow. And suddenly the experience you built doesn't feel like the one they're getting.
 
----
-
-## What just happened on a real project
-
-We ran Haunt against a recruitment app. One command. Under 4 minutes.
-
-```
-/haunt:haunt-test http://localhost:3000 --personas malicious-user
-```
-
-It found this:
-
-```
-[!!!] CRITICAL — Unauthenticated GET /api/hrflow/profiles returns 10,000 candidate
-      profiles with full PII: names, emails, phones, dates of birth, GPS coordinates,
-      profile pictures, and complete CV text. Zero authentication required.
-      Trivially scrapable by any anonymous visitor.
-
-[!!!] CRITICAL — /dashboard loads for any anonymous user. No auth redirect.
-
- [!!] MAJOR — GET /api/account/searches accepts user_id as a query param with no
-      session check. Any visitor can read any user's search history by incrementing IDs.
-```
-
-This wasn't a legacy codebase. It was built with AI assistance, tested by the developer, and about to be demoed. **10,000 people's personal data was one curl command away from being scraped.**
-
-Haunt caught it before deployment.
+**Haunt checks whether the experience you imagined is the one your users actually get.**
 
 ---
 
-## The problem it solves
+## 🔍 A real test, on a real app
 
-Vibe coding changed the pace of software. Features that took days now take hours. That's incredible — and it creates a new class of bugs.
+We ran Haunt on a fresh SaaS app — an AI writing tool, just before its first demo.
 
-When you move fast with AI, you build the happy path perfectly. The AI follows your intent. You test what you intended. Everything works.
-
-But your users don't follow your intent. They:
-
-- Submit forms with no data, wrong data, malicious data
-- Navigate directly to URLs they shouldn't reach
-- Increment IDs in query params and see other people's data
-- Refresh mid-flow, double-click submit, go back after checkout
-- Use keyboard only and get trapped in a modal forever
-
-These aren't rare edge cases. They're the first things real users do. And they're the last things a developer thinks to test.
-
----
-
-## What Haunt does
-
-One command. Before you deploy.
-
-```bash
-/haunt:haunt-test http://localhost:3000
+```
+/haunt:haunt-test http://localhost:3000 --personas confused-beginner
 ```
 
-Haunt spawns phantom users against your running localhost. Not bots. Not scripts. AI agents that **behave like real users who don't know your app** — each with a specific flavor of chaos:
+```
+haunt v0.1.0  —  phantom user testing
 
-**The Confused Beginner** submits your signup form empty. Types a phone number in the email field. Hits the back button after payment. Clicks the same button twice. Modifies the URL and navigates somewhere you never meant to be a route.
+scouting...
+routes: /  /signup  /editor  /dashboard  /pricing
 
-**The Malicious User** puts `<script>alert(1)</script>` in every text input. Navigates to `/admin`, `/api/users`, `/dashboard` without logging in. Increments every ID in every URL. Adds `?admin=true` to query strings. Looks for stack traces in error messages.
+testing 4 areas...
 
-**The Screen Reader User** tabs through every element on the page. Tries to close modals with Escape. Submits forms and checks whether errors are announced. Finds every button with no label and every input with no accessible name.
+────────────────────────────────────────
+4 areas tested · 7 issues found
 
-They run in parallel. They report issues by severity. They hand you a structured report with concrete fixes.
+[!!!] 2 critical
+ [!!] 4 major
+  [!] 1 minor
 
-The whole thing runs in minutes and costs nothing.
+> Signup form submits silently with an empty email — no error message shown
+> /editor loads for unauthenticated users — blank page with no redirect or explanation
+
+fix first: add visible error feedback to the signup form — it accepts empty input
+           and shows nothing, leaving users wondering if they did something wrong
+
+report: .haunt-reports/2026-04-11-confused-beginner.md
+────────────────────────────────────────
+```
+
+The signup form? Broken for anyone who didn't fill it perfectly.
+The editor? Loads for users who were never supposed to reach it yet.
+
+The developer had tested both. But they'd tested them *knowing what they were doing*.
 
 ---
 
-## Install
+## 💡 The gap Haunt closes
+
+> **You test your app like a developer. Your users aren't developers.**
+
+When you build something with AI assistance, you move fast. Features appear in hours. The happy path works perfectly because you designed it and you test it.
+
+But real users veer off the path constantly:
+
+- 📋 They paste text into the wrong field
+- 🔙 They hit the back button mid-signup and try again
+- ⌨️ They tab through your form in an order you never considered
+- 📱 They arrive from a shared link that skips your onboarding
+- 💨 They click "submit" before finishing — twice
+
+None of these are bugs you'd catch yourself. You know your app too well.
+
+Haunt doesn't. It comes in fresh, does unexpected things, and reports exactly where the experience breaks.
+
+---
+
+## 🚀 Install
 
 ```
 /plugin marketplace add Chocolatine75/haunt
@@ -88,57 +92,61 @@ The whole thing runs in minutes and costs nothing.
 /reload-plugins
 ```
 
-No API key. No config file. No infrastructure. Chromium downloads itself on first run.
-
+> No API key. No config. Chromium installs itself on first run.
 > **Requires:** Claude Code · Node.js 18+
 
 ---
 
-## Usage
+## 🎮 Usage
 
 ```bash
-# Default run — confused beginner tears through your UI
+# Default — a confused first-time user explores your app
 /haunt:haunt-test http://localhost:3000
 
-# Security pass — finds auth bypasses, PII leaks, injection vectors
+# Stress test — a user who does everything wrong, fast
+/haunt:haunt-test http://localhost:3000 --personas confused-beginner
+
+# Adversarial — a user who pokes at every input and every URL
 /haunt:haunt-test http://localhost:3000 --personas malicious-user
 
-# Accessibility audit — keyboard-only, finds every ARIA failure
+# Accessibility — keyboard-only, finds every broken interaction
 /haunt:haunt-test http://localhost:3000 --personas screen-reader-user
 
-# Full sweep — all three personas at once
+# Full sweep — all three at once
 /haunt:haunt-test http://localhost:3000 --personas confused-beginner,malicious-user,screen-reader-user
 
-# Test authenticated flows — Haunt logs in first, then tests everything behind auth
-/haunt:haunt-test http://localhost:3000 --email you@example.com --password yourpass
+# Test authenticated areas — Haunt logs in first, then explores
+/haunt:haunt-test http://localhost:3000 --email you@example.com --password secret
 
-# Watch it happen live
+# Watch it happen
 /haunt:haunt-test http://localhost:3000 --headed
 ```
 
-Reports saved to `.haunt-reports/` — structured markdown with YAML frontmatter, ready for humans and agents.
+Reports saved to `.haunt-reports/` — structured markdown with YAML frontmatter.
 
 ---
 
-## Built-in personas
+## 👻 The personas
 
-| | Persona | Behavior | Catches |
-|---|---|---|---|
-| 🟢 | `confused-beginner` | Wrong inputs, empty forms, URL hacking, back-button chaos | Validation gaps, silent failures, broken error states |
-| 🔴 | `malicious-user` | XSS, SQLi, direct URL access, IDOR enumeration, param injection | Auth bypasses, PII exposure, server errors, data leaks |
-| ♿ | `screen-reader-user` | Keyboard-only navigation, modal edge cases, ARIA probing | Focus traps, unlabeled elements, inaccessible errors |
+Each phantom user has a different way of going off-script.
+
+| Persona | Who they are | What they do |
+|---|---|---|
+| 😕 `confused-beginner` | First-time user with no context | Submits forms empty, enters wrong data types, modifies URLs, hits back after submit, ignores instructions |
+| 😈 `malicious-user` | User who pushes on everything | Tries unexpected inputs in every field, accesses URLs directly, probes what's reachable without logging in |
+| ♿ `screen-reader-user` | Keyboard-only user | Tabs through every element, triggers modal edge cases, checks if errors are announced, finds unlabeled buttons |
 
 ---
 
-## Custom personas
+## ✍️ Custom personas
 
-Your app is unique. Your failure modes are too.
+Your app has specific failure modes. Write the user who finds them.
 
 ```yaml
 name: Impatient Power User
 description: Moves fast, skips steps, expects things to just work
 system_prompt: |
-  You move fast and skip everything optional.
+  You move fast and skip everything that looks optional.
   Double-click buttons. Refresh mid-flow. Skip required fields and submit anyway.
   If something needs more than 2 steps, try to skip one.
   Report anything that breaks when you don't follow the expected sequence.
@@ -147,7 +155,7 @@ browser:
   viewport: { width: 1440, height: 900 }
 scenarios:
   - name: Speed run
-    goal: Break things by going too fast
+    goal: Break the experience by going too fast
     max_steps: 10
 ```
 
@@ -157,12 +165,36 @@ scenarios:
 
 ---
 
-## Open source
+## 🔧 How it works
 
-MIT. Fork it, extend it, add personas, break things.
+```
+/haunt-test                     your command
+    │
+    ├── scouting                reads real links from your app's DOM
+    │                           maps up to 4 areas to test
+    │
+    ├── spawns N phantoms       one browser per area, all parallel
+    │   ├── 👻 /signup          confused beginner tries to register
+    │   ├── 👻 /editor          same user, lands on editor directly
+    │   ├── 👻 /dashboard       tries the main app without context
+    │   └── 👻 /pricing         looks at plans, looks for a CTA
+    │
+    └── report                  issues ranked by impact
+                                one clear "fix first" recommendation
+```
 
-If Haunt finds a real bug in your app — open an issue and tell us what it caught. We're collecting war stories.
+No AI vision. No magic. Just a real browser reading your accessibility tree, the same way a screen reader does — and an AI deciding what a confused user would do next.
 
 ---
 
-*Built for the era where shipping fast is the default. Haunt is what you run right before you do.*
+## 📄 License
+
+MIT — fork it, extend it, add personas, run it in CI.
+
+If Haunt finds something real in your app, we'd love to hear what it caught.
+
+---
+
+<div align="center">
+<i>Built for the era where shipping fast is the default.<br>Haunt is what you run right before you do.</i>
+</div>
