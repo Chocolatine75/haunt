@@ -2,48 +2,81 @@
 
 ---
 
-You vibe-coded the feature. You tested it yourself. It works.
+AI writes your code in minutes. You ship it in hours.
 
-You know where to click, what to fill in, how the flow goes — because you built it.
+And somewhere in that speed, you skipped something. A route that loads without auth. An API that returns everyone's data to anyone who asks. A form that crashes when someone types the wrong thing.
 
-**Your users don't.**
+You didn't catch it because **you tested it like a developer** — you knew where to click, what to fill in, what not to break. Your users don't have that context. They'll find every edge case you never imagined.
 
-They'll submit the form empty and get a blank screen. They'll land on a page they shouldn't have access to. They'll type something weird in a field and hit a 500. They'll find the API endpoint that returns everyone's data with no auth.
-
-You won't catch this by testing it yourself. You never do.
+**Haunt finds them first.**
 
 ---
 
-**Haunt runs before you deploy.**
+## What just happened on a real project
 
-It spawns phantom users against your localhost — a confused beginner who does everything wrong, a malicious user who probes every input and route, a keyboard-only user who tabs through everything. They don't know your app. They find what real users find.
+We ran Haunt against a recruitment app. One command. Under 4 minutes.
 
 ```
 /haunt:haunt-test http://localhost:3000 --personas malicious-user
 ```
 
+It found this:
+
 ```
-haunt v0.1.0  —  phantom user testing
+[!!!] CRITICAL — Unauthenticated GET /api/hrflow/profiles returns 10,000 candidate
+      profiles with full PII: names, emails, phones, dates of birth, GPS coordinates,
+      profile pictures, and complete CV text. Zero authentication required.
+      Trivially scrapable by any anonymous visitor.
 
-scouting...
-routes: /  /login  /dashboard  /api/hrflow/profiles  /api/account/searches
+[!!!] CRITICAL — /dashboard loads for any anonymous user. No auth redirect.
 
-testing 4 areas...
-
-----------------------------------------
-4 areas tested · 5 issues
-
-[!!!] 2 critical
- [!!] 3 major
-
-> Unauthenticated GET /api/hrflow/profiles exposes 10,000 candidate profiles with full PII  [/api/hrflow/profiles]
-> /dashboard loads for any anonymous user — no auth redirect  [/dashboard]
-
-fix first: add server-side auth to every API route before deploying
-
-report: .haunt-reports/2026-04-11-malicious-user.md
-----------------------------------------
+ [!!] MAJOR — GET /api/account/searches accepts user_id as a query param with no
+      session check. Any visitor can read any user's search history by incrementing IDs.
 ```
+
+This wasn't a legacy codebase. It was built with AI assistance, tested by the developer, and about to be demoed. **10,000 people's personal data was one curl command away from being scraped.**
+
+Haunt caught it before deployment.
+
+---
+
+## The problem it solves
+
+Vibe coding changed the pace of software. Features that took days now take hours. That's incredible — and it creates a new class of bugs.
+
+When you move fast with AI, you build the happy path perfectly. The AI follows your intent. You test what you intended. Everything works.
+
+But your users don't follow your intent. They:
+
+- Submit forms with no data, wrong data, malicious data
+- Navigate directly to URLs they shouldn't reach
+- Increment IDs in query params and see other people's data
+- Refresh mid-flow, double-click submit, go back after checkout
+- Use keyboard only and get trapped in a modal forever
+
+These aren't rare edge cases. They're the first things real users do. And they're the last things a developer thinks to test.
+
+---
+
+## What Haunt does
+
+One command. Before you deploy.
+
+```bash
+/haunt:haunt-test http://localhost:3000
+```
+
+Haunt spawns phantom users against your running localhost. Not bots. Not scripts. AI agents that **behave like real users who don't know your app** — each with a specific flavor of chaos:
+
+**The Confused Beginner** submits your signup form empty. Types a phone number in the email field. Hits the back button after payment. Clicks the same button twice. Modifies the URL and navigates somewhere you never meant to be a route.
+
+**The Malicious User** puts `<script>alert(1)</script>` in every text input. Navigates to `/admin`, `/api/users`, `/dashboard` without logging in. Increments every ID in every URL. Adds `?admin=true` to query strings. Looks for stack traces in error messages.
+
+**The Screen Reader User** tabs through every element on the page. Tries to close modals with Escape. Submits forms and checks whether errors are announced. Finds every button with no label and every input with no accessible name.
+
+They run in parallel. They report issues by severity. They hand you a structured report with concrete fixes.
+
+The whole thing runs in minutes and costs nothing.
 
 ---
 
@@ -55,7 +88,7 @@ report: .haunt-reports/2026-04-11-malicious-user.md
 /reload-plugins
 ```
 
-No API key. No config. Chromium installs automatically on first run.
+No API key. No config file. No infrastructure. Chromium downloads itself on first run.
 
 > **Requires:** Claude Code · Node.js 18+
 
@@ -64,44 +97,50 @@ No API key. No config. Chromium installs automatically on first run.
 ## Usage
 
 ```bash
-# Default — confused beginner who does everything wrong
+# Default run — confused beginner tears through your UI
 /haunt:haunt-test http://localhost:3000
 
-# Security pass — probes auth, APIs, inputs
+# Security pass — finds auth bypasses, PII leaks, injection vectors
 /haunt:haunt-test http://localhost:3000 --personas malicious-user
 
-# Accessibility pass — keyboard only
+# Accessibility audit — keyboard-only, finds every ARIA failure
 /haunt:haunt-test http://localhost:3000 --personas screen-reader-user
 
-# Full sweep
+# Full sweep — all three personas at once
 /haunt:haunt-test http://localhost:3000 --personas confused-beginner,malicious-user,screen-reader-user
 
-# Watch it live
+# Test authenticated flows — Haunt logs in first, then tests everything behind auth
+/haunt:haunt-test http://localhost:3000 --email you@example.com --password yourpass
+
+# Watch it happen live
 /haunt:haunt-test http://localhost:3000 --headed
 ```
 
-Reports land in `.haunt-reports/`.
+Reports saved to `.haunt-reports/` — structured markdown with YAML frontmatter, ready for humans and agents.
 
 ---
 
-## What it finds
+## Built-in personas
 
-| Persona | Does | Catches |
-|---|---|---|
-| `confused-beginner` | Submits empty forms, enters wrong data, modifies URLs, goes back after submit | Missing validation, silent failures, broken error states |
-| `malicious-user` | XSS/SQLi in every input, direct access to protected routes, IDOR enumeration | Auth bypasses, PII exposure, injection vectors, leaked stack traces |
-| `screen-reader-user` | Keyboard-only, triggers every modal and focus edge case | Focus traps, unlabeled buttons, inaccessible errors |
+| | Persona | Behavior | Catches |
+|---|---|---|---|
+| 🟢 | `confused-beginner` | Wrong inputs, empty forms, URL hacking, back-button chaos | Validation gaps, silent failures, broken error states |
+| 🔴 | `malicious-user` | XSS, SQLi, direct URL access, IDOR enumeration, param injection | Auth bypasses, PII exposure, server errors, data leaks |
+| ♿ | `screen-reader-user` | Keyboard-only navigation, modal edge cases, ARIA probing | Focus traps, unlabeled elements, inaccessible errors |
 
 ---
 
 ## Custom personas
 
+Your app is unique. Your failure modes are too.
+
 ```yaml
 name: Impatient Power User
 description: Moves fast, skips steps, expects things to just work
 system_prompt: |
-  You move fast and skip instructions.
-  Double-click buttons. Refresh mid-flow. Skip required steps and submit anyway.
+  You move fast and skip everything optional.
+  Double-click buttons. Refresh mid-flow. Skip required fields and submit anyway.
+  If something needs more than 2 steps, try to skip one.
   Report anything that breaks when you don't follow the expected sequence.
 browser:
   headless: true
@@ -118,6 +157,12 @@ scenarios:
 
 ---
 
-## License
+## Open source
 
-MIT
+MIT. Fork it, extend it, add personas, break things.
+
+If Haunt finds a real bug in your app — open an issue and tell us what it caught. We're collecting war stories.
+
+---
+
+*Built for the era where shipping fast is the default. Haunt is what you run right before you do.*
