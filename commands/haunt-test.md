@@ -23,15 +23,9 @@ Run a phantom user test session against a running web application.
 
 When this command is invoked:
 
-1. Print immediately:
-   ```
-   haunt v0.1.0
-   ──────────────────────────────────────────
-   ⏳ Starting session...
-   ```
-
-2. Delegate to the haunt-orchestrator agent to run the session.
+1. Delegate immediately to the haunt-orchestrator agent to run the session.
    Pass the parsed url, personas list, and headless flag to the agent.
+   The orchestrator prints its own header — do not print anything before delegating.
 
 ## First run note
 
