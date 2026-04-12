@@ -15,6 +15,7 @@ Run a phantom user test session against a running web application.
 - `--steps` — Max navigation steps per area (default: 3)
 - `--email` — Email to log in with before testing
 - `--password` — Password to log in with (use with --email)
+- `--debug-auth` — Print each auth step verbosely (use when auth fails silently)
 
 ## First run
 
@@ -44,13 +45,21 @@ If credentials are present:
 Print: `logging in as <email>...`
 
 1. `haunt_spawn` at `target_url` with timeout: 5
+   - If `--debug-auth`: print `  · browser opened`
 2. `haunt_capture_state` (`include_dom: true`) — look for a login form or link
+   - If `--debug-auth`: print `  · page loaded`
 3. If not already on a login page, `haunt_navigate` to find and go to the login page (look for a "Login", "Sign in", or "Se connecter" link in the accessibility tree or DOM)
+   - If `--debug-auth`: print `  · login form found at <url>`
 4. `haunt_navigate` — fill `<email>` in the email field
+   - If `--debug-auth`: print `  · email filled`
 5. `haunt_navigate` — fill `<password>` in the password field
+   - If `--debug-auth`: print `  · password filled`
 6. `haunt_navigate` — click the submit/login button
+   - If `--debug-auth`: print `  · submit clicked`
 7. `haunt_capture_state` — verify auth succeeded: URL is no longer the login page, or a logged-in element (avatar, dashboard, username) is visible
+   - If `--debug-auth`: print `  · checking session...`
 8. `haunt_get_cookies` — extract the session cookies
+   - If `--debug-auth`: print `  · cookies captured (<N>)`
 9. `haunt_end_session`
 
 Print: `authenticated  —  cookies captured`
