@@ -16,6 +16,7 @@ Run a phantom user test session against a running web application.
 - `--email` — Email to log in with before testing
 - `--password` — Password to log in with (use with --email)
 - `--debug-auth` — Print each auth step verbosely (use when auth fails silently)
+- `--yes` — Skip the cost estimate confirmation prompt (for scripted use)
 
 ## First run
 
@@ -92,6 +93,27 @@ Also read the accessibility tree for nav elements and any button/link text that 
 Call `haunt_end_session`. Build a page plan of up to 4 areas from the **real links you found**. If fewer than 4 real routes exist, test those — do not pad with guesses.
 
 Print the discovered routes, e.g.: `routes: /  /login  /pricing  /dashboard`
+
+### Phase 1.5 — Cost estimate
+
+Compute:
+- `route_count` = number of areas in the page plan (max 4)
+- `steps_per_route` = value of `--steps` (default: 3)
+- `browser_calls` = route_count × (steps_per_route × 2 + 3)
+  - (spawn + capture_state + [navigate + capture_state] × steps + end_session)
+- `session_size` = "light" if browser_calls ≤ 6, "medium" if ≤ 16, "heavy" if > 16
+
+Print exactly:
+
+```
+estimated: N routes · M steps each · ~K browser calls · [light|medium|heavy] session
+proceed? [y/N]
+```
+
+- If `--yes` flag is present: skip the prompt and continue directly to Phase 2.
+- Otherwise: wait for user input.
+  - If user types `y` or `yes`: continue to Phase 2.
+  - Any other input (including Enter alone): print `aborted.` and stop.
 
 ### Phase 2 — Parallel testing
 
