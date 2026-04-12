@@ -148,6 +148,14 @@ Do NOT spawn any agent or sub-agent. Generate the report yourself and save it wi
 - date: today's date (YYYY-MM-DD)
 - persona names used
 
+**File path heuristic rules** (use when writing Likely file):
+- `/foo` → `app/foo/page.tsx`
+- `/foo/bar` → `app/foo/bar/page.tsx`
+- `/api/foo` → `app/api/foo/route.ts`
+- Auth issues → `lib/auth.ts` or `middleware.ts`
+- Form validation issues → the page file for that route
+- If the framework is unclear, omit the field rather than guess wrong
+
 **Write to `.haunt-reports/YYYY-MM-DD-<persona-names>.md`** using this exact format:
 
 ```markdown
@@ -172,11 +180,18 @@ top_fix: "<single highest-impact fix, one sentence>"
 
 ### 1. [CRITICAL] <description>
 - **Page:** `<page_url>`
-- **Fix:** <concrete recommendation>
+- **Fix:** <concrete one-sentence recommendation — what to add or change, not just what is wrong>
+- **Likely file:** `<file path based on Next.js App Router convention: e.g. /signup → app/signup/page.tsx, /api/foo → app/api/foo/route.ts>` *(AI estimate — verify before editing)*
 
 ### 2. [MAJOR] <description>
 - **Page:** `<page_url>`
-- **Fix:** <concrete recommendation>
+- **Fix:** <concrete one-sentence recommendation — what to add or change, not just what is wrong>
+- **Likely file:** `<file path based on Next.js App Router convention: e.g. /signup → app/signup/page.tsx, /api/foo → app/api/foo/route.ts>` *(AI estimate — verify before editing)*
+
+### 3. [MINOR] <description>
+- **Page:** `<page_url>`
+- **Fix:** <concrete one-sentence recommendation — what to add or change, not just what is wrong>
+- **Likely file:** `<file path based on Next.js App Router convention: e.g. /signup → app/signup/page.tsx, /api/foo → app/api/foo/route.ts>` *(AI estimate — verify before editing)*
 
 ## Session Impressions
 
@@ -185,6 +200,21 @@ top_fix: "<single highest-impact fix, one sentence>"
 ## Top Fix
 
 <highest-impact single action>
+
+## For Claude
+
+The following issues were found by Haunt. Fix them in order of severity.
+
+<For each issue, one line:>
+N. [SEVERITY] `<page_url>` — <one-sentence fix instruction>. Likely in `<file>`.
+
+**Formatting rules for the For Claude list:**
+- One line per issue, numbered sequentially, critical first
+- Fix instruction must be actionable (e.g. "Add required attribute to email input and show inline error on empty submit") not vague (e.g. "Fix the validation")
+- Include the likely file on every line
+- Use the actual target URL from the session in the re-run command
+
+After fixing, run `/haunt:haunt-test <target_url>` again to verify.
 ```
 
 Sort issues: critical first, then major, then minor. Number sequentially.
