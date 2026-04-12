@@ -44,6 +44,8 @@ If credentials are present:
 
 Print: `logging in as <email>...`
 
+- If `--debug-auth`: print `  · auth flow started`
+
 1. `haunt_spawn` at `target_url` with timeout: 5
    - If `--debug-auth`: print `  · browser opened`
 2. `haunt_capture_state` (`include_dom: true`) — look for a login form or link
@@ -66,7 +68,9 @@ Print: `authenticated  —  cookies captured`
 
 Store the cookies. Pass them to every `haunt_spawn` call in Phase 2 via the `cookies` parameter.
 
-If login fails (still on login page after submit, or error visible): print `login failed — check your credentials` and stop.
+If login fails (still on login page after submit, or error visible):
+- If `--debug-auth`: print `  · login failed — session not detected`
+Print `login failed — check your credentials` and stop.
 
 ### Phase 1 — Recon (route discovery from real links)
 
