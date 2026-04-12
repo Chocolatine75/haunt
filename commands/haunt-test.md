@@ -15,6 +15,8 @@ Run a phantom user test session against a running web application.
 - `--steps` — Max navigation steps per area (default: 3)
 - `--email` — Email to log in with before testing
 - `--password` — Password to log in with (use with --email)
+- `--debug-auth` — Print each auth step verbosely (use when auth fails silently)
+- `--yes` — Skip the cost estimate confirmation prompt (for scripted use)
 
 ## First run
 
@@ -43,21 +45,33 @@ If credentials are present:
 
 Print: `logging in as <email>...`
 
+- If `--debug-auth`: print `  · auth flow started`
+
 1. `haunt_spawn` at `target_url` with timeout: 5
+   - If `--debug-auth`: print `  · browser opened`
 2. `haunt_capture_state` (`include_dom: true`) — look for a login form or link
+   - If `--debug-auth`: print `  · page loaded`
 3. If not already on a login page, `haunt_navigate` to find and go to the login page (look for a "Login", "Sign in", or "Se connecter" link in the accessibility tree or DOM)
+   - If `--debug-auth`: print `  · login form found at <url>`
 4. `haunt_navigate` — fill `<email>` in the email field
+   - If `--debug-auth`: print `  · email filled`
 5. `haunt_navigate` — fill `<password>` in the password field
+   - If `--debug-auth`: print `  · password filled`
 6. `haunt_navigate` — click the submit/login button
+   - If `--debug-auth`: print `  · submit clicked`
 7. `haunt_capture_state` — verify auth succeeded: URL is no longer the login page, or a logged-in element (avatar, dashboard, username) is visible
+   - If `--debug-auth`: print `  · checking session...`
 8. `haunt_get_cookies` — extract the session cookies
+   - If `--debug-auth`: print `  · cookies captured (<N>)`
 9. `haunt_end_session`
 
 Print: `authenticated  —  cookies captured`
 
 Store the cookies. Pass them to every `haunt_spawn` call in Phase 2 via the `cookies` parameter.
 
-If login fails (still on login page after submit, or error visible): print `login failed — check your credentials` and stop.
+If login fails (still on login page after submit, or error visible):
+- If `--debug-auth`: print `  · login failed — session not detected`
+Print `login failed — check your credentials` and stop.
 
 ### Phase 1 — Recon (route discovery from real links)
 
@@ -79,6 +93,27 @@ Also read the accessibility tree for nav elements and any button/link text that 
 Call `haunt_end_session`. Build a page plan of up to 4 areas from the **real links you found**. If fewer than 4 real routes exist, test those — do not pad with guesses.
 
 Print the discovered routes, e.g.: `routes: /  /login  /pricing  /dashboard`
+
+### Phase 1.5 — Cost estimate
+
+Compute:
+- `route_count` = number of areas in the page plan (max 4)
+- `steps_per_route` = value of `--steps` (default: 3)
+- `browser_calls` = route_count × (steps_per_route × 2 + 3)
+  - (spawn + capture_state + [navigate + capture_state] × steps + end_session)
+- `session_size` = "light" if browser_calls ≤ 6, "medium" if ≤ 16, "heavy" if > 16
+
+Print exactly:
+
+```
+estimated: N routes · M steps each · ~K browser calls · [light|medium|heavy] session
+proceed? [y/N]
+```
+
+- If `--yes` flag is present: skip the prompt and continue directly to Phase 2.
+- Otherwise: wait for user input.
+  - If user types `y` or `yes`: continue to Phase 2.
+  - Any other input (including Enter alone): print `aborted.` and stop.
 
 ### Phase 2 — Parallel testing
 
@@ -113,6 +148,14 @@ Do NOT spawn any agent or sub-agent. Generate the report yourself and save it wi
 - date: today's date (YYYY-MM-DD)
 - persona names used
 
+**File path heuristic rules** (use when writing Likely file):
+- `/foo` → `app/foo/page.tsx`
+- `/foo/bar` → `app/foo/bar/page.tsx`
+- `/api/foo` → `app/api/foo/route.ts`
+- Auth issues → `lib/auth.ts` or `middleware.ts`
+- Form validation issues → the page file for that route
+- If the framework is unclear, omit the field rather than guess wrong
+
 **Write to `.haunt-reports/YYYY-MM-DD-<persona-names>.md`** using this exact format:
 
 ```markdown
@@ -137,11 +180,18 @@ top_fix: "<single highest-impact fix, one sentence>"
 
 ### 1. [CRITICAL] <description>
 - **Page:** `<page_url>`
-- **Fix:** <concrete recommendation>
+- **Fix:** <concrete one-sentence recommendation — what to add or change, not just what is wrong>
+- **Likely file:** `<file path based on Next.js App Router convention: e.g. /signup → app/signup/page.tsx, /api/foo → app/api/foo/route.ts>` *(AI estimate — verify before editing)*
 
 ### 2. [MAJOR] <description>
 - **Page:** `<page_url>`
-- **Fix:** <concrete recommendation>
+- **Fix:** <concrete one-sentence recommendation — what to add or change, not just what is wrong>
+- **Likely file:** `<file path based on Next.js App Router convention: e.g. /signup → app/signup/page.tsx, /api/foo → app/api/foo/route.ts>` *(AI estimate — verify before editing)*
+
+### 3. [MINOR] <description>
+- **Page:** `<page_url>`
+- **Fix:** <concrete one-sentence recommendation — what to add or change, not just what is wrong>
+- **Likely file:** `<file path based on Next.js App Router convention: e.g. /signup → app/signup/page.tsx, /api/foo → app/api/foo/route.ts>` *(AI estimate — verify before editing)*
 
 ## Session Impressions
 
@@ -150,6 +200,21 @@ top_fix: "<single highest-impact fix, one sentence>"
 ## Top Fix
 
 <highest-impact single action>
+
+## For Claude
+
+The following issues were found by Haunt. Fix them in order of severity.
+
+<For each issue, one line:>
+N. [SEVERITY] `<page_url>` — <one-sentence fix instruction>. Likely in `<file>`.
+
+**Formatting rules for the For Claude list:**
+- One line per issue, numbered sequentially, critical first
+- Fix instruction must be actionable (e.g. "Add required attribute to email input and show inline error on empty submit") not vague (e.g. "Fix the validation")
+- Include the likely file on every line
+- Use the actual target URL from the session in the re-run command
+
+After fixing, run `/haunt:haunt-test <target_url>` again to verify.
 ```
 
 Sort issues: critical first, then major, then minor. Number sequentially.
