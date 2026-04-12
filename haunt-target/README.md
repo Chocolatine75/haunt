@@ -1,36 +1,48 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# haunt-target
 
-## Getting Started
+A demo SaaS app for testing the [Haunt](https://github.com/Chocolatine75/haunt) Claude Code plugin.
 
-First, run the development server:
+## Quick start
 
 ```bash
+npm install
+npx prisma db push
+npx prisma db seed
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+App runs at http://localhost:3000
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Test credentials
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Email | Password | Role |
+|---|---|---|
+| test@example.com | password123 | user |
+| admin@example.com | admin123 | admin |
 
-## Learn More
+## Running Haunt against this app
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+# Basic test
+/haunt:haunt-test http://localhost:3000
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# With auth
+/haunt:haunt-test http://localhost:3000 --email test@example.com --password password123
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# Debug auth issues
+/haunt:haunt-test http://localhost:3000 --email test@example.com --password password123 --debug-auth
 
-## Deploy on Vercel
+# Full sweep
+/haunt:haunt-test http://localhost:3000 --personas confused-beginner,malicious-user,screen-reader-user
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Known intentional bugs
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+These bugs exist by design so Haunt has real issues to find:
+
+- `/signup` — accepts empty email with no error message
+- `/dashboard` — loads for unauthenticated users (middleware doesn't protect it)
+- `/admin` — role check is client-side only (bypassable)
+- `/login` — double-submit possible (button not disabled during async)
+- `/settings` — save shows no success or error feedback
+- `lib/auth.ts` — password logged in plaintext via console.log
