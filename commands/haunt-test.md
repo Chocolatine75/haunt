@@ -4,7 +4,7 @@ Run a phantom user test session against a running web application.
 
 ## Usage
 
-/haunt-test <url> [--personas <list>] [--headed] [--steps N] [--quiet]
+/haunt-test <url> [--personas <list>] [--headed] [--steps N] [--verbose]
 
 ## Arguments
 
@@ -17,7 +17,7 @@ Run a phantom user test session against a running web application.
 - `--password` — Password to log in with (use with --email)
 - `--debug-auth` — Print each auth step verbosely (use when auth fails silently)
 - `--yes` — Skip the cost estimate confirmation prompt (for scripted use)
-- `--quiet` — Suppress intermediate reasoning output — only print progress lines and the final summary (recommended for daily use)
+- `--verbose` — Print intermediate reasoning and observations between tool calls (default: silent)
 
 ## First run
 
@@ -122,11 +122,11 @@ Print: `testing N areas...`
 
 Run all sessions yourself — do NOT spawn sub-agents or agents.
 
-**If `--quiet` is active: do NOT print any intermediate reasoning, observations, or step summaries between tool calls. Think silently. Only tool calls and the final summary block are shown.**
+**By default (no `--verbose`): do NOT print any intermediate reasoning, observations, or step summaries between tool calls. Think silently. Only tool calls and the final summary block are shown.**
 
 1. `haunt_spawn` for every area in a single message (all in parallel). If auth cookies were captured in Phase 0.5, pass them via the `cookies` parameter to every `haunt_spawn` call.
 2. `haunt_capture_state` for all sessions (`include_screenshot: false`, `include_dom: false`) — all in parallel.
-3. Reason as each persona with a **corner-case mindset — NOT the happy path** (silently if `--quiet`):
+3. Reason as each persona with a **corner-case mindset — NOT the happy path** (silently unless `--verbose`):
    - What non-obvious action would this user take that a developer would never think to test?
    - What happens if they submit empty forms, enter wrong data types, go back after submitting?
    - What if they navigate directly to a URL they shouldn't have access to?
