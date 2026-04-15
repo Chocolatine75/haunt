@@ -122,7 +122,7 @@ Print: `testing N areas...`
 
 Run all sessions yourself — do NOT spawn sub-agents or agents.
 
-**By default (no `--verbose`): do NOT print any intermediate reasoning, observations, or step summaries between tool calls. Think silently. Only tool calls and the final summary block are shown.**
+**SILENCE RULE: unless `--verbose` is passed, print NOTHING between tool calls. No step labels, no "parallel" announcements, no reasoning summaries, no observations. Zero text output between the `testing N areas...` line and the final summary block. Think entirely silently.**
 
 1. `haunt_spawn` for every area in a single message (all in parallel). If auth cookies were captured in Phase 0.5, pass them via the `cookies` parameter to every `haunt_spawn` call.
 2. `haunt_capture_state` for all sessions (`include_screenshot: false`, `include_dom: false`) — all in parallel.
