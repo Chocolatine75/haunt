@@ -2,10 +2,7 @@
   "mcpServers": {
     "haunt": {
       "command": "sh",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-server/start.sh"],
-      "env": {
-        "HAUNT_PERSONAS_DIR": "${CLAUDE_PLUGIN_ROOT}/personas"
-      }
+      "args": ["/home/matki/git/haunt/mcp-server/start.sh"]
     }
   }
 }
