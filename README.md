@@ -124,6 +124,8 @@ Haunt doesn't. It comes in fresh, does unexpected things, and reports exactly wh
 
 Reports saved to `.haunt-reports/` — structured markdown with YAML frontmatter.
 
+Full flag reference: [docs/cli.md](docs/cli.md)
+
 ---
 
 ## 👻 The personas
