@@ -3,5 +3,10 @@
   "version": "0.1.0",
   "description": "Synthetic phantom users that test your localhost app while you code",
   "author": { "name": "Chocolatine75" },
-  "license": "MIT"
+  "license": "MIT",
+  "mcpServers": {
+    "haunt": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/mcp-server/start.sh"
+    }
+  }
 }
