@@ -6,7 +6,8 @@
   "license": "MIT",
   "mcpServers": {
     "haunt": {
-      "command": "${CLAUDE_PLUGIN_ROOT}/mcp-server/start.sh"
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-server/start.js"]
     }
   }
 }
