@@ -1,4 +1,4 @@
-# haunt-target
+# demo
 
 A demo SaaS app for testing the [Haunt](https://github.com/Chocolatine75/haunt) Claude Code plugin.
 
