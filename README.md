@@ -5,7 +5,7 @@
 **AI phantom users that test your app the way real users actually use it.**
 
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Plugin-blueviolet?style=flat-square)](https://claude.ai/code)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](https://github.com/Chocolatine75/haunt/blob/master/LICENSE)
 [![Install](https://img.shields.io/badge/install-one%20command-brightgreen?style=flat-square)](#install)
 
 </div>
