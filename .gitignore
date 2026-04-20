@@ -1,4 +1,6 @@
 .worktrees/
+.claude/
 haunt-target/node_modules/
 haunt-target/.next/
 haunt-target/prisma/dev.db
+haunt-target/.haunt-reports/
