@@ -6,4 +6,5 @@ if [ ! -d "$HOME/.cache/ms-playwright/chromium-"* ] 2>/dev/null; then
   npx --yes playwright install chromium >&2
 fi
 
+export HAUNT_PERSONAS_DIR="$SCRIPT_DIR/../personas"
 exec node "$SCRIPT_DIR/dist/server.js"
