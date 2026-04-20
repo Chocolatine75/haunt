@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "haunt": {
-      "command": "sh",
-      "args": ["/home/matki/git/haunt/mcp-server/start.sh"]
-    }
-  }
-}

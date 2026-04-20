@@ -1,5 +1,6 @@
 .worktrees/
 .claude/
+.mcp.json
 demo/node_modules/
 demo/.next/
 demo/prisma/dev.db
