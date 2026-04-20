@@ -2,7 +2,7 @@
 
 <div align="center">
 
-**AI phantom users that test your app the way real users actually use it.**
+**A Claude Code plugin that tests your app the way real users break it.**
 
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Plugin-blueviolet?style=flat-square)](https://claude.ai/code)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](https://github.com/Chocolatine75/haunt/blob/master/LICENSE)
@@ -12,82 +12,73 @@
 
 ---
 
-You built an experience. You know exactly how it's supposed to feel.
+You're shipping faster than ever with AI. You're also shipping more bugs — you just don't know it yet.
 
-You click through it yourself — it's smooth, it works, it's exactly what you imagined.
+Because you test your app the way you built it. You click the right buttons. You fill the right fields. You follow the happy path you designed.
 
-Then someone else uses it.
+**Your users don't.**
 
-They don't click where you clicked. They skip the step you assumed was obvious. They type something unexpected. They land on a page from a bookmark instead of the onboarding flow. And suddenly the experience you built doesn't feel like the one they're getting.
+They submit empty forms. They paste garbage into your inputs. They bookmark random URLs. They click "submit" three times before your loading state kicks in. Every one of those moments is a silent churn event you'll never see in your logs.
 
-**Haunt checks whether the experience you imagined is the one your users actually get.**
+**Haunt fixes this.** It unleashes AI phantom users on your app while you build — a confused beginner, a user who breaks every input, someone navigating keyboard-only. Real Chromium browser, AI-driven behavior, structured bug report out.
 
 ---
 
-## 🔍 A real test, on a real app
+## 🔍 What it finds
 
-We ran Haunt on a fresh SaaS app — an AI writing tool, just before its first demo.
-
-```
-/haunt:haunt-test http://localhost:3000 --personas confused-beginner
-```
+We ran Haunt on a SaaS app after months of manual testing. 2 minutes, 6 bugs:
 
 ```
 haunt v0.1.0  —  phantom user testing
 
 scouting...
-routes: /  /signup  /editor  /dashboard  /pricing
+routes: /  /signup  /dashboard  /pricing
 
 testing 4 areas...
 
 ────────────────────────────────────────
-4 areas tested · 7 issues found
+4 areas tested · 6 issues found
 
-[!!!] 2 critical
+[!!!] 1 critical
  [!!] 4 major
   [!] 1 minor
 
-> Signup form submits silently with an empty email — no error message shown
-> /editor loads for unauthenticated users — blank page with no redirect or explanation
+> Signup form crashes the server with a 500 on empty submission — no error shown
+> Authenticated users can reach /signup and /login with no redirect
 
-fix first: add visible error feedback to the signup form — it accepts empty input
-           and shows nothing, leaving users wondering if they did something wrong
+fix first: add server-side validation to the signup handler — empty submission
+           currently returns a 500, leaving users with a blank broken screen
 
-report: .haunt-reports/2026-04-11-confused-beginner.md
+report: .haunt-reports/2026-04-20-confused-beginner.md
 ────────────────────────────────────────
 ```
 
-The signup form? Broken for anyone who didn't fill it perfectly.
-The editor? Loads for users who were never supposed to reach it yet.
-
-The developer had tested both. But they'd tested them *knowing what they were doing*.
+The developer had tested the signup form. But they'd tested it *knowing what to fill in*.
 
 ---
 
-## 💡 The gap Haunt closes
+## 🔁 Test → report → fix. One loop.
 
-> **You test your app like a developer. Your users aren't developers.**
+The report ends with a **"For Claude" section** — paste it into your next prompt and it fixes every issue in order of severity, with the likely file for each one.
 
-When you build something with AI assistance, you move fast. Features appear in hours. The happy path works perfectly because you designed it and you test it.
+```markdown
+## For Claude
 
-But real users veer off the path constantly:
+1. [CRITICAL] http://localhost:3000/signup — Add server-side validation before
+   processing signup: check email and password are non-empty, return a 400 with
+   an error message if missing. Likely in app/signup/page.tsx.
+2. [MAJOR] http://localhost:3000/signup — Add middleware or page-level session
+   check to redirect authenticated users to /dashboard. Likely in middleware.ts.
+...
+```
 
-- 📋 They paste text into the wrong field
-- 🔙 They hit the back button mid-signup and try again
-- ⌨️ They tab through your form in an order you never considered
-- 📱 They arrive from a shared link that skips your onboarding
-- 💨 They click "submit" before finishing — twice
-
-None of these are bugs you'd catch yourself. You know your app too well.
-
-Haunt doesn't. It comes in fresh, does unexpected things, and reports exactly where the experience breaks.
+Find bugs. Read report. Fix with one prompt. Run again.
 
 ---
 
 ## 🚀 Install
 
 ```
-/plugin marketplace add Chocolatine75/haunt
 /plugin install haunt
 /reload-plugins
 ```
@@ -103,23 +94,20 @@ Haunt doesn't. It comes in fresh, does unexpected things, and reports exactly wh
 # Default — a confused first-time user explores your app
 /haunt:haunt-test http://localhost:3000
 
-# Stress test — a user who does everything wrong, fast
-/haunt:haunt-test http://localhost:3000 --personas confused-beginner
+# Watch it happen in real time
+/haunt:haunt-test http://localhost:3000 --headed
 
-# Adversarial — a user who pokes at every input and every URL
+# Adversarial — probes every input and URL
 /haunt:haunt-test http://localhost:3000 --personas malicious-user
 
 # Accessibility — keyboard-only, finds every broken interaction
 /haunt:haunt-test http://localhost:3000 --personas screen-reader-user
 
-# Full sweep — all three at once
+# Full sweep — all three personas at once
 /haunt:haunt-test http://localhost:3000 --personas confused-beginner,malicious-user,screen-reader-user
 
 # Test authenticated areas — Haunt logs in first, then explores
 /haunt:haunt-test http://localhost:3000 --email you@example.com --password secret
-
-# Watch it happen
-/haunt:haunt-test http://localhost:3000 --headed
 ```
 
 Reports saved to `.haunt-reports/` — structured markdown with YAML frontmatter.
@@ -177,15 +165,15 @@ scenarios:
     │
     ├── spawns N phantoms       one browser per area, all parallel
     │   ├── 👻 /signup          confused beginner tries to register
-    │   ├── 👻 /editor          same user, lands on editor directly
     │   ├── 👻 /dashboard       tries the main app without context
-    │   └── 👻 /pricing         looks at plans, looks for a CTA
+    │   ├── 👻 /pricing         looks at plans, looks for a CTA
+    │   └── 👻 /editor          lands directly, no onboarding
     │
     └── report                  issues ranked by impact
-                                one clear "fix first" recommendation
+                                "For Claude" section auto-fixes everything
 ```
 
-No AI vision. No magic. Just a real browser reading your accessibility tree, the same way a screen reader does — and an AI deciding what a confused user would do next.
+No AI vision. No magic. Just a real browser reading your accessibility tree — and an AI deciding what a confused user would do next.
 
 ---
 
