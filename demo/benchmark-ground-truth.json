@@ -1,0 +1,32 @@
+[
+  {
+    "id": "signup-empty-email",
+    "route": "/signup",
+    "description": "Signup accepts an empty email with no error message",
+    "category": "ux"
+  },
+  {
+    "id": "dashboard-unauthenticated-access",
+    "route": "/dashboard",
+    "description": "Dashboard loads for unauthenticated users because middleware doesn't protect it",
+    "category": "security"
+  },
+  {
+    "id": "admin-client-side-role-check",
+    "route": "/admin",
+    "description": "Admin role check is client-side only and can be bypassed",
+    "category": "security"
+  },
+  {
+    "id": "login-double-submit",
+    "route": "/login",
+    "description": "Login allows double-submit because the button isn't disabled during the async request",
+    "category": "ux"
+  },
+  {
+    "id": "settings-silent-save",
+    "route": "/settings",
+    "description": "Settings save shows no success or error feedback",
+    "category": "ux"
+  }
+]

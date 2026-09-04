@@ -1,0 +1,14 @@
+[
+  {
+    "id": "test-bug-one",
+    "route": "/foo",
+    "description": "Something breaks on /foo",
+    "category": "ux"
+  },
+  {
+    "id": "test-bug-two",
+    "route": "/bar",
+    "description": "Something breaks on /bar",
+    "category": "security"
+  }
+]
