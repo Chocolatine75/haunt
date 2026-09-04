@@ -18332,6 +18332,7 @@ var SessionManager = class {
   get(id) {
     const session = this.sessions.get(id);
     if (!session) throw new Error(`Session not found: ${id}`);
+    session.last_activity = Date.now();
     return session;
   }
   delete(id) {
@@ -18344,6 +18345,23 @@ var SessionManager = class {
   all() {
     return Array.from(this.sessions.values());
   }
+  // Closes and drops any session whose browser has sat idle past ttlMs — guards against
+  // zombie Chromium processes when an orchestrator crashes before haunt_end_session.
+  // Called at the top of every tool entrypoint; never reaps the session the caller is
+  // about to act on, since that session's last_activity was just touched by get() above.
+  async reapStale(ttlMs) {
+    const now = Date.now();
+    const staleIds = Array.from(this.sessions.entries()).filter(([, session]) => now - session.last_activity > ttlMs).map(([id]) => id);
+    for (const id of staleIds) {
+      const session = this.sessions.get(id);
+      this.sessions.delete(id);
+      try {
+        await session?.browser.close();
+      } catch {
+      }
+    }
+    return staleIds;
+  }
 };
 
 // src/tools/capture.ts
@@ -18351,10 +18369,12 @@ import { mkdirSync } from "fs";
 
 // src/constants.ts
 var SCREENSHOTS_DIR = ".haunt-reports/screenshots";
+var SESSION_TTL_MS = 10 * 60 * 1e3;
 
 // src/tools/capture.ts
 async function hauntCaptureState(manager, input) {
   const session = manager.get(input.session_id);
+  await manager.reapStale(SESSION_TTL_MS);
   const { page } = session;
   const url = page.url();
   const title = await page.title();
@@ -18392,6 +18412,8 @@ async function hauntCaptureState(manager, input) {
 async function hauntEndSession(manager, input) {
   const session = manager.get(input.session_id);
   await session.browser.close();
+  manager.delete(input.session_id);
+  await manager.reapStale(SESSION_TTL_MS);
   const duration_seconds = Math.round(
     (Date.now() - session.start_time) / 1e3
   );
@@ -18404,13 +18426,13 @@ async function hauntEndSession(manager, input) {
     issues_found: session.issues,
     overall_impression: input.overall_impression ?? `Completed ${session.step_count} steps across ${session.pages_visited.length} pages.`
   };
-  manager.delete(input.session_id);
   return output;
 }
 
 // src/tools/get-cookies.ts
 async function hauntGetCookies(manager, input) {
   const session = manager.get(input.session_id);
+  await manager.reapStale(SESSION_TTL_MS);
   const raw = await session.page.context().cookies();
   const cookies = raw.map((c) => ({
     ...c,
@@ -18455,6 +18477,12 @@ async function executeAction(page, action) {
 }
 async function hauntNavigate(manager, input) {
   const session = manager.get(input.session_id);
+  await manager.reapStale(SESSION_TTL_MS);
+  if (session.step_count >= session.max_steps) {
+    throw new Error(
+      `Session ${session.id} hit its step limit (${session.max_steps}). Call haunt_end_session instead of navigating further.`
+    );
+  }
   const { page } = session;
   if (input.issues?.length) {
     session.issues.push(...input.issues);
@@ -21664,6 +21692,7 @@ function loadPersona(nameOrPath) {
 
 // src/tools/spawn.ts
 async function hauntSpawn(manager, input) {
+  await manager.reapStale(SESSION_TTL_MS);
   const personaConfig = loadPersona(input.persona);
   const sessionId = v4_default();
   const browser = await chromium.launch({
@@ -21706,6 +21735,7 @@ async function hauntSpawn(manager, input) {
     issues: [],
     pages_visited: [input.target_url],
     start_time: Date.now(),
+    last_activity: Date.now(),
     step_count: 0,
     max_steps: input.timeout ?? personaConfig.scenarios[0]?.max_steps ?? 30,
     console_errors: consoleErrors,

@@ -1,7 +1,7 @@
 // mcp-server/src/tools/navigate.ts
 import { mkdirSync } from 'node:fs';
 import type { Page } from 'playwright';
-import { SCREENSHOTS_DIR } from '../constants.js';
+import { SCREENSHOTS_DIR, SESSION_TTL_MS } from '../constants.js';
 import type { SessionManager } from '../session/manager.js';
 import type { Issue } from '../types.js';
 
@@ -86,6 +86,14 @@ export async function hauntNavigate(
   input: NavigateInput,
 ): Promise<NavigateOutput> {
   const session = manager.get(input.session_id);
+  await manager.reapStale(SESSION_TTL_MS);
+
+  if (session.step_count >= session.max_steps) {
+    throw new Error(
+      `Session ${session.id} hit its step limit (${session.max_steps}). Call haunt_end_session instead of navigating further.`,
+    );
+  }
+
   const { page } = session;
 
   // Record any issues the orchestrator flagged for this step

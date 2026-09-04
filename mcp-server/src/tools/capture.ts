@@ -1,6 +1,6 @@
 // mcp-server/src/tools/capture.ts
 import { mkdirSync } from 'node:fs';
-import { SCREENSHOTS_DIR } from '../constants.js';
+import { SCREENSHOTS_DIR, SESSION_TTL_MS } from '../constants.js';
 import type { SessionManager } from '../session/manager.js';
 
 export interface CaptureInput {
@@ -23,6 +23,7 @@ export async function hauntCaptureState(
   input: CaptureInput,
 ): Promise<CaptureOutput> {
   const session = manager.get(input.session_id);
+  await manager.reapStale(SESSION_TTL_MS);
   const { page } = session;
 
   const url = page.url();

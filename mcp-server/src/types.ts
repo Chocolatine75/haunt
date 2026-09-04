@@ -43,6 +43,7 @@ export interface HauntSession {
   issues: Issue[];
   pages_visited: string[];
   start_time: number;
+  last_activity: number;
   step_count: number;
   max_steps: number;
   // Mutable arrays — errors are captured via Playwright events and spliced out per step

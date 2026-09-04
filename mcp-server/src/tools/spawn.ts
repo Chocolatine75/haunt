@@ -2,6 +2,7 @@
 import { chromium } from 'playwright';
 import type { Cookie } from 'playwright';
 import { v4 as uuidv4 } from 'uuid';
+import { SESSION_TTL_MS } from '../constants.js';
 import { loadPersona } from '../persona/loader.js';
 import type { SessionManager } from '../session/manager.js';
 import type { HauntSession } from '../types.js';
@@ -25,6 +26,8 @@ export async function hauntSpawn(
   manager: SessionManager,
   input: SpawnInput,
 ): Promise<SpawnOutput> {
+  await manager.reapStale(SESSION_TTL_MS);
+
   const personaConfig = loadPersona(input.persona);
   const sessionId = uuidv4();
 
@@ -77,6 +80,7 @@ export async function hauntSpawn(
     issues: [],
     pages_visited: [input.target_url],
     start_time: Date.now(),
+    last_activity: Date.now(),
     step_count: 0,
     max_steps: input.timeout ?? personaConfig.scenarios[0]?.max_steps ?? 30,
     console_errors: consoleErrors,

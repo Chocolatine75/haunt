@@ -1,4 +1,5 @@
 // mcp-server/src/tools/end-session.ts
+import { SESSION_TTL_MS } from '../constants.js';
 import type { SessionManager } from '../session/manager.js';
 import type { Issue } from '../types.js';
 
@@ -24,6 +25,8 @@ export async function hauntEndSession(
   const session = manager.get(input.session_id);
 
   await session.browser.close();
+  manager.delete(input.session_id);
+  await manager.reapStale(SESSION_TTL_MS);
 
   const duration_seconds = Math.round(
     (Date.now() - session.start_time) / 1_000,
@@ -40,8 +43,6 @@ export async function hauntEndSession(
       input.overall_impression ??
       `Completed ${session.step_count} steps across ${session.pages_visited.length} pages.`,
   };
-
-  manager.delete(input.session_id);
 
   return output;
 }
