@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "main": "dist/server.js",
+  "engines": {
+    "node": ">=18"
+  },
   "bin": {
     "haunt-ci": "dist/cli.js"
   },

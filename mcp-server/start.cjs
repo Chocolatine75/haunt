@@ -3,6 +3,16 @@ const { execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
+const MIN_NODE_MAJOR = 18;
+const nodeMajor = Number(process.versions.node.split('.')[0]);
+if (nodeMajor < MIN_NODE_MAJOR) {
+  process.stderr.write(
+    `[haunt] Node.js ${MIN_NODE_MAJOR}+ is required, found ${process.version}. ` +
+      'Update Node.js and try again.\n',
+  );
+  process.exit(1);
+}
+
 const SCRIPT_DIR = __dirname;
 process.env.HAUNT_PERSONAS_DIR = path.join(SCRIPT_DIR, '..', 'personas');
 
