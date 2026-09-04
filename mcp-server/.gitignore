@@ -1,3 +1,7 @@
 node_modules/
+# Intentional: dist/node_modules/ ships playwright + playwright-core prebuilt so the
+# plugin runs with zero `npm install` step. This costs repo size (~14MB), accepted
+# tradeoff for that installability guarantee — see scripts/vendor-playwright.mjs and
+# start.cjs, which install Chromium at the exact revision this vendored copy expects.
 !dist/node_modules/
 *.tsbuildinfo
