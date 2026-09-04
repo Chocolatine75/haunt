@@ -1,7 +1,7 @@
 // mcp-server/src/tools/capture.ts
 import { mkdirSync } from 'node:fs';
-import type { SessionManager } from '../session/manager.js';
 import { SCREENSHOTS_DIR } from '../constants.js';
+import type { SessionManager } from '../session/manager.js';
 
 export interface CaptureInput {
   session_id: string;
@@ -40,9 +40,13 @@ export async function hauntCaptureState(
   let accessibility_tree: string | undefined;
   let accessibility_tree_error: string | undefined;
   try {
-    accessibility_tree = (await page.locator('body').ariaSnapshot()).slice(0, 4_000);
+    accessibility_tree = (await page.locator('body').ariaSnapshot()).slice(
+      0,
+      4_000,
+    );
   } catch (error) {
-    accessibility_tree_error = error instanceof Error ? error.message : String(error);
+    accessibility_tree_error =
+      error instanceof Error ? error.message : String(error);
   }
 
   // dom_snapshot is capped at 5000 chars to avoid token overflow
@@ -51,5 +55,12 @@ export async function hauntCaptureState(
     dom_snapshot = (await page.content()).slice(0, 5_000);
   }
 
-  return { url, title, accessibility_tree, accessibility_tree_error, dom_snapshot, screenshot_path };
+  return {
+    url,
+    title,
+    accessibility_tree,
+    accessibility_tree_error,
+    dom_snapshot,
+    screenshot_path,
+  };
 }

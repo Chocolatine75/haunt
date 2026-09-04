@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { SessionManager } from './manager.js';
+import { beforeEach, describe, expect, it } from 'vitest';
 import type { HauntSession } from '../types.js';
+import { SessionManager } from './manager.js';
 
 const mockSession = { id: 'test-id' } as unknown as HauntSession;
 
@@ -43,6 +43,8 @@ describe('SessionManager', () => {
   });
 
   it('throws when deleting a non-existent session', () => {
-    expect(() => manager.delete('missing')).toThrow('Session not found: missing');
+    expect(() => manager.delete('missing')).toThrow(
+      'Session not found: missing',
+    );
   });
 });

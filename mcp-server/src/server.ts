@@ -43,11 +43,13 @@ export function createServer(): Server {
             },
             timeout: {
               type: 'number',
-              description: 'Maximum navigation steps for this session. Default: 30',
+              description:
+                'Maximum navigation steps for this session. Default: 30',
             },
             cookies: {
               type: 'array',
-              description: 'Session cookies to inject before navigation (for authenticated testing)',
+              description:
+                'Session cookies to inject before navigation (for authenticated testing)',
               items: {
                 type: 'object',
                 properties: {
@@ -74,7 +76,10 @@ export function createServer(): Server {
         inputSchema: {
           type: 'object',
           properties: {
-            session_id: { type: 'string', description: 'Session ID from haunt_spawn' },
+            session_id: {
+              type: 'string',
+              description: 'Session ID from haunt_spawn',
+            },
           },
           required: ['session_id'],
         },
@@ -86,7 +91,10 @@ export function createServer(): Server {
         inputSchema: {
           type: 'object',
           properties: {
-            session_id: { type: 'string', description: 'Session ID from haunt_spawn' },
+            session_id: {
+              type: 'string',
+              description: 'Session ID from haunt_spawn',
+            },
             action: {
               type: 'string',
               description:
@@ -98,13 +106,31 @@ export function createServer(): Server {
               items: {
                 type: 'object',
                 properties: {
-                  severity: { type: 'string', enum: ['critical', 'major', 'minor', 'suggestion'] },
-                  category: { type: 'string', enum: ['ux', 'accessibility', 'performance', 'security', 'content'] },
+                  severity: {
+                    type: 'string',
+                    enum: ['critical', 'major', 'minor', 'suggestion'],
+                  },
+                  category: {
+                    type: 'string',
+                    enum: [
+                      'ux',
+                      'accessibility',
+                      'performance',
+                      'security',
+                      'content',
+                    ],
+                  },
                   description: { type: 'string' },
                   page_url: { type: 'string' },
                   recommendation: { type: 'string' },
                 },
-                required: ['severity', 'category', 'description', 'page_url', 'recommendation'],
+                required: [
+                  'severity',
+                  'category',
+                  'description',
+                  'page_url',
+                  'recommendation',
+                ],
               },
             },
           },
@@ -119,10 +145,14 @@ export function createServer(): Server {
           type: 'object',
           properties: {
             session_id: { type: 'string' },
-            include_screenshot: { type: 'boolean', description: 'Default: true' },
+            include_screenshot: {
+              type: 'boolean',
+              description: 'Default: true',
+            },
             include_dom: {
               type: 'boolean',
-              description: 'Include raw HTML snapshot (capped at 5000 chars). Default: false',
+              description:
+                'Include raw HTML snapshot (capped at 5000 chars). Default: false',
             },
           },
           required: ['session_id'],
@@ -138,7 +168,8 @@ export function createServer(): Server {
             session_id: { type: 'string' },
             overall_impression: {
               type: 'string',
-              description: "The orchestrator's summary of the session from the persona's perspective",
+              description:
+                "The orchestrator's summary of the session from the persona's perspective",
             },
           },
           required: ['session_id'],
@@ -154,15 +185,30 @@ export function createServer(): Server {
       let result: unknown;
 
       if (name === 'haunt_spawn') {
-        result = await hauntSpawn(manager, args as Parameters<typeof hauntSpawn>[1]);
+        result = await hauntSpawn(
+          manager,
+          args as unknown as Parameters<typeof hauntSpawn>[1],
+        );
       } else if (name === 'haunt_navigate') {
-        result = await hauntNavigate(manager, args as Parameters<typeof hauntNavigate>[1]);
+        result = await hauntNavigate(
+          manager,
+          args as unknown as Parameters<typeof hauntNavigate>[1],
+        );
       } else if (name === 'haunt_capture_state') {
-        result = await hauntCaptureState(manager, args as Parameters<typeof hauntCaptureState>[1]);
+        result = await hauntCaptureState(
+          manager,
+          args as unknown as Parameters<typeof hauntCaptureState>[1],
+        );
       } else if (name === 'haunt_end_session') {
-        result = await hauntEndSession(manager, args as Parameters<typeof hauntEndSession>[1]);
+        result = await hauntEndSession(
+          manager,
+          args as unknown as Parameters<typeof hauntEndSession>[1],
+        );
       } else if (name === 'haunt_get_cookies') {
-        result = await hauntGetCookies(manager, args as Parameters<typeof hauntGetCookies>[1]);
+        result = await hauntGetCookies(
+          manager,
+          args as unknown as Parameters<typeof hauntGetCookies>[1],
+        );
       } else {
         throw new Error(`Unknown tool: ${name}`);
       }

@@ -1,6 +1,6 @@
-import { readFileSync } from 'fs';
-import { resolve } from 'path';
-import { fileURLToPath } from 'url';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import yaml from 'js-yaml';
 import { z } from 'zod';
 import type { PersonaConfig } from '../types.js';
@@ -10,8 +10,7 @@ const __dirname = fileURLToPath(new URL('.', import.meta.url));
 // When bundled by tsup, import.meta.url resolves to dist/server.js.
 // HAUNT_PERSONAS_DIR env var (set in .mcp.json) overrides this path.
 const BUILTIN_PERSONAS_DIR =
-  process.env.HAUNT_PERSONAS_DIR ??
-  resolve(__dirname, '../../../personas');
+  process.env.HAUNT_PERSONAS_DIR ?? resolve(__dirname, '../../../personas');
 
 const PersonaSchema = z.object({
   name: z.string(),
@@ -30,7 +29,13 @@ const PersonaSchema = z.object({
         max_steps: z.number().default(30),
       }),
     )
-    .default([{ name: 'Free Exploration', goal: 'Explore the application freely', max_steps: 30 }]),
+    .default([
+      {
+        name: 'Free Exploration',
+        goal: 'Explore the application freely',
+        max_steps: 30,
+      },
+    ]),
 });
 
 export function loadPersona(nameOrPath: string): PersonaConfig {

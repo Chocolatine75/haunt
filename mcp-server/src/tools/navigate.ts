@@ -47,7 +47,9 @@ async function executeAction(page: Page, action: string): Promise<void> {
   }
 
   // fill/type/enter <text> in/into <field>
-  const fillMatch = trimmed.match(/^(?:fill|type|enter|input)\s+(.+?)\s+in(?:to)?\s+(.+)/i);
+  const fillMatch = trimmed.match(
+    /^(?:fill|type|enter|input)\s+(.+?)\s+in(?:to)?\s+(.+)/i,
+  );
   if (fillMatch) {
     const text = fillMatch[1].replace(/^['"]|['"]$/g, '');
     const field = fillMatch[2].replace(/^['"]|['"]$/g, '');
@@ -76,7 +78,10 @@ async function executeAction(page: Page, action: string): Promise<void> {
   }
 
   // Fall back to text content
-  await page.getByText(clickTarget, { exact: false }).first().click({ timeout: 5_000 });
+  await page
+    .getByText(clickTarget, { exact: false })
+    .first()
+    .click({ timeout: 5_000 });
 }
 
 export async function hauntNavigate(
@@ -111,7 +116,8 @@ export async function hauntNavigate(
       description: `Action failed: "${input.action}". ${error instanceof Error ? error.message : String(error)}`,
       page_url: page.url(),
       screenshot_path: screenshotPath,
-      recommendation: 'Ensure this interaction is reachable and clearly labeled.',
+      recommendation:
+        'Ensure this interaction is reachable and clearly labeled.',
     };
     session.issues.push(issue);
 

@@ -1,7 +1,12 @@
 import type { Browser, Page } from 'playwright';
 
 export type IssueSeverity = 'critical' | 'major' | 'minor' | 'suggestion';
-export type IssueCategory = 'ux' | 'accessibility' | 'performance' | 'security' | 'content';
+export type IssueCategory =
+  | 'ux'
+  | 'accessibility'
+  | 'performance'
+  | 'security'
+  | 'content';
 
 export interface Issue {
   severity: IssueSeverity;

@@ -25,7 +25,9 @@ export async function hauntEndSession(
 
   await session.browser.close();
 
-  const duration_seconds = Math.round((Date.now() - session.start_time) / 1_000);
+  const duration_seconds = Math.round(
+    (Date.now() - session.start_time) / 1_000,
+  );
 
   const output: EndSessionOutput = {
     session_id: session.id,

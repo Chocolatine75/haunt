@@ -18367,7 +18367,10 @@ async function hauntCaptureState(manager, input) {
   let accessibility_tree;
   let accessibility_tree_error;
   try {
-    accessibility_tree = (await page.locator("body").ariaSnapshot()).slice(0, 4e3);
+    accessibility_tree = (await page.locator("body").ariaSnapshot()).slice(
+      0,
+      4e3
+    );
   } catch (error2) {
     accessibility_tree_error = error2 instanceof Error ? error2.message : String(error2);
   }
@@ -18375,14 +18378,23 @@ async function hauntCaptureState(manager, input) {
   if (input.include_dom) {
     dom_snapshot = (await page.content()).slice(0, 5e3);
   }
-  return { url, title, accessibility_tree, accessibility_tree_error, dom_snapshot, screenshot_path };
+  return {
+    url,
+    title,
+    accessibility_tree,
+    accessibility_tree_error,
+    dom_snapshot,
+    screenshot_path
+  };
 }
 
 // src/tools/end-session.ts
 async function hauntEndSession(manager, input) {
   const session = manager.get(input.session_id);
   await session.browser.close();
-  const duration_seconds = Math.round((Date.now() - session.start_time) / 1e3);
+  const duration_seconds = Math.round(
+    (Date.now() - session.start_time) / 1e3
+  );
   const output = {
     session_id: session.id,
     persona: session.persona.name,
@@ -18422,7 +18434,9 @@ async function executeAction(page, action) {
     await page.keyboard.press(key);
     return;
   }
-  const fillMatch = trimmed.match(/^(?:fill|type|enter|input)\s+(.+?)\s+in(?:to)?\s+(.+)/i);
+  const fillMatch = trimmed.match(
+    /^(?:fill|type|enter|input)\s+(.+?)\s+in(?:to)?\s+(.+)/i
+  );
   if (fillMatch) {
     const text = fillMatch[1].replace(/^['"]|['"]$/g, "");
     const field = fillMatch[2].replace(/^['"]|['"]$/g, "");
@@ -21633,7 +21647,13 @@ var PersonaSchema = external_exports.object({
       goal: external_exports.string(),
       max_steps: external_exports.number().default(30)
     })
-  ).default([{ name: "Free Exploration", goal: "Explore the application freely", max_steps: 30 }])
+  ).default([
+    {
+      name: "Free Exploration",
+      goal: "Explore the application freely",
+      max_steps: 30
+    }
+  ])
 });
 function loadPersona(nameOrPath) {
   const filePath = nameOrPath.endsWith(".yaml") || nameOrPath.endsWith(".yml") ? nameOrPath : resolve(BUILTIN_PERSONAS_DIR, `${nameOrPath}.yaml`);
@@ -21687,7 +21707,7 @@ async function hauntSpawn(manager, input) {
     pages_visited: [input.target_url],
     start_time: Date.now(),
     step_count: 0,
-    max_steps: input.timeout ?? (personaConfig.scenarios[0]?.max_steps ?? 30),
+    max_steps: input.timeout ?? personaConfig.scenarios[0]?.max_steps ?? 30,
     console_errors: consoleErrors,
     network_errors: networkErrors
   };
@@ -21759,7 +21779,10 @@ function createServer() {
         inputSchema: {
           type: "object",
           properties: {
-            session_id: { type: "string", description: "Session ID from haunt_spawn" }
+            session_id: {
+              type: "string",
+              description: "Session ID from haunt_spawn"
+            }
           },
           required: ["session_id"]
         }
@@ -21770,7 +21793,10 @@ function createServer() {
         inputSchema: {
           type: "object",
           properties: {
-            session_id: { type: "string", description: "Session ID from haunt_spawn" },
+            session_id: {
+              type: "string",
+              description: "Session ID from haunt_spawn"
+            },
             action: {
               type: "string",
               description: 'Action to perform, e.g. "click Login", "fill test@example.com in Email", "goto http://localhost:3000/about", "press Enter"'
@@ -21781,13 +21807,31 @@ function createServer() {
               items: {
                 type: "object",
                 properties: {
-                  severity: { type: "string", enum: ["critical", "major", "minor", "suggestion"] },
-                  category: { type: "string", enum: ["ux", "accessibility", "performance", "security", "content"] },
+                  severity: {
+                    type: "string",
+                    enum: ["critical", "major", "minor", "suggestion"]
+                  },
+                  category: {
+                    type: "string",
+                    enum: [
+                      "ux",
+                      "accessibility",
+                      "performance",
+                      "security",
+                      "content"
+                    ]
+                  },
                   description: { type: "string" },
                   page_url: { type: "string" },
                   recommendation: { type: "string" }
                 },
-                required: ["severity", "category", "description", "page_url", "recommendation"]
+                required: [
+                  "severity",
+                  "category",
+                  "description",
+                  "page_url",
+                  "recommendation"
+                ]
               }
             }
           },
@@ -21801,7 +21845,10 @@ function createServer() {
           type: "object",
           properties: {
             session_id: { type: "string" },
-            include_screenshot: { type: "boolean", description: "Default: true" },
+            include_screenshot: {
+              type: "boolean",
+              description: "Default: true"
+            },
             include_dom: {
               type: "boolean",
               description: "Include raw HTML snapshot (capped at 5000 chars). Default: false"
@@ -21832,15 +21879,30 @@ function createServer() {
     try {
       let result;
       if (name === "haunt_spawn") {
-        result = await hauntSpawn(manager, args);
+        result = await hauntSpawn(
+          manager,
+          args
+        );
       } else if (name === "haunt_navigate") {
-        result = await hauntNavigate(manager, args);
+        result = await hauntNavigate(
+          manager,
+          args
+        );
       } else if (name === "haunt_capture_state") {
-        result = await hauntCaptureState(manager, args);
+        result = await hauntCaptureState(
+          manager,
+          args
+        );
       } else if (name === "haunt_end_session") {
-        result = await hauntEndSession(manager, args);
+        result = await hauntEndSession(
+          manager,
+          args
+        );
       } else if (name === "haunt_get_cookies") {
-        result = await hauntGetCookies(manager, args);
+        result = await hauntGetCookies(
+          manager,
+          args
+        );
       } else {
         throw new Error(`Unknown tool: ${name}`);
       }

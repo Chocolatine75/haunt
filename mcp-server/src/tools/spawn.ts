@@ -78,7 +78,7 @@ export async function hauntSpawn(
     pages_visited: [input.target_url],
     start_time: Date.now(),
     step_count: 0,
-    max_steps: input.timeout ?? (personaConfig.scenarios[0]?.max_steps ?? 30),
+    max_steps: input.timeout ?? personaConfig.scenarios[0]?.max_steps ?? 30,
     console_errors: consoleErrors,
     network_errors: networkErrors,
   };

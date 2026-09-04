@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { resolve } from 'path';
-import { fileURLToPath } from 'url';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, it } from 'vitest';
 import { loadPersona } from './loader.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
@@ -20,7 +20,9 @@ describe('loadPersona', () => {
   });
 
   it('throws on invalid YAML structure', () => {
-    expect(() => loadPersona(resolve(FIXTURES, 'invalid-persona.yaml'))).toThrow();
+    expect(() =>
+      loadPersona(resolve(FIXTURES, 'invalid-persona.yaml')),
+    ).toThrow();
   });
 
   it('applies default max_steps when omitted', () => {
