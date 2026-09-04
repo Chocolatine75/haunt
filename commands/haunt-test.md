@@ -145,6 +145,12 @@ On `haunt_spawn` failure: print `skipped /area: <error>` and continue.
 
 Do NOT spawn any agent or sub-agent. Generate the report yourself and save it with the Write tool.
 
+**Never write credentials to the report file.** The report is saved to disk under
+`.haunt-reports/` and can end up committed by accident. Never include the value of
+`--password`, `--email`, or any cookie (name or value) in the report — not in an issue
+description, a session impression, or a quoted DOM/accessibility snippet. If a captured
+snippet happens to contain one of these, redact it (e.g. `[redacted]`) before writing.
+
 **Compute from all EndSessionOutput objects:**
 - total, critical, major, minor issue counts
 - top fix: the single highest-impact recommendation across all sessions
