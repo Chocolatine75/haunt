@@ -5,9 +5,6 @@ import { SCREENSHOTS_DIR } from '../constants.js';
 import type { SessionManager } from '../session/manager.js';
 import type { Issue } from '../types.js';
 
-// Ensure screenshot dir exists at module load — avoids a syscall on every action failure
-mkdirSync(SCREENSHOTS_DIR, { recursive: true });
-
 export interface NavigateInput {
   session_id: string;
   // Natural language action decided by the orchestrator, e.g.:
@@ -108,6 +105,7 @@ export async function hauntNavigate(
     await executeAction(page, input.action);
   } catch (error) {
     screenshotPath = `${session.id}-step-${session.step_count}.png`;
+    mkdirSync(SCREENSHOTS_DIR, { recursive: true });
     await page.screenshot({ path: `${SCREENSHOTS_DIR}/${screenshotPath}` });
 
     const issue: Issue = {

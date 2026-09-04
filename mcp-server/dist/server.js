@@ -18421,7 +18421,6 @@ async function hauntGetCookies(manager, input) {
 
 // src/tools/navigate.ts
 import { mkdirSync as mkdirSync2 } from "fs";
-mkdirSync2(SCREENSHOTS_DIR, { recursive: true });
 async function executeAction(page, action) {
   const trimmed = action.trim();
   if (/^(goto|navigate to|go to)\s+/i.test(trimmed)) {
@@ -18468,6 +18467,7 @@ async function hauntNavigate(manager, input) {
     await executeAction(page, input.action);
   } catch (error2) {
     screenshotPath = `${session.id}-step-${session.step_count}.png`;
+    mkdirSync2(SCREENSHOTS_DIR, { recursive: true });
     await page.screenshot({ path: `${SCREENSHOTS_DIR}/${screenshotPath}` });
     const issue2 = {
       severity: "major",
