@@ -14,6 +14,8 @@
 // discovery (scouting up to 4 areas from real links) — that's a reasonable next
 // step, not implemented here to keep this landing as a working, honestly-scoped v1.
 import 'dotenv/config';
+import { realpathSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import Anthropic from '@anthropic-ai/sdk';
 import { Mistral } from '@mistralai/mistralai';
 import { SessionManager } from '../session/manager.js';
@@ -313,7 +315,23 @@ async function main() {
   }
 }
 
-// Only auto-run when executed directly (not when imported by tests)
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Only auto-run when executed directly (not when imported by tests). Comparing
+// raw import.meta.url to process.argv[1] breaks under any symlink in the path
+// (e.g. macOS's /tmp -> /private/tmp) — import.meta.url resolves through it,
+// argv[1] doesn't, so the strings never match and main() silently never runs:
+// exit 0, no output, no error — the worst failure mode for a CI tool. Resolve
+// both sides with realpathSync first so a symlinked install path still works.
+function isMainModule(): boolean {
+  try {
+    return (
+      realpathSync(fileURLToPath(import.meta.url)) ===
+      realpathSync(process.argv[1])
+    );
+  } catch {
+    return false;
+  }
+}
+
+if (isMainModule()) {
   main();
 }

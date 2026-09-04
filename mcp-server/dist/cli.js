@@ -458,6 +458,10 @@ var require_cli_options = __commonJS({
   );
 })();
 
+// src/cli/headless.ts
+import { realpathSync } from "fs";
+import { fileURLToPath } from "url";
+
 // node_modules/@mistralai/mistralai/esm/lib/url.js
 var hasOwn = Object.prototype.hasOwnProperty;
 function pathToFunc(pathPattern, options) {
@@ -34514,7 +34518,14 @@ async function main() {
     process.exit(2);
   }
 }
-if (import.meta.url === `file://${process.argv[1]}`) {
+function isMainModule() {
+  try {
+    return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1]);
+  } catch {
+    return false;
+  }
+}
+if (isMainModule()) {
   main();
 }
 export {
