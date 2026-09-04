@@ -208,4 +208,115 @@ describe('hauntGenerateReport', () => {
     expect(withIssues.summary).toContain('> XSS in comment field  [/comments]');
     expect(withIssues.summary).toContain('fix first: Sanitize input');
   });
+
+  it('writes a JSON sidecar with the sorted issues alongside the markdown', () => {
+    const result = hauntGenerateReport({
+      target_url: 'http://localhost:3000',
+      personas: ['confused-beginner'],
+      date: '2026-02-02',
+      sessions: [
+        {
+          area: '/a',
+          persona: 'p',
+          overall_impression: '',
+          issues: [issue({ severity: 'critical', description: 'boom' })],
+        },
+      ],
+    });
+
+    const sidecarPath = result.report_path.replace(/\.md$/, '.json');
+    const sidecar = JSON.parse(readFileSync(sidecarPath, 'utf-8'));
+    expect(sidecar.issues).toHaveLength(1);
+    expect(sidecar.issues[0].description).toBe('boom');
+  });
+
+  describe('compare_with', () => {
+    it('tags issues as still present vs. new, and lists resolved ones', () => {
+      const first = hauntGenerateReport({
+        target_url: 'http://localhost:3000',
+        personas: ['confused-beginner'],
+        date: '2026-04-01',
+        sessions: [
+          {
+            area: '/a',
+            persona: 'p',
+            overall_impression: '',
+            issues: [
+              issue({
+                severity: 'critical',
+                description: 'XSS in comments',
+                page_url: '/comments',
+                category: 'security',
+              }),
+              issue({
+                severity: 'minor',
+                description: 'Missing alt text',
+                page_url: '/gallery',
+                category: 'accessibility',
+              }),
+            ],
+          },
+        ],
+      });
+
+      const second = hauntGenerateReport({
+        target_url: 'http://localhost:3000',
+        personas: ['confused-beginner'],
+        date: '2026-04-08',
+        compare_with: first.report_path,
+        sessions: [
+          {
+            area: '/a',
+            persona: 'p',
+            overall_impression: '',
+            issues: [
+              // Same page/category/severity as before — still present
+              issue({
+                severity: 'critical',
+                description: 'XSS in comments (still reproduces)',
+                page_url: '/comments',
+                category: 'security',
+              }),
+              // Not in the first run — new
+              issue({
+                severity: 'major',
+                description: 'Broken checkout button',
+                page_url: '/checkout',
+                category: 'ux',
+              }),
+            ],
+          },
+        ],
+      });
+
+      expect(second.comparison?.still_present_count).toBe(1);
+      expect(second.comparison?.new_count).toBe(1);
+      expect(second.comparison?.resolved).toHaveLength(1);
+      expect(second.comparison?.resolved[0].description).toBe(
+        'Missing alt text',
+      );
+      expect(second.markdown).toContain('(still present)');
+      expect(second.markdown).toContain('(new)');
+      expect(second.markdown).toContain('## Comparison');
+      expect(second.summary).toContain(
+        'vs previous run: 1 still present · 1 new · 1 resolved',
+      );
+    });
+
+    it('reports comparison_error instead of failing when the target is missing', () => {
+      const result = hauntGenerateReport({
+        target_url: 'http://localhost:3000',
+        personas: ['confused-beginner'],
+        date: '2026-04-01',
+        compare_with: `${REPORTS_DIR}/2020-01-01-nonexistent.md`,
+        sessions: [
+          { area: '/a', persona: 'p', overall_impression: '', issues: [] },
+        ],
+      });
+
+      expect(result.comparison).toBeUndefined();
+      expect(result.comparison_error).toMatch(/No sidecar data found/);
+      expect(result.markdown).toContain('Could not compare with');
+    });
+  });
 });

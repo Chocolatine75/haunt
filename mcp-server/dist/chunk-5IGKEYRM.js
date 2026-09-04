@@ -112,7 +112,7 @@ async function hauntEndSession(manager, input) {
 }
 
 // src/tools/generate-report.ts
-import { mkdirSync as mkdirSync2, writeFileSync } from "fs";
+import { existsSync, mkdirSync as mkdirSync2, readFileSync, writeFileSync } from "fs";
 var SEVERITY_ORDER = [
   "critical",
   "major",
@@ -147,9 +147,37 @@ function countBySeverity(issues) {
     suggestion: issues.filter((i) => i.severity === "suggestion").length
   };
 }
-function renderIssueBlock(issue, index) {
+function issueKey(issue) {
+  return `${issue.page_url}||${issue.category}||${issue.severity}`;
+}
+function sidecarPathFor(reportPath) {
+  return reportPath.endsWith(".md") ? `${reportPath.slice(0, -3)}.json` : `${reportPath}.json`;
+}
+function loadPreviousIssues(compareWith) {
+  const sidecarPath = compareWith.endsWith(".json") ? compareWith : sidecarPathFor(compareWith);
+  if (!existsSync(sidecarPath)) {
+    throw new Error(`No sidecar data found at ${sidecarPath}`);
+  }
+  const parsed = JSON.parse(readFileSync(sidecarPath, "utf-8"));
+  if (!Array.isArray(parsed.issues)) {
+    throw new Error(`${sidecarPath} does not contain an issues array`);
+  }
+  return parsed.issues;
+}
+function compareIssues(oldIssues, newIssues, compareWith) {
+  const oldKeys = new Set(oldIssues.map(issueKey));
+  const newKeys = new Set(newIssues.map(issueKey));
+  return {
+    compared_with: compareWith,
+    resolved: oldIssues.filter((i) => !newKeys.has(issueKey(i))),
+    still_present_count: newIssues.filter((i) => oldKeys.has(issueKey(i))).length,
+    new_count: newIssues.filter((i) => !oldKeys.has(issueKey(i))).length
+  };
+}
+function renderIssueBlock(issue, index, previousKeys) {
+  const statusTag = previousKeys ? previousKeys.has(issueKey(issue)) ? " _(still present)_" : " _(new)_" : "";
   const lines = [
-    `### ${index + 1}. [${issue.severity.toUpperCase()}] ${issue.description}`,
+    `### ${index + 1}. [${issue.severity.toUpperCase()}] ${issue.description}${statusTag}`,
     `- **Page:** \`${issue.page_url}\``,
     `- **Fix:** ${issue.recommendation}`
   ];
@@ -166,7 +194,22 @@ function renderForClaudeLine(issue, index) {
   const fileSuffix = file ? ` Likely in \`${file}\`.` : "";
   return `${index + 1}. [${issue.severity.toUpperCase()}] \`${issue.page_url}\` \u2014 ${issue.recommendation}.${fileSuffix}`;
 }
-function renderSummary(sessions, sortedIssues, counts, topFix, reportPath) {
+function renderComparisonSection(comparison) {
+  const lines = [
+    `Compared with \`${comparison.compared_with}\`: ${comparison.still_present_count} still present, ${comparison.new_count} new, ${comparison.resolved.length} resolved.`
+  ];
+  if (comparison.resolved.length > 0) {
+    lines.push("");
+    lines.push("Resolved since then:");
+    for (const issue of comparison.resolved) {
+      lines.push(
+        `- [${issue.severity.toUpperCase()}] ${issue.description} (\`${issue.page_url}\`)`
+      );
+    }
+  }
+  return lines.join("\n");
+}
+function renderSummary(sessions, sortedIssues, counts, topFix, reportPath, comparison) {
   const rule = "-".repeat(40);
   const lines = [
     rule,
@@ -189,6 +232,12 @@ function renderSummary(sessions, sortedIssues, counts, topFix, reportPath) {
   if (counts.total > 0) {
     lines.push(`fix first: ${topFix}`, "");
   }
+  if (comparison) {
+    lines.push(
+      `vs previous run: ${comparison.still_present_count} still present \xB7 ${comparison.new_count} new \xB7 ${comparison.resolved.length} resolved`,
+      ""
+    );
+  }
   lines.push(`report: ${reportPath}`, rule);
   return lines.join("\n");
 }
@@ -202,6 +251,18 @@ function hauntGenerateReport(input) {
   const top_fix = sorted[0]?.recommendation ?? "";
   const personaSlug = input.personas.join("-").toLowerCase().replace(/[^a-z0-9-]+/g, "-");
   const report_path = `${REPORTS_DIR}/${date}-${personaSlug}.md`;
+  let comparison;
+  let comparison_error;
+  let previousIssues;
+  if (input.compare_with) {
+    try {
+      previousIssues = loadPreviousIssues(input.compare_with);
+      comparison = compareIssues(previousIssues, sorted, input.compare_with);
+    } catch (error) {
+      comparison_error = error instanceof Error ? error.message : String(error);
+    }
+  }
+  const previousKeys = previousIssues ? new Set(previousIssues.map(issueKey)) : void 0;
   const frontmatter = [
     "---",
     "haunt: true",
@@ -217,7 +278,7 @@ function hauntGenerateReport(input) {
     `top_fix: "${top_fix.replace(/"/g, "'")}"`,
     "---"
   ].join("\n");
-  const issuesSection = sorted.length ? sorted.map(renderIssueBlock).join("\n\n") : "_No issues found._";
+  const issuesSection = sorted.length ? sorted.map((issue, i) => renderIssueBlock(issue, i, previousKeys)).join("\n\n") : "_No issues found._";
   const impressionsSection = input.sessions.map((s) => `**${s.area} \u2014 ${s.persona}:** "${s.overall_impression}"`).join("\n");
   const forClaudeSection = sorted.length ? sorted.map(renderForClaudeLine).join("\n") : "_No issues found._";
   const bodySections = [
@@ -237,6 +298,21 @@ function hauntGenerateReport(input) {
   if (counts.total > 0) {
     bodySections.push("", "## Top Fix", "", top_fix);
   }
+  if (comparison) {
+    bodySections.push(
+      "",
+      "## Comparison",
+      "",
+      renderComparisonSection(comparison)
+    );
+  } else if (comparison_error) {
+    bodySections.push(
+      "",
+      "## Comparison",
+      "",
+      `Could not compare with \`${input.compare_with}\`: ${comparison_error}`
+    );
+  }
   bodySections.push(
     "",
     "## For Claude",
@@ -250,14 +326,37 @@ function hauntGenerateReport(input) {
   const markdown = bodySections.join("\n");
   mkdirSync2(REPORTS_DIR, { recursive: true });
   writeFileSync(report_path, markdown, "utf-8");
+  writeFileSync(
+    sidecarPathFor(report_path),
+    JSON.stringify(
+      {
+        target_url: input.target_url,
+        date,
+        personas: input.personas,
+        issues: sorted
+      },
+      null,
+      2
+    ),
+    "utf-8"
+  );
   const summary = renderSummary(
     input.sessions,
     sorted,
     counts,
     top_fix,
-    report_path
+    report_path,
+    comparison
   );
-  return { report_path, markdown, summary, counts, top_fix };
+  return {
+    report_path,
+    markdown,
+    summary,
+    counts,
+    top_fix,
+    comparison,
+    comparison_error
+  };
 }
 
 // src/tools/navigate.ts
@@ -352,7 +451,7 @@ async function hauntNavigate(manager, input) {
 }
 
 // src/tools/spawn.ts
-import { existsSync } from "fs";
+import { existsSync as existsSync2 } from "fs";
 import { chromium } from "playwright";
 
 // node_modules/uuid/dist/esm/stringify.js
@@ -407,7 +506,7 @@ function v4(options, buf, offset) {
 var v4_default = v4;
 
 // src/persona/loader.ts
-import { readFileSync } from "fs";
+import { readFileSync as readFileSync2 } from "fs";
 import { resolve } from "path";
 import { fileURLToPath } from "url";
 
@@ -7546,7 +7645,7 @@ var PersonaSchema = external_exports.object({
 });
 function loadPersona(nameOrPath) {
   const filePath = nameOrPath.endsWith(".yaml") || nameOrPath.endsWith(".yml") ? nameOrPath : resolve(BUILTIN_PERSONAS_DIR, `${nameOrPath}.yaml`);
-  const raw = readFileSync(filePath, "utf-8");
+  const raw = readFileSync2(filePath, "utf-8");
   const parsed = yaml.load(raw);
   return PersonaSchema.parse(parsed);
 }
@@ -7584,7 +7683,7 @@ async function hauntSpawn(manager, input) {
   const personaConfig = loadPersona(input.persona);
   const sessionId = v4_default();
   const executablePath = chromium.executablePath();
-  if (!existsSync(executablePath)) {
+  if (!existsSync2(executablePath)) {
     throw new Error(
       `Chromium is not installed at ${executablePath}. Run: node node_modules/playwright-core/cli.js install chromium (or npx playwright install chromium), then try again.`
     );

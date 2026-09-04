@@ -21,6 +21,8 @@ Run phantom user tests against a running web app.
 | `--personas <list>` | `confused-beginner` | Comma-separated personas to run. Available: `confused-beginner`, `malicious-user`, `screen-reader-user` |
 | `--headed` | headless | Show the browser window in real time |
 | `--steps <N>` | `3` | Max navigation steps per area |
+| `--routes <list>` | — | Comma-separated paths to test directly (e.g. `/signup,/pricing`), skipping DOM-based route discovery |
+| `--compare <path>` | — | Diff this run against a previous report's `.md` path — annotates issues as new/still-present, lists resolved ones |
 | `--email <email>` | — | Log in before testing (use with `--password`) |
 | `--password <pass>` | — | Password to use for login |
 | `--debug-auth` | — | Print each auth step verbosely — use when login fails silently |
@@ -54,6 +56,12 @@ Run phantom user tests against a running web app.
 
 # Skip confirmation prompt (for scripted use)
 /haunt:haunt-test http://localhost:3000 --yes
+
+# Target specific routes instead of auto-discovering them
+/haunt:haunt-test http://localhost:3000 --routes /signup,/pricing,/checkout
+
+# Re-run after fixes and see what's resolved vs. still broken
+/haunt:haunt-test http://localhost:3000 --compare .haunt-reports/2026-01-01-confused-beginner.md
 ```
 
 ### Output

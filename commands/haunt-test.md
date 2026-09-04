@@ -13,6 +13,12 @@ Run a phantom user test session against a running web application.
   Available: confused-beginner, malicious-user, screen-reader-user
 - `--headed` — Show the browser window in real time (default: headless)
 - `--steps` — Max navigation steps per area (default: 3)
+- `--routes` — Comma-separated paths to test directly (e.g. `/signup,/pricing`),
+  skipping Phase 1's DOM-based route discovery. Use when you already know which
+  areas matter, or when scouting misses/over-picks routes.
+- `--compare` — Path to a previous report (its `.md` path) to diff this run
+  against. The final report and summary annotate each issue as new vs. still
+  present, and list issues from that run that no longer reproduce.
 - `--email` — Email to log in with before testing
 - `--password` — Password to log in with (use with --email)
 - `--debug-auth` — Print each auth step verbosely (use when auth fails silently)
@@ -81,6 +87,14 @@ Parse arguments:
 - `personas` — from `--personas` (default: `["confused-beginner"]`)
 - `headless` — true unless `--headed`
 - `steps` — from `--steps` (default: 3)
+- `routes` — from `--routes`, comma-separated, or empty if not given
+
+**If `--routes` was given, skip discovery entirely**: the page plan is exactly
+those paths (each resolved against `target_url`'s origin), in the order given —
+no cap at 4. Print `routes (manual): <path1>  <path2>  ...` and go straight to
+Phase 1.5.
+
+Otherwise, discover routes from the real page:
 
 Print: `scouting...`
 
@@ -157,7 +171,11 @@ For each session, gather:
 - `overall_impression` — from that session's `EndSessionOutput`
 - `issues` — that session's `EndSessionOutput.issues_found`
 
-Call `haunt_generate_report` with `target_url`, `personas` (the list used this run), and
-`sessions` (the array assembled above).
+Call `haunt_generate_report` with `target_url`, `personas` (the list used this run),
+`sessions` (the array assembled above), and — if `--compare <path>` was given —
+`compare_with: <path>`.
 
 **Print exactly the `summary` field the tool returns.** Do not reconstruct it yourself.
+If `compare_with` was passed and the tool returns a `comparison_error`, that means the
+path couldn't be read (e.g. typo, or a report from before comparison support existed)
+— this is not a failure of the run itself, just note it's not comparable.

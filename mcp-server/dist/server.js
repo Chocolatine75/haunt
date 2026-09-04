@@ -7,7 +7,7 @@ import {
   hauntGenerateReport,
   hauntNavigate,
   hauntSpawn
-} from "./chunk-FE7GFZSQ.js";
+} from "./chunk-5IGKEYRM.js";
 import {
   _enum,
   _null,
@@ -10806,6 +10806,10 @@ function createServer() {
                 },
                 required: ["area", "persona", "overall_impression", "issues"]
               }
+            },
+            compare_with: {
+              type: "string",
+              description: "Path to a previous report (its .md path, or the .json sidecar directly) to diff against. Annotates each current issue as new vs. still present, and lists issues from that run no longer found."
             }
           },
           required: ["target_url", "personas", "sessions"]

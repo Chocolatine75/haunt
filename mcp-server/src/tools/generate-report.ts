@@ -1,5 +1,5 @@
 // mcp-server/src/tools/generate-report.ts
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { REPORTS_DIR } from '../constants.js';
 import type { Issue, IssueSeverity } from '../types.js';
 
@@ -16,6 +16,11 @@ export interface GenerateReportInput {
   sessions: SessionResult[];
   // Injectable for tests; defaults to today (UTC) when omitted.
   date?: string;
+  // Path to a previous report (its .md path, or the .json sidecar directly) to
+  // diff against — annotates which issues are new vs. still present, and which
+  // ones from that run are gone. Optional; a missing/unreadable file is reported
+  // back as comparison_error rather than failing report generation.
+  compare_with?: string;
 }
 
 export interface IssueCounts {
@@ -26,12 +31,21 @@ export interface IssueCounts {
   suggestion: number;
 }
 
+export interface ComparisonResult {
+  compared_with: string;
+  resolved: Issue[];
+  still_present_count: number;
+  new_count: number;
+}
+
 export interface GenerateReportOutput {
   report_path: string;
   markdown: string;
   summary: string;
   counts: IssueCounts;
   top_fix: string;
+  comparison?: ComparisonResult;
+  comparison_error?: string;
 }
 
 const SEVERITY_ORDER: IssueSeverity[] = [
@@ -76,9 +90,63 @@ function countBySeverity(issues: Issue[]): IssueCounts {
   };
 }
 
-function renderIssueBlock(issue: Issue, index: number): string {
+// Issue descriptions are free LLM text and can reword slightly between runs, so
+// exact-string matching would under-count "the same issue" across two reports.
+// page_url + category + severity is a coarser but more stable proxy — it can
+// merge two distinct issues on the same page/category/severity into one match,
+// which is a real limitation, not a precise diff.
+function issueKey(issue: Issue): string {
+  return `${issue.page_url}||${issue.category}||${issue.severity}`;
+}
+
+function sidecarPathFor(reportPath: string): string {
+  return reportPath.endsWith('.md')
+    ? `${reportPath.slice(0, -3)}.json`
+    : `${reportPath}.json`;
+}
+
+function loadPreviousIssues(compareWith: string): Issue[] {
+  const sidecarPath = compareWith.endsWith('.json')
+    ? compareWith
+    : sidecarPathFor(compareWith);
+  if (!existsSync(sidecarPath)) {
+    throw new Error(`No sidecar data found at ${sidecarPath}`);
+  }
+  const parsed = JSON.parse(readFileSync(sidecarPath, 'utf-8'));
+  if (!Array.isArray(parsed.issues)) {
+    throw new Error(`${sidecarPath} does not contain an issues array`);
+  }
+  return parsed.issues as Issue[];
+}
+
+function compareIssues(
+  oldIssues: Issue[],
+  newIssues: Issue[],
+  compareWith: string,
+): ComparisonResult {
+  const oldKeys = new Set(oldIssues.map(issueKey));
+  const newKeys = new Set(newIssues.map(issueKey));
+  return {
+    compared_with: compareWith,
+    resolved: oldIssues.filter((i) => !newKeys.has(issueKey(i))),
+    still_present_count: newIssues.filter((i) => oldKeys.has(issueKey(i)))
+      .length,
+    new_count: newIssues.filter((i) => !oldKeys.has(issueKey(i))).length,
+  };
+}
+
+function renderIssueBlock(
+  issue: Issue,
+  index: number,
+  previousKeys: Set<string> | undefined,
+): string {
+  const statusTag = previousKeys
+    ? previousKeys.has(issueKey(issue))
+      ? ' _(still present)_'
+      : ' _(new)_'
+    : '';
   const lines = [
-    `### ${index + 1}. [${issue.severity.toUpperCase()}] ${issue.description}`,
+    `### ${index + 1}. [${issue.severity.toUpperCase()}] ${issue.description}${statusTag}`,
     `- **Page:** \`${issue.page_url}\``,
     `- **Fix:** ${issue.recommendation}`,
   ];
@@ -97,12 +165,29 @@ function renderForClaudeLine(issue: Issue, index: number): string {
   return `${index + 1}. [${issue.severity.toUpperCase()}] \`${issue.page_url}\` — ${issue.recommendation}.${fileSuffix}`;
 }
 
+function renderComparisonSection(comparison: ComparisonResult): string {
+  const lines = [
+    `Compared with \`${comparison.compared_with}\`: ${comparison.still_present_count} still present, ${comparison.new_count} new, ${comparison.resolved.length} resolved.`,
+  ];
+  if (comparison.resolved.length > 0) {
+    lines.push('');
+    lines.push('Resolved since then:');
+    for (const issue of comparison.resolved) {
+      lines.push(
+        `- [${issue.severity.toUpperCase()}] ${issue.description} (\`${issue.page_url}\`)`,
+      );
+    }
+  }
+  return lines.join('\n');
+}
+
 function renderSummary(
   sessions: SessionResult[],
   sortedIssues: Issue[],
   counts: IssueCounts,
   topFix: string,
   reportPath: string,
+  comparison: ComparisonResult | undefined,
 ): string {
   const rule = '-'.repeat(40);
   const lines = [
@@ -130,6 +215,13 @@ function renderSummary(
     lines.push(`fix first: ${topFix}`, '');
   }
 
+  if (comparison) {
+    lines.push(
+      `vs previous run: ${comparison.still_present_count} still present · ${comparison.new_count} new · ${comparison.resolved.length} resolved`,
+      '',
+    );
+  }
+
   lines.push(`report: ${reportPath}`, rule);
   return lines.join('\n');
 }
@@ -152,6 +244,21 @@ export function hauntGenerateReport(
     .replace(/[^a-z0-9-]+/g, '-');
   const report_path = `${REPORTS_DIR}/${date}-${personaSlug}.md`;
 
+  let comparison: ComparisonResult | undefined;
+  let comparison_error: string | undefined;
+  let previousIssues: Issue[] | undefined;
+  if (input.compare_with) {
+    try {
+      previousIssues = loadPreviousIssues(input.compare_with);
+      comparison = compareIssues(previousIssues, sorted, input.compare_with);
+    } catch (error) {
+      comparison_error = error instanceof Error ? error.message : String(error);
+    }
+  }
+  const previousKeys = previousIssues
+    ? new Set(previousIssues.map(issueKey))
+    : undefined;
+
   const frontmatter = [
     '---',
     'haunt: true',
@@ -169,7 +276,9 @@ export function hauntGenerateReport(
   ].join('\n');
 
   const issuesSection = sorted.length
-    ? sorted.map(renderIssueBlock).join('\n\n')
+    ? sorted
+        .map((issue, i) => renderIssueBlock(issue, i, previousKeys))
+        .join('\n\n')
     : '_No issues found._';
 
   const impressionsSection = input.sessions
@@ -199,6 +308,22 @@ export function hauntGenerateReport(
     bodySections.push('', '## Top Fix', '', top_fix);
   }
 
+  if (comparison) {
+    bodySections.push(
+      '',
+      '## Comparison',
+      '',
+      renderComparisonSection(comparison),
+    );
+  } else if (comparison_error) {
+    bodySections.push(
+      '',
+      '## Comparison',
+      '',
+      `Could not compare with \`${input.compare_with}\`: ${comparison_error}`,
+    );
+  }
+
   bodySections.push(
     '',
     '## For Claude',
@@ -214,6 +339,20 @@ export function hauntGenerateReport(
 
   mkdirSync(REPORTS_DIR, { recursive: true });
   writeFileSync(report_path, markdown, 'utf-8');
+  writeFileSync(
+    sidecarPathFor(report_path),
+    JSON.stringify(
+      {
+        target_url: input.target_url,
+        date,
+        personas: input.personas,
+        issues: sorted,
+      },
+      null,
+      2,
+    ),
+    'utf-8',
+  );
 
   const summary = renderSummary(
     input.sessions,
@@ -221,7 +360,16 @@ export function hauntGenerateReport(
     counts,
     top_fix,
     report_path,
+    comparison,
   );
 
-  return { report_path, markdown, summary, counts, top_fix };
+  return {
+    report_path,
+    markdown,
+    summary,
+    counts,
+    top_fix,
+    comparison,
+    comparison_error,
+  };
 }
