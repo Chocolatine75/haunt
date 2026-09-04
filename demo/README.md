@@ -6,10 +6,15 @@ A demo SaaS app for testing the [Haunt](https://github.com/Chocolatine75/haunt) 
 
 ```bash
 npm install
+cp .env.example .env   # fill in NEXTAUTH_SECRET, e.g. `openssl rand -base64 32`
 npx prisma db push
 npx prisma db seed
 npm run dev
 ```
+
+Without `.env`, NextAuth can't sign sessions — auth-gated routes (e.g. `/admin`
+without a session) redirect to `/api/auth/error?error=Configuration` instead of the
+demo's intended behavior.
 
 App runs at http://localhost:3000
 
