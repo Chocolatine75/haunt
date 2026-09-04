@@ -27,6 +27,10 @@ Run phantom user tests against a running web app.
 | `--yes` | — | Skip the cost estimate confirmation prompt |
 | `--verbose` | — | Print intermediate reasoning between steps |
 
+> ⚠️ `malicious-user` sends real XSS/SQLi payloads and probes admin routes without
+> authorization. Only target apps you own or have explicit permission to test — never
+> a third party's production site.
+
 ### Examples
 
 ```bash

@@ -126,6 +126,10 @@ Each phantom user has a different way of going off-script.
 | 😈 `malicious-user` | User who pushes on everything | Tries unexpected inputs in every field, accesses URLs directly, probes what's reachable without logging in |
 | ♿ `screen-reader-user` | Keyboard-only user | Tabs through every element, triggers modal edge cases, checks if errors are announced, finds unlabeled buttons |
 
+> ⚠️ `malicious-user` sends real XSS/SQLi payloads and probes admin routes without
+> authorization. Only point Haunt at apps you own or have explicit permission to test —
+> never a third party's production site.
+
 ---
 
 ## ✍️ Custom personas
