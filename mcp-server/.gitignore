@@ -9,3 +9,5 @@ node_modules/
 # started from this directory) — was previously untracked here with nothing stopping
 # an accidental commit.
 .haunt-reports/
+.env
+.env.local

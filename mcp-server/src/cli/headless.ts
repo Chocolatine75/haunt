@@ -3,16 +3,19 @@
 //
 // Standalone, non-interactive entrypoint: everything commands/haunt-test.md does
 // through an interactive Claude Code session, but callable from a shell/CI pipeline
-// with no orchestrating agent. Persona action decisions come from a direct Anthropic
-// API call per step instead of the host LLM — this is the piece the README's
+// with no orchestrating agent. Persona action decisions come from a direct LLM API
+// call per step instead of the host LLM — this is the piece the README's
 // "add personas, run it in CI" line needed and didn't have (see the audit's Majeur
-// on this).
+// on this). Supports Anthropic and Mistral as interchangeable reasoning providers
+// (see src/cli/providers/) — pick whichever key you have.
 //
 // Scope for this first version: tests exactly the one URL given, across the given
 // personas, in parallel. It does not do the interactive command's Phase 1 route
 // discovery (scouting up to 4 areas from real links) — that's a reasonable next
 // step, not implemented here to keep this landing as a working, honestly-scoped v1.
+import 'dotenv/config';
 import Anthropic from '@anthropic-ai/sdk';
+import { Mistral } from '@mistralai/mistralai';
 import { SessionManager } from '../session/manager.js';
 import { hauntCaptureState } from '../tools/capture.js';
 import { hauntEndSession } from '../tools/end-session.js';
@@ -23,20 +26,25 @@ import type {
 import { hauntGenerateReport } from '../tools/generate-report.js';
 import { hauntNavigate } from '../tools/navigate.js';
 import { hauntSpawn } from '../tools/spawn.js';
-import type { Issue } from '../types.js';
+import { createAnthropicDecider } from './providers/anthropic.js';
+import { createMistralDecider } from './providers/mistral.js';
+import type { ActionDecider } from './providers/types.js';
+
+export type Provider = 'anthropic' | 'mistral';
 
 export interface CliOptions {
   targetUrl: string;
   personas: string[];
   steps: number;
-  model: string;
+  provider?: Provider;
+  model?: string;
   headless: boolean;
 }
 
 const USAGE =
-  'Usage: haunt-ci <url> [--personas p1,p2] [--steps N] [--model id] [--headed]';
+  'Usage: haunt-ci <url> [--personas p1,p2] [--steps N] [--provider anthropic|mistral] [--model id] [--headed]';
 
-const VALUED_FLAGS = ['personas', 'steps', 'model'];
+const VALUED_FLAGS = ['personas', 'steps', 'provider', 'model'];
 
 export function parseArgs(argv: string[]): CliOptions {
   const getFlag = (name: string): string | undefined => {
@@ -68,93 +76,76 @@ export function parseArgs(argv: string[]): CliOptions {
       `--steps must be a positive number, got: ${getFlag('steps')}`,
     );
   }
-  const model =
-    getFlag('model') ?? process.env.HAUNT_CI_MODEL ?? 'claude-opus-5';
-  const headless = !argv.includes('--headed');
 
-  return { targetUrl, personas, steps, model, headless };
-}
-
-const DECIDE_ACTION_TOOL: Anthropic.Tool = {
-  name: 'decide_action',
-  description:
-    'Choose the single next browser action to take as this persona, and report any issues observed on the current page state.',
-  input_schema: {
-    type: 'object',
-    properties: {
-      action: {
-        type: 'string',
-        description:
-          'Natural-language action: "click <target>", "fill <text> in <field>", "goto <url>", or "press <key>"',
-      },
-      issues: {
-        type: 'array',
-        items: {
-          type: 'object',
-          properties: {
-            severity: {
-              type: 'string',
-              enum: ['critical', 'major', 'minor', 'suggestion'],
-            },
-            category: {
-              type: 'string',
-              enum: [
-                'ux',
-                'accessibility',
-                'performance',
-                'security',
-                'content',
-              ],
-            },
-            description: { type: 'string' },
-            page_url: { type: 'string' },
-            recommendation: { type: 'string' },
-          },
-          required: [
-            'severity',
-            'category',
-            'description',
-            'page_url',
-            'recommendation',
-          ],
-        },
-      },
-    },
-    required: ['action'],
-  },
-};
-
-export async function decideAction(
-  client: Anthropic,
-  model: string,
-  systemPrompt: string,
-  stateDescription: string,
-): Promise<{ action: string; issues: Issue[] }> {
-  const response = await client.messages.create({
-    model,
-    max_tokens: 4_096,
-    output_config: { effort: 'low' },
-    system: systemPrompt,
-    tools: [DECIDE_ACTION_TOOL],
-    tool_choice: { type: 'tool', name: 'decide_action' },
-    messages: [{ role: 'user', content: stateDescription }],
-  });
-
-  const block = response.content.find(
-    (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use',
-  );
-  if (!block) {
+  const providerFlag = getFlag('provider');
+  if (
+    providerFlag &&
+    providerFlag !== 'anthropic' &&
+    providerFlag !== 'mistral'
+  ) {
     throw new Error(
-      `Model did not return a decide_action tool call (stop_reason: ${response.stop_reason})`,
+      `--provider must be "anthropic" or "mistral", got: ${providerFlag}`,
     );
   }
 
-  const input = block.input as { action?: string; issues?: Issue[] };
-  if (!input.action) {
-    throw new Error('decide_action tool call was missing "action"');
+  const headless = !argv.includes('--headed');
+
+  return {
+    targetUrl,
+    personas,
+    steps,
+    provider: providerFlag as Provider | undefined,
+    model: getFlag('model'),
+    headless,
+  };
+}
+
+const DEFAULT_MODEL: Record<Provider, string> = {
+  anthropic: 'claude-opus-5',
+  mistral: 'mistral-small-latest',
+};
+
+export interface ResolvedProvider {
+  provider: Provider;
+  model: string;
+}
+
+// Separate from parseArgs so argument parsing stays a pure function — this is the
+// one place that reads the environment, and it's where a missing/mismatched API
+// key turns into a clear error instead of an opaque SDK auth failure downstream.
+export function resolveProvider(
+  options: Pick<CliOptions, 'provider' | 'model'>,
+  env: NodeJS.ProcessEnv,
+): ResolvedProvider {
+  let provider = options.provider;
+  if (!provider) {
+    if (env.ANTHROPIC_API_KEY) provider = 'anthropic';
+    else if (env.MISTRAL_API_KEY) provider = 'mistral';
+    else {
+      throw new Error(
+        'No API key found. Set ANTHROPIC_API_KEY or MISTRAL_API_KEY in the environment (a .env file is loaded automatically), or pass --provider explicitly.',
+      );
+    }
   }
 
-  return { action: input.action, issues: input.issues ?? [] };
+  const apiKeyVar =
+    provider === 'anthropic' ? 'ANTHROPIC_API_KEY' : 'MISTRAL_API_KEY';
+  if (!env[apiKeyVar]) {
+    throw new Error(`--provider ${provider} requires ${apiKeyVar} to be set.`);
+  }
+
+  const model = options.model ?? env.HAUNT_CI_MODEL ?? DEFAULT_MODEL[provider];
+  return { provider, model };
+}
+
+export function createDecider(resolved: ResolvedProvider): ActionDecider {
+  if (resolved.provider === 'anthropic') {
+    return createAnthropicDecider(new Anthropic(), resolved.model);
+  }
+  return createMistralDecider(
+    new Mistral({ apiKey: process.env.MISTRAL_API_KEY }),
+    resolved.model,
+  );
 }
 
 function describeState(
@@ -172,8 +163,7 @@ function describeState(
 }
 
 async function runPersonaSession(
-  client: Anthropic,
-  model: string,
+  decide: ActionDecider,
   manager: SessionManager,
   personaName: string,
   targetUrl: string,
@@ -203,9 +193,7 @@ async function runPersonaSession(
       steps,
     );
 
-    const { action, issues } = await decideAction(
-      client,
-      model,
+    const { action, issues } = await decide(
       spawnResult.persona_description,
       stateDescription,
     );
@@ -235,15 +223,14 @@ export interface HeadlessRunResult {
 }
 
 export async function runHeadlessTest(
-  client: Anthropic,
+  decide: ActionDecider,
   manager: SessionManager,
-  options: CliOptions,
+  options: Pick<CliOptions, 'targetUrl' | 'personas' | 'steps' | 'headless'>,
 ): Promise<HeadlessRunResult> {
   const settled = await Promise.allSettled(
     options.personas.map((persona) =>
       runPersonaSession(
-        client,
-        options.model,
+        decide,
         manager,
         persona,
         options.targetUrl,
@@ -289,19 +276,24 @@ async function main() {
     process.exit(2);
   }
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    console.error(
-      'ANTHROPIC_API_KEY is required to run haunt in headless/CI mode (this mode calls the Anthropic API directly, outside any Claude Code session).',
-    );
+  let resolved: ResolvedProvider;
+  try {
+    resolved = resolveProvider(options, process.env);
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
     process.exit(2);
   }
 
-  const client = new Anthropic();
+  console.error(
+    `[haunt-ci] provider: ${resolved.provider}, model: ${resolved.model}`,
+  );
+
+  const decide = createDecider(resolved);
   const manager = new SessionManager();
 
   try {
     const { report, failures } = await runHeadlessTest(
-      client,
+      decide,
       manager,
       options,
     );

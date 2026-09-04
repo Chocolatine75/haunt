@@ -181,14 +181,20 @@ No AI vision. No magic. Just a real browser reading your accessibility tree — 
 
 `/haunt-test` needs an interactive Claude Code session — it's not something a pipeline
 can invoke. `haunt-ci` is a standalone binary that runs the same phantom-user loop
-without one, calling the Anthropic API directly for the per-step reasoning:
+without one, calling an LLM API directly for the per-step reasoning. Anthropic and
+Mistral both work — pick whichever key you have, `haunt-ci` auto-detects which one is
+set (`--provider` forces it explicitly if both are):
 
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...
+export ANTHROPIC_API_KEY=sk-ant-...   # or: export MISTRAL_API_KEY=...
 npx --package @haunt/mcp-server haunt-ci https://staging.example.com \
   --personas confused-beginner,malicious-user \
   --steps 3
 ```
+
+A `.env` file in the working directory (`mcp-server/.env` in this repo) is loaded
+automatically — put `ANTHROPIC_API_KEY=` or `MISTRAL_API_KEY=` there instead of
+exporting it. It's gitignored; never commit it.
 
 Exits `1` if any critical or major issue was found (`0` otherwise), so it fails a
 build the way a test suite does:
@@ -200,12 +206,15 @@ build the way a test suite does:
     ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 ```
 
+Default models: `claude-opus-5` for Anthropic, `mistral-small-latest` for Mistral —
+override either with `--model` or `HAUNT_CI_MODEL`.
+
 Scope, honestly stated: `haunt-ci` tests exactly the URL you give it, across the
 personas you name, run in parallel — it does not do `/haunt-test`'s Phase 1 route
 discovery (scouting up to 4 areas from real links on the page). Point it at each route
 you care about explicitly. Unlike the interactive command, this mode needs its own
-`ANTHROPIC_API_KEY` and spends real tokens per run — a cost the interactive command,
-riding your existing Claude Code session, doesn't have.
+API key and spends real tokens per run — a cost the interactive command, riding your
+existing Claude Code session, doesn't have.
 
 ---
 

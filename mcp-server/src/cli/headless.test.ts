@@ -1,15 +1,15 @@
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type Anthropic from '@anthropic-ai/sdk';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { SessionManager } from '../session/manager.js';
 import type { Issue } from '../types.js';
 import {
   type CliOptions,
-  decideAction,
   parseArgs,
+  resolveProvider,
   runHeadlessTest,
 } from './headless.js';
+import type { ActionDecider } from './providers/types.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const VALID_PERSONA = resolve(
@@ -24,7 +24,8 @@ describe('parseArgs', () => {
       targetUrl: 'http://localhost:3000',
       personas: ['confused-beginner'],
       steps: 3,
-      model: 'claude-opus-5',
+      provider: undefined,
+      model: undefined,
       headless: true,
     });
   });
@@ -38,17 +39,20 @@ describe('parseArgs', () => {
     expect(opts.personas).toEqual(['confused-beginner', 'malicious-user']);
   });
 
-  it('parses --steps, --model, and --headed', () => {
+  it('parses --steps, --provider, --model, and --headed', () => {
     const opts = parseArgs([
       'http://localhost:3000',
       '--steps',
       '5',
+      '--provider',
+      'mistral',
       '--model',
-      'claude-haiku-4-5',
+      'mistral-small-latest',
       '--headed',
     ]);
     expect(opts.steps).toBe(5);
-    expect(opts.model).toBe('claude-haiku-4-5');
+    expect(opts.provider).toBe('mistral');
+    expect(opts.model).toBe('mistral-small-latest');
     expect(opts.headless).toBe(false);
   });
 
@@ -64,94 +68,108 @@ describe('parseArgs', () => {
       parseArgs(['http://localhost:3000', '--steps', 'nope']),
     ).toThrow(/--steps must be a positive number/);
   });
+
+  it('throws on an unknown --provider value', () => {
+    expect(() =>
+      parseArgs(['http://localhost:3000', '--provider', 'openai']),
+    ).toThrow(/--provider must be "anthropic" or "mistral"/);
+  });
 });
 
-function mockAnthropic(
-  turns: Array<{ action: string; issues?: Issue[] }>,
-): Anthropic {
-  let call = 0;
-  const create = vi.fn(async () => {
-    const turn = turns[Math.min(call, turns.length - 1)];
-    call++;
-    return {
-      content: [
-        {
-          type: 'tool_use',
-          id: `toolu_${call}`,
-          name: 'decide_action',
-          input: turn,
-        },
-      ],
-      stop_reason: 'tool_use',
-    };
-  });
-  return { messages: { create } } as unknown as Anthropic;
-}
-
-describe('decideAction', () => {
-  it('reads the action and issues out of the tool_use block', async () => {
-    const client = mockAnthropic([
-      {
-        action: 'click Login',
-        issues: [
-          {
-            severity: 'minor',
-            category: 'ux',
-            description: 'small thing',
-            page_url: '/x',
-            recommendation: 'fix it',
-          },
-        ],
-      },
-    ]);
-
-    const result = await decideAction(
-      client,
-      'claude-opus-5',
-      'You are...',
-      'state',
+describe('resolveProvider', () => {
+  it('auto-detects anthropic when only ANTHROPIC_API_KEY is set', () => {
+    const resolved = resolveProvider(
+      { provider: undefined, model: undefined },
+      { ANTHROPIC_API_KEY: 'sk-ant-x' },
     );
-    expect(result.action).toBe('click Login');
-    expect(result.issues).toHaveLength(1);
+    expect(resolved).toEqual({ provider: 'anthropic', model: 'claude-opus-5' });
   });
 
-  it('defaults issues to an empty array when omitted', async () => {
-    const client = mockAnthropic([{ action: 'press Enter' }]);
-    const result = await decideAction(client, 'claude-opus-5', 'sys', 'state');
-    expect(result.issues).toEqual([]);
+  it('auto-detects mistral when only MISTRAL_API_KEY is set', () => {
+    const resolved = resolveProvider(
+      { provider: undefined, model: undefined },
+      { MISTRAL_API_KEY: 'mistral-x' },
+    );
+    expect(resolved).toEqual({
+      provider: 'mistral',
+      model: 'mistral-small-latest',
+    });
   });
 
-  it('throws when the model returns no tool_use block', async () => {
-    const client = {
-      messages: {
-        create: vi.fn(async () => ({
-          content: [{ type: 'text', text: 'I refuse' }],
-          stop_reason: 'end_turn',
-        })),
-      },
-    } as unknown as Anthropic;
+  it('prefers anthropic when both keys are set and no --provider given', () => {
+    const resolved = resolveProvider(
+      { provider: undefined, model: undefined },
+      { ANTHROPIC_API_KEY: 'sk-ant-x', MISTRAL_API_KEY: 'mistral-x' },
+    );
+    expect(resolved.provider).toBe('anthropic');
+  });
 
-    await expect(
-      decideAction(client, 'claude-opus-5', 'sys', 'state'),
-    ).rejects.toThrow(/did not return a decide_action tool call/);
+  it('respects an explicit --provider even if the other key is also set', () => {
+    const resolved = resolveProvider(
+      { provider: 'mistral', model: undefined },
+      { ANTHROPIC_API_KEY: 'sk-ant-x', MISTRAL_API_KEY: 'mistral-x' },
+    );
+    expect(resolved.provider).toBe('mistral');
+  });
+
+  it('throws when no key is available at all', () => {
+    expect(() =>
+      resolveProvider({ provider: undefined, model: undefined }, {}),
+    ).toThrow(/No API key found/);
+  });
+
+  it('throws when --provider is given but its key is missing', () => {
+    expect(() =>
+      resolveProvider({ provider: 'mistral', model: undefined }, {}),
+    ).toThrow(/requires MISTRAL_API_KEY/);
+  });
+
+  it('lets --model and HAUNT_CI_MODEL override the provider default, in that order', () => {
+    expect(
+      resolveProvider(
+        { provider: 'mistral', model: 'ministral-3b-latest' },
+        { MISTRAL_API_KEY: 'x', HAUNT_CI_MODEL: 'mistral-large-latest' },
+      ).model,
+    ).toBe('ministral-3b-latest');
+
+    expect(
+      resolveProvider(
+        { provider: 'mistral', model: undefined },
+        { MISTRAL_API_KEY: 'x', HAUNT_CI_MODEL: 'mistral-large-latest' },
+      ).model,
+    ).toBe('mistral-large-latest');
   });
 });
 
 describe('runHeadlessTest', () => {
-  function baseOptions(overrides: Partial<CliOptions> = {}): CliOptions {
+  function baseOptions(
+    overrides: Partial<
+      Pick<CliOptions, 'targetUrl' | 'personas' | 'steps' | 'headless'>
+    > = {},
+  ) {
     return {
       targetUrl: 'data:text/html,<input type="text" />',
       personas: [VALID_PERSONA],
       steps: 1,
-      model: 'claude-opus-5',
       headless: true,
       ...overrides,
     };
   }
 
+  function fakeDecider(
+    turns: Array<{ action: string; issues?: Issue[] }>,
+  ): ActionDecider {
+    let call = 0;
+    return async () => {
+      const turn = turns[Math.min(call, turns.length - 1)];
+      call++;
+      return { action: turn.action, issues: turn.issues ?? [] };
+    };
+  }
+
   it('runs a persona session end-to-end and builds the report from its issues', async () => {
     const manager = new SessionManager();
-    const client = mockAnthropic([
+    const decide = fakeDecider([
       {
         // Fast, always-successful action — the point of this test is that a
         // reported issue flows through to the report, not that the action fails.
@@ -169,7 +187,7 @@ describe('runHeadlessTest', () => {
     ]);
 
     const { report, failures } = await runHeadlessTest(
-      client,
+      decide,
       manager,
       baseOptions(),
     );
@@ -181,9 +199,9 @@ describe('runHeadlessTest', () => {
 
   it('records a per-persona failure without aborting the whole run', async () => {
     const manager = new SessionManager();
-    const client = mockAnthropic([{ action: 'press A' }]);
+    const decide = fakeDecider([{ action: 'press A' }]);
 
-    const { report, failures } = await runHeadlessTest(client, manager, {
+    const { report, failures } = await runHeadlessTest(decide, manager, {
       ...baseOptions(),
       personas: [VALID_PERSONA, '/no/such/persona.yaml'],
     });
@@ -195,10 +213,10 @@ describe('runHeadlessTest', () => {
 
   it('throws when every persona session fails', async () => {
     const manager = new SessionManager();
-    const client = mockAnthropic([{ action: 'press A' }]);
+    const decide = fakeDecider([{ action: 'press A' }]);
 
     await expect(
-      runHeadlessTest(client, manager, {
+      runHeadlessTest(decide, manager, {
         ...baseOptions(),
         personas: ['/no/such/persona.yaml'],
       }),

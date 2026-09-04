@@ -2,7 +2,7 @@ import { createRequire } from 'module'; const require = createRequire(import.met
 import {
   __commonJS,
   __toESM
-} from "./chunk-7ZHFVULC.js";
+} from "./chunk-ZO3ASFWY.js";
 
 // node_modules/@stablelib/base64/lib/base64.js
 var require_base64 = __commonJS({
@@ -1733,7 +1733,7 @@ function redactSensitive(body) {
 async function checkCredentialsFileSafety(path2, onWarn = (m) => console.warn(`anthropic-sdk: ${m}`)) {
   if (typeof process === "undefined" || process.platform === "win32")
     return;
-  const { fs } = await import("./node-NM6K2O7A.js");
+  const { fs } = await import("./node-QQ7GBT7H.js");
   let resolved = path2;
   let st;
   try {
@@ -1754,7 +1754,7 @@ async function checkCredentialsFileSafety(path2, onWarn = (m) => console.warn(`a
   }
 }
 async function writeCredentialsFileAtomic(targetPath, data) {
-  const { fs, path: path2 } = await import("./node-NM6K2O7A.js");
+  const { fs, path: path2 } = await import("./node-QQ7GBT7H.js");
   const dir = path2.dirname(targetPath);
   await fs.promises.mkdir(dir, { recursive: true, mode: 448 });
   const tmpPath = `${targetPath}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`;
@@ -2087,7 +2087,7 @@ var loadConfigWithSource = async (profile) => {
     return null;
   }
   validateProfileName(profileName);
-  const { fs, path: path2 } = await import("./node-NM6K2O7A.js");
+  const { fs, path: path2 } = await import("./node-QQ7GBT7H.js");
   const configPath = path2.join(rootConfigPath, "configs", `${profileName}.json`);
   let configRaw;
   try {
@@ -2172,14 +2172,14 @@ var getCredentialsPath = async (config, profile) => {
     return null;
   }
   validateProfileName(profileName);
-  const { path: path2 } = await import("./node-NM6K2O7A.js");
+  const { path: path2 } = await import("./node-QQ7GBT7H.js");
   return path2.join(rootConfigPath, "credentials", `${profileName}.json`);
 };
 var getRootConfigPath = async () => {
   if (!supportsLocalConfigFiles()) {
     return null;
   }
-  const { path: path2 } = await import("./node-NM6K2O7A.js");
+  const { path: path2 } = await import("./node-QQ7GBT7H.js");
   const configDir = readEnv("ANTHROPIC_CONFIG_DIR");
   if (configDir) {
     return configDir;
@@ -2219,7 +2219,7 @@ var getActiveProfileName = async () => {
   if (profileName) {
     return profileName;
   }
-  const { fs, path: path2 } = await import("./node-NM6K2O7A.js");
+  const { fs, path: path2 } = await import("./node-QQ7GBT7H.js");
   const filePath = path2.join(rootConfigPath, "active_config");
   try {
     return (await fs.promises.readFile(filePath, "utf-8")).trim() || "default";
@@ -2237,7 +2237,7 @@ function identityTokenFromFile(path2) {
     throw new AnthropicError("Identity token file path is empty");
   }
   return async () => {
-    const { fs } = await import("./node-NM6K2O7A.js");
+    const { fs } = await import("./node-QQ7GBT7H.js");
     let content;
     try {
       content = await fs.promises.readFile(path2, "utf-8");
@@ -2319,7 +2319,7 @@ function oidcFederationProvider(config) {
 // node_modules/@anthropic-ai/sdk/lib/credentials/user-oauth.mjs
 function userOAuthProvider(config) {
   return async (opts) => {
-    const { fs } = await import("./node-NM6K2O7A.js");
+    const { fs } = await import("./node-QQ7GBT7H.js");
     await checkCredentialsFileSafety(config.credentialsPath, config.onSafetyWarning);
     let raw;
     try {
@@ -2487,7 +2487,7 @@ function resolveIdentityTokenProvider(auth) {
 }
 function cachedExchangeProvider(exchange, credentialsPath, onCacheWriteError, onSafetyWarning) {
   return async (opts) => {
-    const { fs } = await import("./node-NM6K2O7A.js");
+    const { fs } = await import("./node-QQ7GBT7H.js");
     await checkCredentialsFileSafety(credentialsPath, onSafetyWarning);
     let existing;
     try {
@@ -5380,7 +5380,7 @@ async function _EnvironmentWorker_handleItem2(work, environmentKey, externalSign
   const ctrl = new AbortController();
   const detachExternal = linkAbort(externalSignal, ctrl);
   const lease = new Lease(ctrl);
-  const agentToolset = await import("./node-YLS7BRII.js");
+  const agentToolset = await import("./node-ZLERXPRN.js");
   let leaseTtlMs;
   let runner;
   const heartbeatPromise = heartbeatLoop(sessionClient, work, lease, log, this.requestOptions, (ttlMs) => {
