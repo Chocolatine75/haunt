@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "main": "dist/server.js",
+  "bin": {
+    "haunt-ci": "dist/cli.js"
+  },
   "scripts": {
     "build": "tsup",
     "postbuild": "node scripts/vendor-playwright.mjs",
@@ -12,6 +15,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.123.0",
     "@modelcontextprotocol/sdk": "^1.10.1",
     "js-yaml": "^4.1.0",
     "playwright": "^1.50.0",

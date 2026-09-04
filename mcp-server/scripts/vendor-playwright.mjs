@@ -3,7 +3,7 @@
 // them at runtime without the end user running `npm install` — but `tsup`'s clean
 // step wipes dist/ on every build, so this vendored copy has to be re-created after
 // every build rather than committed as a one-off manual step.
-import { cpSync, existsSync, mkdirSync, rmSync } from 'node:fs';
+import { chmodSync, cpSync, existsSync, mkdirSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -25,4 +25,14 @@ for (const pkg of PACKAGES) {
   rmSync(to, { recursive: true, force: true });
   cpSync(from, to, { recursive: true });
   console.log(`[vendor-playwright] copied ${pkg}`);
+}
+
+// tsup preserves the shebang from src/cli/headless.ts, but the executable bit
+// itself isn't set on a fresh build output — needed for `bin/haunt-ci` and direct
+// `./dist/cli.js` invocation (irrelevant on Windows, where npm generates its own
+// .cmd shim regardless).
+const cliPath = join(root, 'dist', 'cli.js');
+if (existsSync(cliPath)) {
+  chmodSync(cliPath, 0o755);
+  console.log('[vendor-playwright] chmod +x dist/cli.js');
 }

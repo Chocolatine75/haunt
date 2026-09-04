@@ -177,6 +177,38 @@ No AI vision. No magic. Just a real browser reading your accessibility tree — 
 
 ---
 
+## 🤖 Run it in CI
+
+`/haunt-test` needs an interactive Claude Code session — it's not something a pipeline
+can invoke. `haunt-ci` is a standalone binary that runs the same phantom-user loop
+without one, calling the Anthropic API directly for the per-step reasoning:
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+npx --package @haunt/mcp-server haunt-ci https://staging.example.com \
+  --personas confused-beginner,malicious-user \
+  --steps 3
+```
+
+Exits `1` if any critical or major issue was found (`0` otherwise), so it fails a
+build the way a test suite does:
+
+```yaml
+# .github/workflows/haunt.yml
+- run: npx --package @haunt/mcp-server haunt-ci ${{ env.STAGING_URL }}
+  env:
+    ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+```
+
+Scope, honestly stated: `haunt-ci` tests exactly the URL you give it, across the
+personas you name, run in parallel — it does not do `/haunt-test`'s Phase 1 route
+discovery (scouting up to 4 areas from real links on the page). Point it at each route
+you care about explicitly. Unlike the interactive command, this mode needs its own
+`ANTHROPIC_API_KEY` and spends real tokens per run — a cost the interactive command,
+riding your existing Claude Code session, doesn't have.
+
+---
+
 ## 📄 License
 
 MIT — fork it, extend it, add personas, run it in CI.
