@@ -13,6 +13,7 @@ export interface CaptureOutput {
   url: string;
   title: string;
   accessibility_tree?: string;
+  accessibility_tree_error?: string;
   dom_snapshot?: string;
   screenshot_path?: string;
 }
@@ -34,13 +35,14 @@ export async function hauntCaptureState(
     await page.screenshot({ path: `${SCREENSHOTS_DIR}/${screenshot_path}` });
   }
 
-  // Playwright's built-in accessibility snapshot — no AI needed
+  // ARIA snapshot of the whole page — no AI needed. page.accessibility was removed
+  // from playwright-core; locator.ariaSnapshot() is the current replacement.
   let accessibility_tree: string | undefined;
+  let accessibility_tree_error: string | undefined;
   try {
-    const snapshot = await page.accessibility.snapshot();
-    accessibility_tree = JSON.stringify(snapshot, null, 2).slice(0, 4_000);
-  } catch {
-    accessibility_tree = undefined;
+    accessibility_tree = (await page.locator('body').ariaSnapshot()).slice(0, 4_000);
+  } catch (error) {
+    accessibility_tree_error = error instanceof Error ? error.message : String(error);
   }
 
   // dom_snapshot is capped at 5000 chars to avoid token overflow
@@ -49,5 +51,5 @@ export async function hauntCaptureState(
     dom_snapshot = (await page.content()).slice(0, 5_000);
   }
 
-  return { url, title, accessibility_tree, dom_snapshot, screenshot_path };
+  return { url, title, accessibility_tree, accessibility_tree_error, dom_snapshot, screenshot_path };
 }
