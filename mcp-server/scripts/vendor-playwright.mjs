@@ -27,12 +27,14 @@ for (const pkg of PACKAGES) {
   console.log(`[vendor-playwright] copied ${pkg}`);
 }
 
-// tsup preserves the shebang from src/cli/headless.ts, but the executable bit
-// itself isn't set on a fresh build output — needed for `bin/haunt-ci` and direct
-// `./dist/cli.js` invocation (irrelevant on Windows, where npm generates its own
-// .cmd shim regardless).
-const cliPath = join(root, 'dist', 'cli.js');
-if (existsSync(cliPath)) {
-  chmodSync(cliPath, 0o755);
-  console.log('[vendor-playwright] chmod +x dist/cli.js');
+// tsup preserves the shebang from src/cli/headless.ts and src/benchmark/run.ts,
+// but the executable bit itself isn't set on a fresh build output — needed for
+// `bin/haunt-ci`, `bin/haunt-benchmark`, and direct `./dist/*.js` invocation
+// (irrelevant on Windows, where npm generates its own .cmd shim regardless).
+for (const binFile of ['cli.js', 'benchmark.js']) {
+  const binPath = join(root, 'dist', binFile);
+  if (existsSync(binPath)) {
+    chmodSync(binPath, 0o755);
+    console.log(`[vendor-playwright] chmod +x dist/${binFile}`);
+  }
 }

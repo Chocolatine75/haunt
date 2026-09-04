@@ -12,7 +12,9 @@ import { fileURLToPath } from 'node:url';
 // commit 0929899; shared here so benchmark/run.ts doesn't reintroduce it.
 export function isMainModule(moduleUrl: string): boolean {
   try {
-    return realpathSync(fileURLToPath(moduleUrl)) === realpathSync(process.argv[1]);
+    return (
+      realpathSync(fileURLToPath(moduleUrl)) === realpathSync(process.argv[1])
+    );
   } catch {
     return false;
   }

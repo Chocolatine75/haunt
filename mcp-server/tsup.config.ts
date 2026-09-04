@@ -1,7 +1,11 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  entry: { server: 'src/index.ts', cli: 'src/cli/headless.ts' },
+  entry: {
+    server: 'src/index.ts',
+    cli: 'src/cli/headless.ts',
+    benchmark: 'src/benchmark/run.ts',
+  },
   format: ['esm'],
   outDir: 'dist',
   outExtension: () => ({ js: '.js' }),

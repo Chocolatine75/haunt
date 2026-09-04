@@ -37,7 +37,10 @@ describe('checkReportFormat', () => {
   });
 
   it('flags a missing frontmatter block entirely', () => {
-    const withoutFrontmatter = WELL_FORMED_REPORT.replace(/^---[\s\S]*?---\n\n/, '');
+    const withoutFrontmatter = WELL_FORMED_REPORT.replace(
+      /^---[\s\S]*?---\n\n/,
+      '',
+    );
     const result = checkReportFormat(withoutFrontmatter);
     expect(result.ok).toBe(false);
     expect(result.missing).toContain('frontmatter block (--- ... ---)');

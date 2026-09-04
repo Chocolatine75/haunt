@@ -42,7 +42,12 @@ function mockClient(verdict: Record<string, unknown> | string): Mistral {
 describe('createMistralJudge', () => {
   it('parses a verdict from an object-typed tool call', async () => {
     const client = mockClient({
-      matched: [{ ground_truth_id: 'bug-1', matched_issue_description: 'X is definitely broken' }],
+      matched: [
+        {
+          ground_truth_id: 'bug-1',
+          matched_issue_description: 'X is definitely broken',
+        },
+      ],
       missed_ground_truth_ids: [],
       false_positives: [],
       actionable_count: 1,
@@ -78,7 +83,11 @@ describe('createMistralJudge', () => {
       chat: {
         complete: vi.fn(async () => ({
           choices: [
-            { index: 0, finishReason: 'stop', message: { role: 'assistant', content: 'no' } },
+            {
+              index: 0,
+              finishReason: 'stop',
+              message: { role: 'assistant', content: 'no' },
+            },
           ],
         })),
       },

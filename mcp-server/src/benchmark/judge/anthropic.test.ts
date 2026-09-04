@@ -35,7 +35,12 @@ function mockClient(verdict: Record<string, unknown>): Anthropic {
 describe('createAnthropicJudge', () => {
   it('parses a verdict out of the tool_use block', async () => {
     const client = mockClient({
-      matched: [{ ground_truth_id: 'bug-1', matched_issue_description: 'X is definitely broken' }],
+      matched: [
+        {
+          ground_truth_id: 'bug-1',
+          matched_issue_description: 'X is definitely broken',
+        },
+      ],
       missed_ground_truth_ids: [],
       false_positives: [],
       actionable_count: 1,

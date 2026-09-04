@@ -19,7 +19,9 @@ describe('loadGroundTruth', () => {
   });
 
   it('throws a clear error when the file does not contain a JSON array', () => {
-    expect(() => loadGroundTruth(resolve(__dirname, 'ground-truth.ts'))).toThrow();
+    expect(() =>
+      loadGroundTruth(resolve(__dirname, 'ground-truth.ts')),
+    ).toThrow();
   });
 
   it('throws when the file does not exist', () => {

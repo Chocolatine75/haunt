@@ -1,11 +1,11 @@
 import type { Mistral } from '@mistralai/mistralai';
 import type { ChatCompletionRequestTool } from '@mistralai/mistralai/models/components';
 import {
-  buildJudgePrompt,
-  parseScoreReportInput,
   type ReportJudge,
   SCORE_REPORT_TOOL_DESCRIPTION,
   SCORE_REPORT_TOOL_NAME,
+  buildJudgePrompt,
+  parseScoreReportInput,
   scoreReportParameters,
 } from './types.js';
 

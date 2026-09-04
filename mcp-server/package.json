@@ -8,7 +8,8 @@
     "node": ">=18"
   },
   "bin": {
-    "haunt-ci": "dist/cli.js"
+    "haunt-ci": "dist/cli.js",
+    "haunt-benchmark": "dist/benchmark.js"
   },
   "scripts": {
     "build": "tsup",

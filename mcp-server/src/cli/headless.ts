@@ -14,9 +14,9 @@
 // discovery (scouting up to 4 areas from real links) — that's a reasonable next
 // step, not implemented here to keep this landing as a working, honestly-scoped v1.
 import 'dotenv/config';
-import { isMainModule } from '../is-main-module.js';
 import Anthropic from '@anthropic-ai/sdk';
 import { Mistral } from '@mistralai/mistralai';
+import { isMainModule } from '../is-main-module.js';
 import { SessionManager } from '../session/manager.js';
 import { hauntCaptureState } from '../tools/capture.js';
 import { hauntEndSession } from '../tools/end-session.js';
