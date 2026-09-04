@@ -50,6 +50,7 @@ import { mkdirSync } from "fs";
 // src/constants.ts
 var REPORTS_DIR = ".haunt-reports";
 var SCREENSHOTS_DIR = ".haunt-reports/screenshots";
+var SCREENSHOT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1e3;
 var SESSION_TTL_MS = 10 * 60 * 1e3;
 
 // src/tools/capture.ts
@@ -7550,9 +7551,36 @@ function loadPersona(nameOrPath) {
   return PersonaSchema.parse(parsed);
 }
 
+// src/screenshots.ts
+import { readdirSync, statSync, unlinkSync } from "fs";
+import { join } from "path";
+function purgeOldScreenshots(maxAgeMs, dir = SCREENSHOTS_DIR) {
+  let entries;
+  try {
+    entries = readdirSync(dir);
+  } catch {
+    return [];
+  }
+  const now = Date.now();
+  const removed = [];
+  for (const entry of entries) {
+    const filePath = join(dir, entry);
+    try {
+      const stat = statSync(filePath);
+      if (stat.isFile() && now - stat.mtimeMs > maxAgeMs) {
+        unlinkSync(filePath);
+        removed.push(entry);
+      }
+    } catch {
+    }
+  }
+  return removed;
+}
+
 // src/tools/spawn.ts
 async function hauntSpawn(manager, input) {
   await manager.reapStale(SESSION_TTL_MS);
+  purgeOldScreenshots(SCREENSHOT_MAX_AGE_MS);
   const personaConfig = loadPersona(input.persona);
   const sessionId = v4_default();
   const executablePath = chromium.executablePath();

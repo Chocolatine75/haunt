@@ -5,3 +5,6 @@ demo/node_modules/
 demo/.next/
 demo/prisma/dev.db
 demo/.haunt-reports/
+# A haunt run started from the repo root (e.g. against demo/) writes reports here,
+# not just under demo/ or mcp-server/ — same gap those two already have covered.
+.haunt-reports/

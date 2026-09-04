@@ -3,8 +3,9 @@ import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 import type { Cookie } from 'playwright';
 import { v4 as uuidv4 } from 'uuid';
-import { SESSION_TTL_MS } from '../constants.js';
+import { SCREENSHOT_MAX_AGE_MS, SESSION_TTL_MS } from '../constants.js';
 import { loadPersona } from '../persona/loader.js';
+import { purgeOldScreenshots } from '../screenshots.js';
 import type { SessionManager } from '../session/manager.js';
 import type { HauntSession } from '../types.js';
 
@@ -28,6 +29,7 @@ export async function hauntSpawn(
   input: SpawnInput,
 ): Promise<SpawnOutput> {
   await manager.reapStale(SESSION_TTL_MS);
+  purgeOldScreenshots(SCREENSHOT_MAX_AGE_MS);
 
   const personaConfig = loadPersona(input.persona);
   const sessionId = uuidv4();
