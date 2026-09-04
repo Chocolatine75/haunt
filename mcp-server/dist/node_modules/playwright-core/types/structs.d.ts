@@ -25,10 +25,17 @@ export type Serializable = any;
  */
 export type EvaluationArgument = {};
 
-export type NoHandles<Arg> = Arg extends JSHandle ? never : (Arg extends object ? { [Key in keyof Arg]: NoHandles<Arg[Key]> } : Arg);
+export type NoHandles<Arg> =
+  Arg extends JSHandle ? never :
+  Arg extends (...args: infer T) => PromiseLike<infer U> ? (...args: T) => Promise<NoHandles<U>> :
+  Arg extends (...args: infer T) => infer R ? (...args: T) => NoHandles<R> :
+  Arg extends object ? { [Key in keyof Arg]: NoHandles<Arg[Key]> } :
+  Arg;
 export type Unboxed<Arg> =
   Arg extends ElementHandle<infer T> ? T :
   Arg extends JSHandle<infer T> ? T :
+  Arg extends (...args: infer T) => PromiseLike<infer U> ? (...args: T) => Promise<Unboxed<U>> :
+  Arg extends (...args: infer T) => infer R ? (...args: T) => Unboxed<R> :
   Arg extends NoHandles<Arg> ? Arg :
   Arg extends [infer A0] ? [Unboxed<A0>] :
   Arg extends [infer A0, infer A1] ? [Unboxed<A0>, Unboxed<A1>] :

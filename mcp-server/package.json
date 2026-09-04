@@ -6,6 +6,7 @@
   "main": "dist/server.js",
   "scripts": {
     "build": "tsup",
+    "postbuild": "node scripts/vendor-playwright.mjs",
     "test": "vitest run",
     "lint": "biome check src",
     "typecheck": "tsc --noEmit"
