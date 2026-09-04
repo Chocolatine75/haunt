@@ -7,6 +7,8 @@ import {
 import { SessionManager } from './session/manager.js';
 import { hauntCaptureState } from './tools/capture.js';
 import { hauntEndSession } from './tools/end-session.js';
+import { hauntEstimateCost } from './tools/estimate-cost.js';
+import { hauntGenerateReport } from './tools/generate-report.js';
 import { hauntGetCookies } from './tools/get-cookies.js';
 import { hauntNavigate } from './tools/navigate.js';
 import { hauntSpawn } from './tools/spawn.js';
@@ -175,6 +177,92 @@ export function createServer(): Server {
           required: ['session_id'],
         },
       },
+      {
+        name: 'haunt_estimate_cost',
+        description:
+          'Compute the browser-call cost estimate for a planned test run (route count × steps). Call before Phase 2 to print the "proceed?" confirmation.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            route_count: {
+              type: 'number',
+              description: 'Number of areas/routes in the page plan',
+            },
+            steps_per_route: {
+              type: 'number',
+              description: 'Max navigation steps per route (the --steps value)',
+            },
+          },
+          required: ['route_count', 'steps_per_route'],
+        },
+      },
+      {
+        name: 'haunt_generate_report',
+        description:
+          'Compute issue counts, sort issues by severity, render the markdown report, and write it to .haunt-reports/. Returns the exact terminal summary to print. Call once in Phase 3 after all sessions have ended — do not hand-write the report file.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            target_url: { type: 'string' },
+            personas: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Persona names used in this run',
+            },
+            sessions: {
+              type: 'array',
+              description: 'One entry per ended session',
+              items: {
+                type: 'object',
+                properties: {
+                  area: {
+                    type: 'string',
+                    description:
+                      'The route/area this session tested, e.g. /signup',
+                  },
+                  persona: { type: 'string' },
+                  overall_impression: { type: 'string' },
+                  issues: {
+                    type: 'array',
+                    description: "This session's EndSessionOutput.issues_found",
+                    items: {
+                      type: 'object',
+                      properties: {
+                        severity: {
+                          type: 'string',
+                          enum: ['critical', 'major', 'minor', 'suggestion'],
+                        },
+                        category: {
+                          type: 'string',
+                          enum: [
+                            'ux',
+                            'accessibility',
+                            'performance',
+                            'security',
+                            'content',
+                          ],
+                        },
+                        description: { type: 'string' },
+                        page_url: { type: 'string' },
+                        recommendation: { type: 'string' },
+                      },
+                      required: [
+                        'severity',
+                        'category',
+                        'description',
+                        'page_url',
+                        'recommendation',
+                      ],
+                    },
+                  },
+                },
+                required: ['area', 'persona', 'overall_impression', 'issues'],
+              },
+            },
+          },
+          required: ['target_url', 'personas', 'sessions'],
+        },
+      },
     ],
   }));
 
@@ -208,6 +296,14 @@ export function createServer(): Server {
         result = await hauntGetCookies(
           manager,
           args as unknown as Parameters<typeof hauntGetCookies>[1],
+        );
+      } else if (name === 'haunt_estimate_cost') {
+        result = hauntEstimateCost(
+          args as unknown as Parameters<typeof hauntEstimateCost>[0],
+        );
+      } else if (name === 'haunt_generate_report') {
+        result = hauntGenerateReport(
+          args as unknown as Parameters<typeof hauntGenerateReport>[0],
         );
       } else {
         throw new Error(`Unknown tool: ${name}`);

@@ -18368,6 +18368,7 @@ var SessionManager = class {
 import { mkdirSync } from "fs";
 
 // src/constants.ts
+var REPORTS_DIR = ".haunt-reports";
 var SCREENSHOTS_DIR = ".haunt-reports/screenshots";
 var SESSION_TTL_MS = 10 * 60 * 1e3;
 
@@ -18429,6 +18430,164 @@ async function hauntEndSession(manager, input) {
   return output;
 }
 
+// src/tools/estimate-cost.ts
+function hauntEstimateCost(input) {
+  const { route_count, steps_per_route } = input;
+  const browser_calls = route_count * (steps_per_route * 2 + 3);
+  const session_size = browser_calls <= 6 ? "light" : browser_calls <= 16 ? "medium" : "heavy";
+  const summary_line = `estimated: ${route_count} routes \xB7 ${steps_per_route} steps each \xB7 ~${browser_calls} browser calls \xB7 ${session_size} session`;
+  return { browser_calls, session_size, summary_line };
+}
+
+// src/tools/generate-report.ts
+import { mkdirSync as mkdirSync2, writeFileSync } from "fs";
+var SEVERITY_ORDER = [
+  "critical",
+  "major",
+  "minor",
+  "suggestion"
+];
+function likelyFile(pageUrl) {
+  let path;
+  try {
+    path = new URL(pageUrl).pathname;
+  } catch {
+    if (!pageUrl.startsWith("/")) return void 0;
+    path = pageUrl;
+  }
+  if (!path) return void 0;
+  if (/\/(login|sign-?in|sign-?up|register|auth|session)(\/|$)/i.test(path)) {
+    return "lib/auth.ts";
+  }
+  if (path === "/") return "app/page.tsx";
+  if (path.startsWith("/api/")) return `app${path}/route.ts`;
+  return `app${path}/page.tsx`;
+}
+function todayISODate() {
+  return (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+}
+function countBySeverity(issues) {
+  return {
+    total: issues.length,
+    critical: issues.filter((i) => i.severity === "critical").length,
+    major: issues.filter((i) => i.severity === "major").length,
+    minor: issues.filter((i) => i.severity === "minor").length,
+    suggestion: issues.filter((i) => i.severity === "suggestion").length
+  };
+}
+function renderIssueBlock(issue2, index) {
+  const lines = [
+    `### ${index + 1}. [${issue2.severity.toUpperCase()}] ${issue2.description}`,
+    `- **Page:** \`${issue2.page_url}\``,
+    `- **Fix:** ${issue2.recommendation}`
+  ];
+  const file = likelyFile(issue2.page_url);
+  if (file) {
+    lines.push(
+      `- **Likely file:** \`${file}\` *(AI estimate \u2014 verify before editing)*`
+    );
+  }
+  return lines.join("\n");
+}
+function renderForClaudeLine(issue2, index) {
+  const file = likelyFile(issue2.page_url);
+  const fileSuffix = file ? ` Likely in \`${file}\`.` : "";
+  return `${index + 1}. [${issue2.severity.toUpperCase()}] \`${issue2.page_url}\` \u2014 ${issue2.recommendation}.${fileSuffix}`;
+}
+function renderSummary(sessions, sortedIssues, counts, topFix, reportPath) {
+  const rule = "-".repeat(40);
+  const lines = [
+    rule,
+    `${sessions.length} areas tested \xB7 ${counts.total} issues`,
+    ""
+  ];
+  if (counts.critical > 0) lines.push(`[!!!] ${counts.critical} critical`);
+  if (counts.major > 0) lines.push(` [!!] ${counts.major} major`);
+  if (counts.minor > 0) lines.push(`  [!] ${counts.minor} minor`);
+  lines.push("");
+  if (counts.critical > 0) {
+    for (const issue2 of sortedIssues) {
+      if (issue2.severity !== "critical") continue;
+      lines.push(`> ${issue2.description}  [${issue2.page_url}]`);
+    }
+  } else {
+    lines.push("no critical issues");
+  }
+  lines.push("");
+  if (counts.total > 0) {
+    lines.push(`fix first: ${topFix}`, "");
+  }
+  lines.push(`report: ${reportPath}`, rule);
+  return lines.join("\n");
+}
+function hauntGenerateReport(input) {
+  const date3 = input.date ?? todayISODate();
+  const allIssues = input.sessions.flatMap((s) => s.issues);
+  const sorted = [...allIssues].sort(
+    (a, b) => SEVERITY_ORDER.indexOf(a.severity) - SEVERITY_ORDER.indexOf(b.severity)
+  );
+  const counts = countBySeverity(allIssues);
+  const top_fix = sorted[0]?.recommendation ?? "";
+  const personaSlug = input.personas.join("-").toLowerCase().replace(/[^a-z0-9-]+/g, "-");
+  const report_path = `${REPORTS_DIR}/${date3}-${personaSlug}.md`;
+  const frontmatter = [
+    "---",
+    "haunt: true",
+    `target: ${input.target_url}`,
+    `date: ${date3}`,
+    `personas: [${input.personas.join(", ")}]`,
+    `areas_tested: ${input.sessions.length}`,
+    "issues:",
+    `  total: ${counts.total}`,
+    `  critical: ${counts.critical}`,
+    `  major: ${counts.major}`,
+    `  minor: ${counts.minor}`,
+    `top_fix: "${top_fix.replace(/"/g, "'")}"`,
+    "---"
+  ].join("\n");
+  const issuesSection = sorted.length ? sorted.map(renderIssueBlock).join("\n\n") : "_No issues found._";
+  const impressionsSection = input.sessions.map((s) => `**${s.area} \u2014 ${s.persona}:** "${s.overall_impression}"`).join("\n");
+  const forClaudeSection = sorted.length ? sorted.map(renderForClaudeLine).join("\n") : "_No issues found._";
+  const bodySections = [
+    frontmatter,
+    "",
+    `# Haunt Report \u2014 ${input.target_url}`,
+    `${date3} \xB7 ${input.sessions.length} areas \xB7 ${counts.total} issues \xB7 ${input.personas.join(", ")}`,
+    "",
+    "## Issues",
+    "",
+    issuesSection,
+    "",
+    "## Session Impressions",
+    "",
+    impressionsSection
+  ];
+  if (counts.total > 0) {
+    bodySections.push("", "## Top Fix", "", top_fix);
+  }
+  bodySections.push(
+    "",
+    "## For Claude",
+    "",
+    "The following issues were found by Haunt. Fix them in order of severity.",
+    "",
+    forClaudeSection,
+    "",
+    `After fixing, run \`/haunt:haunt-test ${input.target_url}\` again to verify.`
+  );
+  const markdown = bodySections.join("\n");
+  mkdirSync2(REPORTS_DIR, { recursive: true });
+  writeFileSync(report_path, markdown, "utf-8");
+  const summary = renderSummary(
+    input.sessions,
+    sorted,
+    counts,
+    top_fix,
+    report_path
+  );
+  return { report_path, markdown, summary, counts, top_fix };
+}
+
 // src/tools/get-cookies.ts
 async function hauntGetCookies(manager, input) {
   const session = manager.get(input.session_id);
@@ -18442,7 +18601,7 @@ async function hauntGetCookies(manager, input) {
 }
 
 // src/tools/navigate.ts
-import { mkdirSync as mkdirSync2 } from "fs";
+import { mkdirSync as mkdirSync3 } from "fs";
 async function executeAction(page, action) {
   const trimmed = action.trim();
   if (/^(goto|navigate to|go to)\s+/i.test(trimmed)) {
@@ -18495,7 +18654,7 @@ async function hauntNavigate(manager, input) {
     await executeAction(page, input.action);
   } catch (error2) {
     screenshotPath = `${session.id}-step-${session.step_count}.png`;
-    mkdirSync2(SCREENSHOTS_DIR, { recursive: true });
+    mkdirSync3(SCREENSHOTS_DIR, { recursive: true });
     await page.screenshot({ path: `${SCREENSHOTS_DIR}/${screenshotPath}` });
     const issue2 = {
       severity: "major",
@@ -21901,6 +22060,89 @@ function createServer() {
           },
           required: ["session_id"]
         }
+      },
+      {
+        name: "haunt_estimate_cost",
+        description: 'Compute the browser-call cost estimate for a planned test run (route count \xD7 steps). Call before Phase 2 to print the "proceed?" confirmation.',
+        inputSchema: {
+          type: "object",
+          properties: {
+            route_count: {
+              type: "number",
+              description: "Number of areas/routes in the page plan"
+            },
+            steps_per_route: {
+              type: "number",
+              description: "Max navigation steps per route (the --steps value)"
+            }
+          },
+          required: ["route_count", "steps_per_route"]
+        }
+      },
+      {
+        name: "haunt_generate_report",
+        description: "Compute issue counts, sort issues by severity, render the markdown report, and write it to .haunt-reports/. Returns the exact terminal summary to print. Call once in Phase 3 after all sessions have ended \u2014 do not hand-write the report file.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            target_url: { type: "string" },
+            personas: {
+              type: "array",
+              items: { type: "string" },
+              description: "Persona names used in this run"
+            },
+            sessions: {
+              type: "array",
+              description: "One entry per ended session",
+              items: {
+                type: "object",
+                properties: {
+                  area: {
+                    type: "string",
+                    description: "The route/area this session tested, e.g. /signup"
+                  },
+                  persona: { type: "string" },
+                  overall_impression: { type: "string" },
+                  issues: {
+                    type: "array",
+                    description: "This session's EndSessionOutput.issues_found",
+                    items: {
+                      type: "object",
+                      properties: {
+                        severity: {
+                          type: "string",
+                          enum: ["critical", "major", "minor", "suggestion"]
+                        },
+                        category: {
+                          type: "string",
+                          enum: [
+                            "ux",
+                            "accessibility",
+                            "performance",
+                            "security",
+                            "content"
+                          ]
+                        },
+                        description: { type: "string" },
+                        page_url: { type: "string" },
+                        recommendation: { type: "string" }
+                      },
+                      required: [
+                        "severity",
+                        "category",
+                        "description",
+                        "page_url",
+                        "recommendation"
+                      ]
+                    }
+                  }
+                },
+                required: ["area", "persona", "overall_impression", "issues"]
+              }
+            }
+          },
+          required: ["target_url", "personas", "sessions"]
+        }
       }
     ]
   }));
@@ -21931,6 +22173,14 @@ function createServer() {
       } else if (name === "haunt_get_cookies") {
         result = await hauntGetCookies(
           manager,
+          args
+        );
+      } else if (name === "haunt_estimate_cost") {
+        result = hauntEstimateCost(
+          args
+        );
+      } else if (name === "haunt_generate_report") {
+        result = hauntGenerateReport(
           args
         );
       } else {

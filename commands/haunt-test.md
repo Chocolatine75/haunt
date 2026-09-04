@@ -97,17 +97,13 @@ Print the discovered routes, e.g.: `routes: /  /login  /pricing  /dashboard`
 
 ### Phase 1.5 — Cost estimate
 
-Compute:
-- `route_count` = number of areas in the page plan (max 4)
-- `steps_per_route` = value of `--steps` (default: 3)
-- `browser_calls` = route_count × (steps_per_route × 2 + 3)
-  - (spawn + capture_state + [navigate + capture_state] × steps + end_session)
-- `session_size` = "light" if browser_calls ≤ 6, "medium" if ≤ 16, "heavy" if > 16
+Call `haunt_estimate_cost` with `route_count` (number of areas in the page plan, max 4)
+and `steps_per_route` (value of `--steps`, default: 3).
 
 Print exactly:
 
 ```
-estimated: N routes · M steps each · ~K browser calls · [light|medium|heavy] session
+<summary_line from the tool output>
 proceed? [y/N]
 ```
 
@@ -125,6 +121,7 @@ Run all sessions yourself — do NOT spawn sub-agents or agents.
 **SILENCE RULE: unless `--verbose` is passed, print NOTHING between tool calls. No step labels, no "parallel" announcements, no reasoning summaries, no observations. Zero text output between the `testing N areas...` line and the final summary block. Think entirely silently.**
 
 1. `haunt_spawn` for every area in a single message (all in parallel). If auth cookies were captured in Phase 0.5, pass them via the `cookies` parameter to every `haunt_spawn` call.
+   Keep track of which area each returned `session_id` belongs to — Phase 3 needs it.
 2. `haunt_capture_state` for all sessions (`include_screenshot: false`, `include_dom: false`) — all in parallel.
 3. Reason as each persona with a **corner-case mindset — NOT the happy path** (silently unless `--verbose`):
    - What non-obvious action would this user take that a developer would never think to test?
@@ -143,110 +140,24 @@ On `haunt_spawn` failure: print `skipped /area: <error>` and continue.
 
 ### Phase 3 — Report
 
-Do NOT spawn any agent or sub-agent. Generate the report yourself and save it with the Write tool.
+Do NOT spawn any agent or sub-agent. Do NOT hand-write the report file yourself —
+`haunt_generate_report` computes the counts, sorts issues, renders the markdown, picks
+the file path, and writes it to `.haunt-reports/`. Your job in this phase is only to
+assemble its input and print its output.
 
-**Never write credentials to the report file.** The report is saved to disk under
-`.haunt-reports/` and can end up committed by accident. Never include the value of
-`--password`, `--email`, or any cookie (name or value) in the report — not in an issue
-description, a session impression, or a quoted DOM/accessibility snippet. If a captured
-snippet happens to contain one of these, redact it (e.g. `[redacted]`) before writing.
+**Never let credentials reach the report.** Issue descriptions, recommendations, and
+`overall_impression` strings are your own text — `haunt_generate_report` writes exactly
+what you give it. Never put the value of `--password`, `--email`, or any cookie
+(name or value) into any of those fields. If something you captured (DOM, accessibility
+tree) happens to contain one, redact it (e.g. `[redacted]`) before including it.
 
-**Compute from all EndSessionOutput objects:**
-- total, critical, major, minor issue counts
-- top fix: the single highest-impact recommendation across all sessions
-- date: today's date (YYYY-MM-DD)
-- persona names used
+For each session, gather:
+- `area` — the route it tested (tracked in Phase 2, step 1)
+- `persona` — the persona's display name
+- `overall_impression` — from that session's `EndSessionOutput`
+- `issues` — that session's `EndSessionOutput.issues_found`
 
-**File path heuristic rules** (use when writing Likely file):
-- `/foo` → `app/foo/page.tsx`
-- `/foo/bar` → `app/foo/bar/page.tsx`
-- `/api/foo` → `app/api/foo/route.ts`
-- Auth issues → `lib/auth.ts` or `middleware.ts`
-- Form validation issues → the page file for that route
-- If the framework is unclear, omit the field rather than guess wrong
+Call `haunt_generate_report` with `target_url`, `personas` (the list used this run), and
+`sessions` (the array assembled above).
 
-**Write to `.haunt-reports/YYYY-MM-DD-<persona-names>.md`** using this exact format:
-
-```markdown
----
-haunt: true
-target: <url>
-date: <YYYY-MM-DD>
-personas: [<persona1>]
-areas_tested: <N>
-issues:
-  total: <N>
-  critical: <N>
-  major: <N>
-  minor: <N>
-top_fix: "<single highest-impact fix, one sentence>"
----
-
-# Haunt Report — <url>
-<YYYY-MM-DD> · <N> areas · <total> issues · <persona names>
-
-## Issues
-
-### 1. [CRITICAL] <description>
-- **Page:** `<page_url>`
-- **Fix:** <concrete one-sentence recommendation — what to add or change, not just what is wrong>
-- **Likely file:** `<file path based on Next.js App Router convention: e.g. /signup → app/signup/page.tsx, /api/foo → app/api/foo/route.ts>` *(AI estimate — verify before editing)*
-
-### 2. [MAJOR] <description>
-- **Page:** `<page_url>`
-- **Fix:** <concrete one-sentence recommendation — what to add or change, not just what is wrong>
-- **Likely file:** `<file path based on Next.js App Router convention: e.g. /signup → app/signup/page.tsx, /api/foo → app/api/foo/route.ts>` *(AI estimate — verify before editing)*
-
-### 3. [MINOR] <description>
-- **Page:** `<page_url>`
-- **Fix:** <concrete one-sentence recommendation — what to add or change, not just what is wrong>
-- **Likely file:** `<file path based on Next.js App Router convention: e.g. /signup → app/signup/page.tsx, /api/foo → app/api/foo/route.ts>` *(AI estimate — verify before editing)*
-
-## Session Impressions
-
-**<area> — <persona>:** "<overall_impression>"
-
-## Top Fix
-
-<highest-impact single action>
-
-## For Claude
-
-The following issues were found by Haunt. Fix them in order of severity.
-
-<For each issue, one line:>
-N. [SEVERITY] `<page_url>` — <one-sentence fix instruction>. Likely in `<file>`.
-
-**Formatting rules for the For Claude list:**
-- One line per issue, numbered sequentially, critical first
-- Fix instruction must be actionable (e.g. "Add required attribute to email input and show inline error on empty submit") not vague (e.g. "Fix the validation")
-- Include the likely file on every line
-- Use the actual target URL from the session in the re-run command
-
-After fixing, run `/haunt:haunt-test <target_url>` again to verify.
-```
-
-Sort issues: critical first, then major, then minor. Number sequentially.
-
-**Then print the summary:**
-
-```
-----------------------------------------
-N areas tested · TOTAL issues
-
-[!!!] N critical
- [!!] N major
-  [!] N minor
-
-> description of critical issue 1  [/page]
-> description of critical issue 2  [/page]
-
-fix first: one-sentence highest-impact recommendation
-
-report: .haunt-reports/YYYY-MM-DD-persona.md
-----------------------------------------
-```
-
-Omit severity lines where count is 0.
-If no criticals, replace `>` lines with: `no critical issues`
-If no issues, omit `fix first`.
+**Print exactly the `summary` field the tool returns.** Do not reconstruct it yourself.

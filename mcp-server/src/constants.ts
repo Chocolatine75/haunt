@@ -1,3 +1,4 @@
+export const REPORTS_DIR = '.haunt-reports';
 export const SCREENSHOTS_DIR = '.haunt-reports/screenshots';
 
 // A session whose browser sits idle longer than this (e.g. the orchestrator crashed
