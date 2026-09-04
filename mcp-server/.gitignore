@@ -5,3 +5,7 @@ node_modules/
 # start.cjs, which install Chromium at the exact revision this vendored copy expects.
 !dist/node_modules/
 *.tsbuildinfo
+# Screenshots written by the fixture tests in src/tools/*.test.ts (and by real runs
+# started from this directory) — was previously untracked here with nothing stopping
+# an accidental commit.
+.haunt-reports/
