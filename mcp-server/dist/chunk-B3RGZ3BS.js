@@ -351,6 +351,7 @@ async function hauntNavigate(manager, input) {
 }
 
 // src/tools/spawn.ts
+import { existsSync } from "fs";
 import { chromium } from "playwright";
 
 // node_modules/uuid/dist/esm/stringify.js
@@ -7554,6 +7555,12 @@ async function hauntSpawn(manager, input) {
   await manager.reapStale(SESSION_TTL_MS);
   const personaConfig = loadPersona(input.persona);
   const sessionId = v4_default();
+  const executablePath = chromium.executablePath();
+  if (!existsSync(executablePath)) {
+    throw new Error(
+      `Chromium is not installed at ${executablePath}. Run: node node_modules/playwright-core/cli.js install chromium (or npx playwright install chromium), then try again.`
+    );
+  }
   const browser = await chromium.launch({
     headless: input.headless ?? personaConfig.browser.headless
   });

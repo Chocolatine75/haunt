@@ -7,7 +7,7 @@ import {
   hauntGenerateReport,
   hauntNavigate,
   hauntSpawn
-} from "./chunk-ZULAWESS.js";
+} from "./chunk-B3RGZ3BS.js";
 import {
   _enum,
   _null,

@@ -1,4 +1,5 @@
 // mcp-server/src/tools/spawn.ts
+import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 import type { Cookie } from 'playwright';
 import { v4 as uuidv4 } from 'uuid';
@@ -30,6 +31,17 @@ export async function hauntSpawn(
 
   const personaConfig = loadPersona(input.persona);
   const sessionId = uuidv4();
+
+  // Fail with a clear, actionable message instead of Playwright's generic
+  // "Executable doesn't exist at ..." — this is the first tool call a new user
+  // makes, and a silently-failed install (start.cjs logs it but starts anyway)
+  // would otherwise surface here as an unhelpful low-level error.
+  const executablePath = chromium.executablePath();
+  if (!existsSync(executablePath)) {
+    throw new Error(
+      `Chromium is not installed at ${executablePath}. Run: node node_modules/playwright-core/cli.js install chromium (or npx playwright install chromium), then try again.`,
+    );
+  }
 
   const browser = await chromium.launch({
     headless: input.headless ?? personaConfig.browser.headless,

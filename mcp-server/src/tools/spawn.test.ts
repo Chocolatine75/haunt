@@ -1,6 +1,7 @@
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterEach, describe, expect, it } from 'vitest';
+import { chromium } from 'playwright';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SessionManager } from '../session/manager.js';
 import { hauntSpawn } from './spawn.js';
 
@@ -87,6 +88,26 @@ describe('hauntSpawn', () => {
         target_url: 'http://127.0.0.1:1/',
       }),
     ).rejects.toThrow(/not reachable/);
+
+    expect(manager.all()).toHaveLength(0);
+  });
+
+  it('fails with a clear message instead of launching when Chromium is not installed', async () => {
+    manager = new SessionManager();
+    const spy = vi
+      .spyOn(chromium, 'executablePath')
+      .mockReturnValue('/nonexistent/chromium-9999/chrome');
+
+    try {
+      await expect(
+        hauntSpawn(manager, {
+          persona: VALID_PERSONA,
+          target_url: 'data:text/html,<h1>hello</h1>',
+        }),
+      ).rejects.toThrow(/Chromium is not installed at \/nonexistent/);
+    } finally {
+      spy.mockRestore();
+    }
 
     expect(manager.all()).toHaveLength(0);
   });
