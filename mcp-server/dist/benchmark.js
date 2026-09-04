@@ -58,6 +58,32 @@ function checkReportFormat(markdown) {
 
 // src/benchmark/ground-truth.ts
 import { readFileSync } from "fs";
+var VALID_CATEGORIES = [
+  "ux",
+  "accessibility",
+  "performance",
+  "security",
+  "content"
+];
+function findInvalidField(entry) {
+  if (typeof entry !== "object" || entry === null) {
+    return "entry";
+  }
+  const candidate = entry;
+  if (typeof candidate.id !== "string" || candidate.id.length === 0) {
+    return "id";
+  }
+  if (typeof candidate.route !== "string") {
+    return "route";
+  }
+  if (typeof candidate.description !== "string" || candidate.description.length === 0) {
+    return "description";
+  }
+  if (typeof candidate.category !== "string" || !VALID_CATEGORIES.includes(candidate.category)) {
+    return "category";
+  }
+  return void 0;
+}
 function loadGroundTruth(path) {
   const raw = readFileSync(path, "utf-8");
   const parsed = JSON.parse(raw);
@@ -65,6 +91,14 @@ function loadGroundTruth(path) {
     throw new Error(
       `${path} does not contain a JSON array of ground-truth bugs`
     );
+  }
+  for (let i = 0; i < parsed.length; i++) {
+    const invalidField = findInvalidField(parsed[i]);
+    if (invalidField) {
+      throw new Error(
+        `${path}: entry at index ${i} is missing or has an invalid "${invalidField}"`
+      );
+    }
   }
   return parsed;
 }
@@ -217,11 +251,15 @@ function createMistralJudge(client, model) {
 }
 
 // src/benchmark/run.ts
+var USAGE = "Usage: haunt-benchmark [url] [--ground-truth path] [--provider anthropic|mistral] [--model id] [--out path]";
 var DEFAULT_TARGET_URL = "http://localhost:3000";
 var DEFAULT_GROUND_TRUTH_PATH = "demo/benchmark-ground-truth.json";
 var BENCHMARK_PERSONA = "confused-beginner";
 var BENCHMARK_STEPS = 3;
 var VALUED_FLAGS = ["ground-truth", "provider", "model", "out"];
+function isHelpRequested(argv) {
+  return argv.includes("--help") || argv.includes("-h");
+}
 function parseArgs(argv) {
   const getFlag = (name) => {
     const idx = argv.indexOf(`--${name}`);
@@ -270,18 +308,32 @@ async function runBenchmark(decide, judge, manager, options) {
   const issues = loadReportIssues(report.report_path);
   const format = checkReportFormat(report.markdown);
   const verdict = await judge(groundTruth, issues);
+  const validIds = new Set(groundTruth.map((bug) => bug.id));
+  const dedupedMatchedIds = /* @__PURE__ */ new Set();
+  const unreconciledIds = [];
+  for (const match of verdict.matched) {
+    if (!validIds.has(match.ground_truth_id)) {
+      unreconciledIds.push(match.ground_truth_id);
+      continue;
+    }
+    dedupedMatchedIds.add(match.ground_truth_id);
+  }
+  const missedGroundTruthIds = [...validIds].filter(
+    (id) => !dedupedMatchedIds.has(id)
+  );
   return {
     target_url: options.targetUrl,
     report_path: report.report_path,
     ground_truth_total: groundTruth.length,
-    recall: verdict.matched.length,
-    missed_ground_truth_ids: verdict.missed_ground_truth_ids,
+    recall: dedupedMatchedIds.size,
+    missed_ground_truth_ids: missedGroundTruthIds,
     false_positive_count: verdict.false_positives.length,
     total_issues: issues.length,
     actionable_count: verdict.actionable_count,
     format_ok: format.ok,
     format_missing: format.missing,
-    judge_reasoning: verdict.reasoning
+    judge_reasoning: verdict.reasoning,
+    ...unreconciledIds.length > 0 ? { unreconciled_ids: unreconciledIds } : {}
   };
 }
 function printScorecard(scorecard) {
@@ -295,6 +347,9 @@ function printScorecard(scorecard) {
     `false positives: ${scorecard.false_positive_count}`,
     `actionable: ${scorecard.actionable_count}/${scorecard.total_issues}`,
     `format: ${scorecard.format_ok ? "ok" : `FAILED (${scorecard.format_missing.join(", ")})`}`,
+    ...scorecard.unreconciled_ids && scorecard.unreconciled_ids.length > 0 ? [
+      `judge referenced unknown ids: ${scorecard.unreconciled_ids.join(", ")}`
+    ] : [],
     "",
     "judge reasoning:",
     scorecard.judge_reasoning,
@@ -303,9 +358,15 @@ function printScorecard(scorecard) {
   console.log(lines.join("\n"));
 }
 async function main() {
+  const argv = process.argv.slice(2);
+  if (isHelpRequested(argv)) {
+    console.log(USAGE);
+    process.exit(0);
+    return;
+  }
   let options;
   try {
-    options = parseArgs(process.argv.slice(2));
+    options = parseArgs(argv);
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(2);
@@ -348,6 +409,7 @@ if (isMainModule(import.meta.url)) {
   main();
 }
 export {
+  isHelpRequested,
   parseArgs,
   runBenchmark
 };
