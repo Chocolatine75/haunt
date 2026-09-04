@@ -9,8 +9,9 @@
 // into a repeatable, scriptable signal for report-quality regressions.
 //
 // Run from the repo root so the default ground-truth path resolves, or pass
-// --ground-truth explicitly. Costs one real LLM API call for the persona loop
-// plus one for the judge, same provider/key rules as haunt-ci.
+// --ground-truth explicitly. Costs real LLM API calls: one per persona-loop
+// step (BENCHMARK_STEPS, 3 by default) plus one for the judge, so 4 total
+// with the default step count. Same provider/key rules as haunt-ci.
 import 'dotenv/config';
 import { readFileSync, writeFileSync } from 'node:fs';
 import Anthropic from '@anthropic-ai/sdk';
@@ -48,6 +49,10 @@ const BENCHMARK_PERSONA = 'confused-beginner';
 const BENCHMARK_STEPS = 3;
 
 const VALUED_FLAGS = ['ground-truth', 'provider', 'model', 'out'];
+
+export function isHelpRequested(argv: string[]): boolean {
+  return argv.includes('--help') || argv.includes('-h');
+}
 
 export function parseArgs(argv: string[]): BenchmarkOptions {
   const getFlag = (name: string): string | undefined => {
@@ -114,6 +119,7 @@ export interface Scorecard {
   format_ok: boolean;
   format_missing: string[];
   judge_reasoning: string;
+  unreconciled_ids?: string[];
 }
 
 export async function runBenchmark(
@@ -135,18 +141,38 @@ export async function runBenchmark(
   const format = checkReportFormat(report.markdown);
   const verdict = await judge(groundTruth, issues);
 
+  // Reconcile the judge's verdict against the real ground-truth ids rather
+  // than trusting it outright: a judge can hallucinate an id, double-count a
+  // match, or omit a ground-truth bug from both matched and missed.
+  const validIds = new Set(groundTruth.map((bug) => bug.id));
+  const dedupedMatchedIds = new Set<string>();
+  const unreconciledIds: string[] = [];
+  for (const match of verdict.matched) {
+    if (!validIds.has(match.ground_truth_id)) {
+      unreconciledIds.push(match.ground_truth_id);
+      continue;
+    }
+    dedupedMatchedIds.add(match.ground_truth_id);
+  }
+  const missedGroundTruthIds = [...validIds].filter(
+    (id) => !dedupedMatchedIds.has(id),
+  );
+
   return {
     target_url: options.targetUrl,
     report_path: report.report_path,
     ground_truth_total: groundTruth.length,
-    recall: verdict.matched.length,
-    missed_ground_truth_ids: verdict.missed_ground_truth_ids,
+    recall: dedupedMatchedIds.size,
+    missed_ground_truth_ids: missedGroundTruthIds,
     false_positive_count: verdict.false_positives.length,
     total_issues: issues.length,
     actionable_count: verdict.actionable_count,
     format_ok: format.ok,
     format_missing: format.missing,
     judge_reasoning: verdict.reasoning,
+    ...(unreconciledIds.length > 0
+      ? { unreconciled_ids: unreconciledIds }
+      : {}),
   };
 }
 
@@ -167,6 +193,11 @@ function printScorecard(scorecard: Scorecard): void {
         ? 'ok'
         : `FAILED (${scorecard.format_missing.join(', ')})`
     }`,
+    ...(scorecard.unreconciled_ids && scorecard.unreconciled_ids.length > 0
+      ? [
+          `judge referenced unknown ids: ${scorecard.unreconciled_ids.join(', ')}`,
+        ]
+      : []),
     '',
     'judge reasoning:',
     scorecard.judge_reasoning,
@@ -176,9 +207,16 @@ function printScorecard(scorecard: Scorecard): void {
 }
 
 async function main() {
+  const argv = process.argv.slice(2);
+  if (isHelpRequested(argv)) {
+    console.log(USAGE);
+    process.exit(0);
+    return;
+  }
+
   let options: BenchmarkOptions;
   try {
-    options = parseArgs(process.argv.slice(2));
+    options = parseArgs(argv);
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(2);

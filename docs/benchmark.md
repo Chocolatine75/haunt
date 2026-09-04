@@ -76,3 +76,9 @@ about ground truth.
   only shows up in server logs — no browser-driven persona can find it, so
   it was never included in the scored ground truth. Max achievable recall
   against `demo/`'s full bug list is 5/6, not 6/6.
+- **Same model judges itself.** The model deciding persona actions and the
+  model judging the report are the same (`--provider`/`--model` apply to
+  both) — a form of self-evaluation bias. A future `--judge-model` flag
+  could decouple them; for now, treat cross-model comparisons (e.g.
+  Anthropic vs. Mistral) with extra scrutiny since the judge changes along
+  with the model under test.

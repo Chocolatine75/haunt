@@ -27,7 +27,7 @@ const GROUND_TRUTH_FIXTURE = resolve(
 // have already resolved that constant before the line above ever ran, so
 // run.js is imported dynamically here instead, after the env var is set.
 process.env.HAUNT_PERSONAS_DIR ??= resolve(__dirname, '../../../personas');
-const { parseArgs, runBenchmark } = await import('./run.js');
+const { parseArgs, runBenchmark, isHelpRequested } = await import('./run.js');
 
 describe('parseArgs', () => {
   it('applies defaults when nothing is passed', () => {
@@ -66,6 +66,29 @@ describe('parseArgs', () => {
     expect(() => parseArgs(['--provider', 'openai'])).toThrow(
       /--provider must be "anthropic" or "mistral"/,
     );
+  });
+});
+
+describe('isHelpRequested', () => {
+  it('detects --help', () => {
+    expect(isHelpRequested(['--help'])).toBe(true);
+  });
+
+  it('detects -h', () => {
+    expect(isHelpRequested(['-h'])).toBe(true);
+  });
+
+  it('detects --help mixed in with other args', () => {
+    expect(
+      isHelpRequested(['http://localhost:3000', '--help', '--provider']),
+    ).toBe(true);
+  });
+
+  it('returns false when no help flag is present', () => {
+    expect(isHelpRequested([])).toBe(false);
+    expect(
+      isHelpRequested(['http://localhost:3000', '--provider', 'mistral']),
+    ).toBe(false);
   });
 });
 
@@ -114,5 +137,66 @@ describe('runBenchmark', () => {
     expect(scorecard.format_ok).toBe(true);
     expect(scorecard.format_missing).toEqual([]);
     expect(scorecard.report_path).toContain('.md');
+    expect(scorecard.unreconciled_ids).toBeUndefined();
+  }, 15_000);
+
+  it('reconciles a hallucinated ground-truth id out of recall and surfaces it as unreconciled', async () => {
+    const manager = new SessionManager();
+    const decide = fakeDecider();
+    // The judge claims a match on a real bug (test-bug-one) and a *fake*
+    // bug id that doesn't exist in ground truth. It never mentions
+    // test-bug-two at all, so its own missed_ground_truth_ids can't be
+    // trusted either -- runBenchmark must recompute it itself.
+    const judge = fakeJudge({
+      matched: [
+        { ground_truth_id: 'test-bug-one', matched_issue_description: 'desc' },
+        {
+          ground_truth_id: 'not-a-real-ground-truth-id',
+          matched_issue_description: 'hallucinated match',
+        },
+      ],
+      missed_ground_truth_ids: [], // judge (wrongly) claims nothing was missed
+      false_positives: [],
+      actionable_count: 1,
+    });
+
+    const scorecard = await runBenchmark(decide, judge, manager, {
+      targetUrl: 'data:text/html,<input type="text" />',
+      groundTruthPath: GROUND_TRUTH_FIXTURE,
+    });
+
+    // Only the real match counts toward recall.
+    expect(scorecard.recall).toBe(1);
+    // The hallucinated id is surfaced, not silently trusted.
+    expect(scorecard.unreconciled_ids).toEqual(['not-a-real-ground-truth-id']);
+    // test-bug-two is recomputed as missed even though the judge's own
+    // missed_ground_truth_ids said nothing was missed.
+    expect(scorecard.missed_ground_truth_ids).toEqual(['test-bug-two']);
+  }, 15_000);
+
+  it('dedupes a real ground-truth id the judge lists twice in matched', async () => {
+    const manager = new SessionManager();
+    const decide = fakeDecider();
+    const judge = fakeJudge({
+      matched: [
+        { ground_truth_id: 'test-bug-one', matched_issue_description: 'desc' },
+        {
+          ground_truth_id: 'test-bug-one',
+          matched_issue_description: 'same bug, described again',
+        },
+      ],
+      missed_ground_truth_ids: ['test-bug-two'],
+      false_positives: [],
+      actionable_count: 1,
+    });
+
+    const scorecard = await runBenchmark(decide, judge, manager, {
+      targetUrl: 'data:text/html,<input type="text" />',
+      groundTruthPath: GROUND_TRUTH_FIXTURE,
+    });
+
+    expect(scorecard.recall).toBe(1);
+    expect(scorecard.missed_ground_truth_ids).toEqual(['test-bug-two']);
+    expect(scorecard.unreconciled_ids).toBeUndefined();
   }, 15_000);
 });
