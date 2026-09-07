@@ -1,8 +1,19 @@
+import { type Server, createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { type Browser, type Page, chromium } from 'playwright';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { SessionManager } from '../session/manager.js';
 import type { HauntSession } from '../types.js';
 import { hauntNavigate } from './navigate.js';
+import { hauntSpawn } from './spawn.js';
+
+const __dirname = fileURLToPath(new URL('.', import.meta.url));
+const VALID_PERSONA = resolve(
+  __dirname,
+  '../persona/__fixtures__/valid-persona.yaml',
+);
 
 function mockSessionAtStepLimit(): HauntSession {
   return {
@@ -80,6 +91,7 @@ describe('executeAction (via hauntNavigate)', () => {
       pages_visited: [],
       console_errors: [],
       network_errors: [],
+      sandbox_blocked_requests: [],
       page,
     } as unknown as HauntSession;
     manager.set(session.id, session);
@@ -180,5 +192,105 @@ describe('executeAction (via hauntNavigate)', () => {
     );
     expect(pressResult.success).toBe(true);
     expect(await page.inputValue('input')).toBe('A');
+  });
+});
+
+// Sandboxing: the origin allowlist is captured from what the target page
+// itself loads at startup, then enforced for the rest of the session. Real
+// local HTTP servers (not data: URLs) are used because origin comparison
+// needs genuinely distinct origins, and because a same-context route()
+// handler must be exercised against real navigation/subresource requests.
+describe('sandboxing — origin allowlist', () => {
+  let serverA: Server; // the target app
+  let serverB: Server; // a legitimate second origin, loaded by A at startup
+  let serverC: Server; // never referenced by A — the escape-attempt target
+  let baseA: string;
+  let baseB: string;
+  let baseC: string;
+
+  beforeAll(async () => {
+    serverB = createServer((req, res) => {
+      if (req.url === '/lib.js') {
+        res.setHeader('Content-Type', 'application/javascript');
+        res.end('/* from B */');
+      } else {
+        res.setHeader('Content-Type', 'text/html');
+        res.end('<p>origin B page</p>');
+      }
+    });
+    serverC = createServer((req, res) => {
+      res.setHeader('Content-Type', 'text/html');
+      res.end('<p>origin C</p>');
+    });
+    await Promise.all([
+      new Promise<void>((r) => serverB.listen(0, '127.0.0.1', r)),
+      new Promise<void>((r) => serverC.listen(0, '127.0.0.1', r)),
+    ]);
+    baseB = `http://127.0.0.1:${(serverB.address() as AddressInfo).port}`;
+    baseC = `http://127.0.0.1:${(serverC.address() as AddressInfo).port}`;
+
+    serverA = createServer((req, res) => {
+      res.setHeader('Content-Type', 'text/html');
+      res.end(`<script src="${baseB}/lib.js"></script><p>origin A</p>`);
+    });
+    await new Promise<void>((r) => serverA.listen(0, '127.0.0.1', r));
+    baseA = `http://127.0.0.1:${(serverA.address() as AddressInfo).port}`;
+  });
+
+  afterAll(async () => {
+    await Promise.all(
+      [serverA, serverB, serverC].map(
+        (s) => new Promise<void>((r, j) => s.close((e) => (e ? j(e) : r()))),
+      ),
+    );
+  });
+
+  let sandboxManager: SessionManager;
+  afterEach(async () => {
+    for (const session of sandboxManager?.all() ?? []) {
+      await session.browser.close();
+    }
+  });
+
+  it('blocks a goto to an origin never seen during initial load', async () => {
+    sandboxManager = new SessionManager();
+    const spawnResult = await hauntSpawn(sandboxManager, {
+      persona: VALID_PERSONA,
+      target_url: baseA,
+      headless: true,
+      timeout: 5,
+    });
+
+    const result = await hauntNavigate(sandboxManager, {
+      session_id: spawnResult.session_id,
+      action: `goto ${baseC}`,
+    });
+
+    expect(result.success).toBe(false);
+    const session = sandboxManager.get(spawnResult.session_id);
+    expect(
+      session.sandbox_blocked_requests.some((r) => r.includes(baseC)),
+    ).toBe(true);
+    // A blocked navigation must never be misreported as an app bug
+    expect(session.issues).toHaveLength(0);
+  });
+
+  it('does not block a request to an origin the target loaded legitimately at startup', async () => {
+    sandboxManager = new SessionManager();
+    const spawnResult = await hauntSpawn(sandboxManager, {
+      persona: VALID_PERSONA,
+      target_url: baseA,
+      headless: true,
+      timeout: 5,
+    });
+
+    const result = await hauntNavigate(sandboxManager, {
+      session_id: spawnResult.session_id,
+      action: `goto ${baseB}/`,
+    });
+
+    expect(result.success).toBe(true);
+    const session = sandboxManager.get(spawnResult.session_id);
+    expect(session.sandbox_blocked_requests).toHaveLength(0);
   });
 });

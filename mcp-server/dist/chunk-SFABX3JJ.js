@@ -414,21 +414,25 @@ async function hauntNavigate(manager, input) {
   const stepNetworkErrors = session.network_errors.splice(0);
   session.step_count++;
   let screenshotPath;
+  const blockedCountBefore = session.sandbox_blocked_requests.length;
   try {
     await executeAction(page, input.action);
   } catch (error) {
+    const wasSandboxBlocked = session.sandbox_blocked_requests.length > blockedCountBefore;
     screenshotPath = `${session.id}-step-${session.step_count}.png`;
     mkdirSync3(SCREENSHOTS_DIR, { recursive: true });
     await page.screenshot({ path: `${SCREENSHOTS_DIR}/${screenshotPath}` });
-    const issue = {
-      severity: "major",
-      category: "ux",
-      description: `Action failed: "${redactActionForReporting(input.action)}". ${error instanceof Error ? error.message : String(error)}`,
-      page_url: page.url(),
-      screenshot_path: screenshotPath,
-      recommendation: "Ensure this interaction is reachable and clearly labeled."
-    };
-    session.issues.push(issue);
+    if (!wasSandboxBlocked) {
+      const issue = {
+        severity: "major",
+        category: "ux",
+        description: `Action failed: "${redactActionForReporting(input.action)}". ${error instanceof Error ? error.message : String(error)}`,
+        page_url: page.url(),
+        screenshot_path: screenshotPath,
+        recommendation: "Ensure this interaction is reachable and clearly labeled."
+      };
+      session.issues.push(issue);
+    }
     return {
       success: false,
       page_url: page.url(),
@@ -7703,6 +7707,33 @@ async function hauntSpawn(manager, input) {
   if (input.cookies && input.cookies.length > 0) {
     await context.addCookies(input.cookies);
   }
+  const allowedOrigins = /* @__PURE__ */ new Set();
+  const sandboxBlockedRequests = [];
+  let capturingAllowlist = true;
+  await context.route("**/*", async (route) => {
+    const request = route.request();
+    let origin;
+    try {
+      origin = new URL(request.url()).origin;
+    } catch {
+      sandboxBlockedRequests.push(
+        `${request.method()} ${request.url()} (unparseable URL)`
+      );
+      await route.abort();
+      return;
+    }
+    if (capturingAllowlist) {
+      allowedOrigins.add(origin);
+      await route.continue();
+      return;
+    }
+    if (allowedOrigins.has(origin)) {
+      await route.continue();
+      return;
+    }
+    sandboxBlockedRequests.push(`${request.method()} ${request.url()}`);
+    await route.abort();
+  });
   const page = await context.newPage();
   const consoleErrors = [];
   const networkErrors = [];
@@ -7725,6 +7756,9 @@ async function hauntSpawn(manager, input) {
       `${input.target_url} is not reachable. Make sure your dev server is running.`
     );
   }
+  await page.waitForLoadState("load", { timeout: 15e3 }).catch(() => {
+  });
+  capturingAllowlist = false;
   const session = {
     id: sessionId,
     persona: personaConfig,
@@ -7737,7 +7771,8 @@ async function hauntSpawn(manager, input) {
     step_count: 0,
     max_steps: input.timeout ?? personaConfig.scenarios[0]?.max_steps ?? 30,
     console_errors: consoleErrors,
-    network_errors: networkErrors
+    network_errors: networkErrors,
+    sandbox_blocked_requests: sandboxBlockedRequests
   };
   manager.set(sessionId, session);
   return {

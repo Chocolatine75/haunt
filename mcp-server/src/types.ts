@@ -49,4 +49,8 @@ export interface HauntSession {
   // Mutable arrays — errors are captured via Playwright events and spliced out per step
   console_errors: string[];
   network_errors: string[];
+  // Requests the sandbox blocked because their origin was never seen during
+  // the target page's own initial load. Kept separate from network_errors —
+  // a sandbox block is not an app failure and must never be reported as one.
+  sandbox_blocked_requests: string[];
 }

@@ -122,24 +122,30 @@ export async function hauntNavigate(
   session.step_count++;
 
   let screenshotPath: string | undefined;
+  const blockedCountBefore = session.sandbox_blocked_requests.length;
 
   try {
     await executeAction(page, input.action);
   } catch (error) {
+    const wasSandboxBlocked =
+      session.sandbox_blocked_requests.length > blockedCountBefore;
+
     screenshotPath = `${session.id}-step-${session.step_count}.png`;
     mkdirSync(SCREENSHOTS_DIR, { recursive: true });
     await page.screenshot({ path: `${SCREENSHOTS_DIR}/${screenshotPath}` });
 
-    const issue: Issue = {
-      severity: 'major',
-      category: 'ux',
-      description: `Action failed: "${redactActionForReporting(input.action)}". ${error instanceof Error ? error.message : String(error)}`,
-      page_url: page.url(),
-      screenshot_path: screenshotPath,
-      recommendation:
-        'Ensure this interaction is reachable and clearly labeled.',
-    };
-    session.issues.push(issue);
+    if (!wasSandboxBlocked) {
+      const issue: Issue = {
+        severity: 'major',
+        category: 'ux',
+        description: `Action failed: "${redactActionForReporting(input.action)}". ${error instanceof Error ? error.message : String(error)}`,
+        page_url: page.url(),
+        screenshot_path: screenshotPath,
+        recommendation:
+          'Ensure this interaction is reachable and clearly labeled.',
+      };
+      session.issues.push(issue);
+    }
 
     return {
       success: false,

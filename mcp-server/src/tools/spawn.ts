@@ -58,6 +58,43 @@ export async function hauntSpawn(
     await context.addCookies(input.cookies);
   }
 
+  // Sandboxing: the origin allowlist starts empty and is populated with
+  // every origin the target page itself requests during its own initial
+  // load. Once that load completes, the allowlist is frozen — any later
+  // request (navigation or subresource) to an origin outside it is
+  // blocked, not just detected after the fact.
+  const allowedOrigins = new Set<string>();
+  const sandboxBlockedRequests: string[] = [];
+  let capturingAllowlist = true;
+
+  await context.route('**/*', async (route) => {
+    const request = route.request();
+    let origin: string;
+    try {
+      origin = new URL(request.url()).origin;
+    } catch {
+      sandboxBlockedRequests.push(
+        `${request.method()} ${request.url()} (unparseable URL)`,
+      );
+      await route.abort();
+      return;
+    }
+
+    if (capturingAllowlist) {
+      allowedOrigins.add(origin);
+      await route.continue();
+      return;
+    }
+
+    if (allowedOrigins.has(origin)) {
+      await route.continue();
+      return;
+    }
+
+    sandboxBlockedRequests.push(`${request.method()} ${request.url()}`);
+    await route.abort();
+  });
+
   const page = await context.newPage();
 
   // Capture console errors and network failures via Playwright events
@@ -86,6 +123,13 @@ export async function hauntSpawn(
     );
   }
 
+  // Give subresources (fonts, CDN scripts, analytics) that load after
+  // domcontentloaded a chance to be captured into the allowlist too, before
+  // enforcement begins. Best-effort — some pages never fully settle into a
+  // 'load' event, so this must not hang spawn indefinitely.
+  await page.waitForLoadState('load', { timeout: 15_000 }).catch(() => {});
+  capturingAllowlist = false;
+
   const session: HauntSession = {
     id: sessionId,
     persona: personaConfig,
@@ -99,6 +143,7 @@ export async function hauntSpawn(
     max_steps: input.timeout ?? personaConfig.scenarios[0]?.max_steps ?? 30,
     console_errors: consoleErrors,
     network_errors: networkErrors,
+    sandbox_blocked_requests: sandboxBlockedRequests,
   };
 
   manager.set(sessionId, session);
