@@ -3,7 +3,6 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import type { ActionDecider } from '../cli/providers/types.js';
 import { SessionManager } from '../session/manager.js';
-import type { Issue } from '../types.js';
 import type { ReportJudge } from './judge/types.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
@@ -65,6 +64,26 @@ describe('parseArgs', () => {
   it('throws on an unknown --provider value', () => {
     expect(() => parseArgs(['--provider', 'openai'])).toThrow(
       /--provider must be "anthropic" or "mistral"/,
+    );
+  });
+
+  it('parses --email, --password, and --login-url', () => {
+    const options = parseArgs([
+      '--email',
+      'test@example.com',
+      '--password',
+      'password123',
+      '--login-url',
+      'http://localhost:3000/auth/login',
+    ]);
+    expect(options.email).toBe('test@example.com');
+    expect(options.password).toBe('password123');
+    expect(options.loginUrl).toBe('http://localhost:3000/auth/login');
+  });
+
+  it('throws when only --email is given without --password', () => {
+    expect(() => parseArgs(['--email', 'test@example.com'])).toThrow(
+      /--email and --password must be given together/,
     );
   });
 });

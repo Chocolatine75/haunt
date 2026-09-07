@@ -1,13 +1,13 @@
 import { createRequire } from 'module'; const require = createRequire(import.meta.url);
 import {
-  SESSION_TTL_MS,
   SessionManager,
   hauntCaptureState,
   hauntEndSession,
   hauntGenerateReport,
+  hauntGetCookies,
   hauntNavigate,
   hauntSpawn
-} from "./chunk-5IGKEYRM.js";
+} from "./chunk-UBRXKP5T.js";
 import {
   _enum,
   _null,
@@ -10562,18 +10562,6 @@ function hauntEstimateCost(input) {
   const session_size = browser_calls <= 6 ? "light" : browser_calls <= 16 ? "medium" : "heavy";
   const summary_line = `estimated: ${route_count} routes \xB7 ${steps_per_route} steps each \xB7 ~${browser_calls} browser calls \xB7 ${session_size} session`;
   return { browser_calls, session_size, summary_line };
-}
-
-// src/tools/get-cookies.ts
-async function hauntGetCookies(manager, input) {
-  const session = manager.get(input.session_id);
-  await manager.reapStale(SESSION_TTL_MS);
-  const raw = await session.page.context().cookies();
-  const cookies = raw.map((c) => ({
-    ...c,
-    sameSite: c.sameSite ?? "None"
-  }));
-  return { cookies };
 }
 
 // src/server.ts

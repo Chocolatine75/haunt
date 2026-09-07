@@ -7743,6 +7743,18 @@ async function hauntSpawn(manager, input) {
   };
 }
 
+// src/tools/get-cookies.ts
+async function hauntGetCookies(manager, input) {
+  const session = manager.get(input.session_id);
+  await manager.reapStale(SESSION_TTL_MS);
+  const raw = await session.page.context().cookies();
+  const cookies = raw.map((c) => ({
+    ...c,
+    sameSite: c.sameSite ?? "None"
+  }));
+  return { cookies };
+}
+
 // node_modules/zod-to-json-schema/dist/esm/Options.js
 var ignoreOverride = /* @__PURE__ */ Symbol("Let zodToJsonSchema decide on which parser to use");
 var defaultOptions = {
@@ -9030,10 +9042,10 @@ var zodToJsonSchema = (schema2, options) => {
 export {
   zodToJsonSchema,
   SessionManager,
-  SESSION_TTL_MS,
   hauntCaptureState,
   hauntEndSession,
   hauntGenerateReport,
+  hauntGetCookies,
   hauntNavigate,
   hauntSpawn
 };

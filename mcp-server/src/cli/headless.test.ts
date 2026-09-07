@@ -74,6 +74,33 @@ describe('parseArgs', () => {
       parseArgs(['http://localhost:3000', '--provider', 'openai']),
     ).toThrow(/--provider must be "anthropic" or "mistral"/);
   });
+
+  it('parses --email, --password, and --login-url', () => {
+    const opts = parseArgs([
+      'http://localhost:3000',
+      '--email',
+      'test@example.com',
+      '--password',
+      'password123',
+      '--login-url',
+      'http://localhost:3000/auth/login',
+    ]);
+    expect(opts.email).toBe('test@example.com');
+    expect(opts.password).toBe('password123');
+    expect(opts.loginUrl).toBe('http://localhost:3000/auth/login');
+  });
+
+  it('throws when only --email is given without --password', () => {
+    expect(() =>
+      parseArgs(['http://localhost:3000', '--email', 'test@example.com']),
+    ).toThrow(/--email and --password must be given together/);
+  });
+
+  it('throws when only --password is given without --email', () => {
+    expect(() =>
+      parseArgs(['http://localhost:3000', '--password', 'password123']),
+    ).toThrow(/--email and --password must be given together/);
+  });
 });
 
 describe('resolveProvider', () => {
@@ -222,4 +249,44 @@ describe('runHeadlessTest', () => {
       }),
     ).rejects.toThrow(/All persona sessions failed/);
   });
+
+  it('tells the persona it is unauthenticated when no cookies are given', async () => {
+    const manager = new SessionManager();
+    const stateDescriptions: string[] = [];
+    const decide: ActionDecider = async (_persona, state) => {
+      stateDescriptions.push(state);
+      return { action: 'press A', issues: [] };
+    };
+
+    await runHeadlessTest(decide, manager, baseOptions());
+
+    expect(stateDescriptions[0]).toContain('you are NOT logged in');
+  }, 15_000);
+
+  it('omits the unauthenticated note when cookies are provided', async () => {
+    const manager = new SessionManager();
+    const stateDescriptions: string[] = [];
+    const decide: ActionDecider = async (_persona, state) => {
+      stateDescriptions.push(state);
+      return { action: 'press A', issues: [] };
+    };
+
+    await runHeadlessTest(decide, manager, {
+      ...baseOptions(),
+      cookies: [
+        {
+          name: 'session',
+          value: 'abc',
+          domain: 'localhost',
+          path: '/',
+          expires: -1,
+          httpOnly: false,
+          secure: false,
+          sameSite: 'Lax',
+        },
+      ],
+    });
+
+    expect(stateDescriptions[0]).not.toContain('you are NOT logged in');
+  }, 15_000);
 });

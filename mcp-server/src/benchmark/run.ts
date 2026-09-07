@@ -16,6 +16,8 @@ import 'dotenv/config';
 import { readFileSync, writeFileSync } from 'node:fs';
 import Anthropic from '@anthropic-ai/sdk';
 import { Mistral } from '@mistralai/mistralai';
+import type { Cookie } from 'playwright';
+import { authenticate } from '../cli/authenticate.js';
 import {
   type Provider,
   type ResolvedProvider,
@@ -39,16 +41,27 @@ export interface BenchmarkOptions {
   provider?: Provider;
   model?: string;
   outPath?: string;
+  email?: string;
+  password?: string;
+  loginUrl?: string;
 }
 
 const USAGE =
-  'Usage: haunt-benchmark [url] [--ground-truth path] [--provider anthropic|mistral] [--model id] [--out path]';
+  'Usage: haunt-benchmark [url] [--ground-truth path] [--provider anthropic|mistral] [--model id] [--out path] [--email addr --password pw] [--login-url url]';
 const DEFAULT_TARGET_URL = 'http://localhost:3000';
 const DEFAULT_GROUND_TRUTH_PATH = 'demo/benchmark-ground-truth.json';
 const BENCHMARK_PERSONA = 'confused-beginner';
 const BENCHMARK_STEPS = 3;
 
-const VALUED_FLAGS = ['ground-truth', 'provider', 'model', 'out'];
+const VALUED_FLAGS = [
+  'ground-truth',
+  'provider',
+  'model',
+  'out',
+  'email',
+  'password',
+  'login-url',
+];
 
 export function isHelpRequested(argv: string[]): boolean {
   return argv.includes('--help') || argv.includes('-h');
@@ -80,12 +93,21 @@ export function parseArgs(argv: string[]): BenchmarkOptions {
     );
   }
 
+  const email = getFlag('email');
+  const password = getFlag('password');
+  if ((email && !password) || (password && !email)) {
+    throw new Error('--email and --password must be given together.');
+  }
+
   return {
     targetUrl,
     groundTruthPath: getFlag('ground-truth') ?? DEFAULT_GROUND_TRUTH_PATH,
     provider: providerFlag as Provider | undefined,
     model: getFlag('model'),
     outPath: getFlag('out'),
+    email,
+    password,
+    loginUrl: getFlag('login-url'),
   };
 }
 
@@ -126,7 +148,9 @@ export async function runBenchmark(
   decide: ActionDecider,
   judge: ReportJudge,
   manager: SessionManager,
-  options: Pick<BenchmarkOptions, 'targetUrl' | 'groundTruthPath'>,
+  options: Pick<BenchmarkOptions, 'targetUrl' | 'groundTruthPath'> & {
+    cookies?: Cookie[];
+  },
 ): Promise<Scorecard> {
   const groundTruth = loadGroundTruth(options.groundTruthPath);
 
@@ -135,6 +159,7 @@ export async function runBenchmark(
     personas: [BENCHMARK_PERSONA],
     steps: BENCHMARK_STEPS,
     headless: true,
+    cookies: options.cookies,
   });
 
   const issues = loadReportIssues(report.report_path);
@@ -240,8 +265,36 @@ async function main() {
   const judge = createJudge(resolved);
   const manager = new SessionManager();
 
+  let cookies: Cookie[] | undefined;
+  if (options.email && options.password) {
+    const loginUrl =
+      options.loginUrl ?? new URL('/login', options.targetUrl).toString();
+    console.error(`[haunt-benchmark] authenticating at ${loginUrl}...`);
+    try {
+      cookies = await authenticate(manager, {
+        loginUrl,
+        email: options.email,
+        password: options.password,
+        headless: true,
+      });
+      console.error(
+        `[haunt-benchmark] authenticated — ${cookies.length} cookie(s)`,
+      );
+    } catch (error) {
+      console.error(
+        'haunt-benchmark failed: login failed —',
+        error instanceof Error ? error.message : String(error),
+      );
+      process.exit(2);
+      return;
+    }
+  }
+
   try {
-    const scorecard = await runBenchmark(decide, judge, manager, options);
+    const scorecard = await runBenchmark(decide, judge, manager, {
+      ...options,
+      cookies,
+    });
     printScorecard(scorecard);
     if (options.outPath) {
       writeFileSync(

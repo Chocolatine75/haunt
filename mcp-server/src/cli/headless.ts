@@ -16,6 +16,7 @@
 import 'dotenv/config';
 import Anthropic from '@anthropic-ai/sdk';
 import { Mistral } from '@mistralai/mistralai';
+import type { Cookie } from 'playwright';
 import { isMainModule } from '../is-main-module.js';
 import { SessionManager } from '../session/manager.js';
 import { hauntCaptureState } from '../tools/capture.js';
@@ -27,6 +28,7 @@ import type {
 import { hauntGenerateReport } from '../tools/generate-report.js';
 import { hauntNavigate } from '../tools/navigate.js';
 import { hauntSpawn } from '../tools/spawn.js';
+import { authenticate } from './authenticate.js';
 import { createAnthropicDecider } from './providers/anthropic.js';
 import { createMistralDecider } from './providers/mistral.js';
 import type { ActionDecider } from './providers/types.js';
@@ -40,12 +42,23 @@ export interface CliOptions {
   provider?: Provider;
   model?: string;
   headless: boolean;
+  email?: string;
+  password?: string;
+  loginUrl?: string;
 }
 
 const USAGE =
-  'Usage: haunt-ci <url> [--personas p1,p2] [--steps N] [--provider anthropic|mistral] [--model id] [--headed]';
+  'Usage: haunt-ci <url> [--personas p1,p2] [--steps N] [--provider anthropic|mistral] [--model id] [--headed] [--email addr --password pw] [--login-url url]';
 
-const VALUED_FLAGS = ['personas', 'steps', 'provider', 'model'];
+const VALUED_FLAGS = [
+  'personas',
+  'steps',
+  'provider',
+  'model',
+  'email',
+  'password',
+  'login-url',
+];
 
 export function parseArgs(argv: string[]): CliOptions {
   const getFlag = (name: string): string | undefined => {
@@ -91,6 +104,12 @@ export function parseArgs(argv: string[]): CliOptions {
 
   const headless = !argv.includes('--headed');
 
+  const email = getFlag('email');
+  const password = getFlag('password');
+  if ((email && !password) || (password && !email)) {
+    throw new Error('--email and --password must be given together.');
+  }
+
   return {
     targetUrl,
     personas,
@@ -98,6 +117,9 @@ export function parseArgs(argv: string[]): CliOptions {
     provider: providerFlag as Provider | undefined,
     model: getFlag('model'),
     headless,
+    email,
+    password,
+    loginUrl: getFlag('login-url'),
   };
 }
 
@@ -149,6 +171,12 @@ export function createDecider(resolved: ResolvedProvider): ActionDecider {
   );
 }
 
+const UNAUTHENTICATED_NOTE =
+  'Note: you are NOT logged in for this session. If this page shows content ' +
+  'that looks private, personalized, or administrative (e.g. a dashboard, ' +
+  'account data, admin controls) without redirecting you to a login page ' +
+  'first, that is itself a serious security bug — report it.';
+
 function describeState(
   url: string,
   title: string,
@@ -156,11 +184,13 @@ function describeState(
   accessibilityTreeError: string | undefined,
   step: number,
   steps: number,
+  authenticated: boolean,
 ): string {
   const treeSection = accessibilityTree
     ? accessibilityTree
     : `(unavailable: ${accessibilityTreeError ?? 'unknown error'})`;
-  return `URL: ${url}\nTitle: ${title}\nStep ${step} of ${steps}\n\nAccessibility tree:\n${treeSection}`;
+  const base = `URL: ${url}\nTitle: ${title}\nStep ${step} of ${steps}\n\nAccessibility tree:\n${treeSection}`;
+  return authenticated ? base : `${base}\n\n${UNAUTHENTICATED_NOTE}`;
 }
 
 async function runPersonaSession(
@@ -170,12 +200,15 @@ async function runPersonaSession(
   targetUrl: string,
   steps: number,
   headless: boolean,
+  cookies?: Cookie[],
 ): Promise<SessionResult> {
+  const authenticated = Boolean(cookies && cookies.length > 0);
   const spawnResult = await hauntSpawn(manager, {
     persona: personaName,
     target_url: targetUrl,
     headless,
     timeout: steps,
+    cookies,
   });
 
   for (let step = 1; step <= steps; step++) {
@@ -192,6 +225,7 @@ async function runPersonaSession(
       state.accessibility_tree_error,
       step,
       steps,
+      authenticated,
     );
 
     const { action, issues } = await decide(
@@ -226,7 +260,9 @@ export interface HeadlessRunResult {
 export async function runHeadlessTest(
   decide: ActionDecider,
   manager: SessionManager,
-  options: Pick<CliOptions, 'targetUrl' | 'personas' | 'steps' | 'headless'>,
+  options: Pick<CliOptions, 'targetUrl' | 'personas' | 'steps' | 'headless'> & {
+    cookies?: Cookie[];
+  },
 ): Promise<HeadlessRunResult> {
   const settled = await Promise.allSettled(
     options.personas.map((persona) =>
@@ -237,6 +273,7 @@ export async function runHeadlessTest(
         options.targetUrl,
         options.steps,
         options.headless,
+        options.cookies,
       ),
     ),
   );
@@ -292,12 +329,33 @@ async function main() {
   const decide = createDecider(resolved);
   const manager = new SessionManager();
 
+  let cookies: Cookie[] | undefined;
+  if (options.email && options.password) {
+    const loginUrl =
+      options.loginUrl ?? new URL('/login', options.targetUrl).toString();
+    console.error(`[haunt-ci] authenticating at ${loginUrl}...`);
+    try {
+      cookies = await authenticate(manager, {
+        loginUrl,
+        email: options.email,
+        password: options.password,
+        headless: options.headless,
+      });
+      console.error(`[haunt-ci] authenticated — ${cookies.length} cookie(s)`);
+    } catch (error) {
+      console.error(
+        'haunt-ci failed: login failed —',
+        error instanceof Error ? error.message : String(error),
+      );
+      process.exit(2);
+    }
+  }
+
   try {
-    const { report, failures } = await runHeadlessTest(
-      decide,
-      manager,
-      options,
-    );
+    const { report, failures } = await runHeadlessTest(decide, manager, {
+      ...options,
+      cookies,
+    });
     for (const failure of failures) {
       console.error(`skipped ${failure}`);
     }

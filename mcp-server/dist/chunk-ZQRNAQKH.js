@@ -4,10 +4,11 @@ import {
   hauntCaptureState,
   hauntEndSession,
   hauntGenerateReport,
+  hauntGetCookies,
   hauntNavigate,
   hauntSpawn,
   zodToJsonSchema
-} from "./chunk-5IGKEYRM.js";
+} from "./chunk-UBRXKP5T.js";
 import {
   Anthropic
 } from "./chunk-3E6BL45F.js";
@@ -34209,6 +34210,78 @@ function isMainModule(moduleUrl) {
   }
 }
 
+// src/cli/authenticate.ts
+var SUBMIT_BUTTON_LABELS = ["Log in", "Sign in", "Login", "Submit"];
+var HYDRATION_PAUSE_MS = 2e3;
+var POST_SUBMIT_PAUSE_MS = 2500;
+var MAX_ATTEMPTS = 2;
+var sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+function samePage(a, b) {
+  try {
+    const urlA = new URL(a);
+    const urlB = new URL(b);
+    return urlA.origin === urlB.origin && urlA.pathname === urlB.pathname;
+  } catch {
+    return a === b;
+  }
+}
+async function authenticate(manager, options) {
+  const stepsPerAttempt = SUBMIT_BUTTON_LABELS.length * 3;
+  const spawnResult = await hauntSpawn(manager, {
+    persona: options.persona ?? "confused-beginner",
+    target_url: options.loginUrl,
+    headless: options.headless,
+    timeout: stepsPerAttempt * MAX_ATTEMPTS
+  });
+  const sessionId = spawnResult.session_id;
+  try {
+    let lastFailure = "unknown error";
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      await sleep(HYDRATION_PAUSE_MS);
+      let leftLoginPage = false;
+      for (const label of SUBMIT_BUTTON_LABELS) {
+        await hauntNavigate(manager, {
+          session_id: sessionId,
+          action: `fill ${options.email} in Email`
+        });
+        await hauntNavigate(manager, {
+          session_id: sessionId,
+          action: `fill ${options.password} in Password`
+        });
+        const clickResult = await hauntNavigate(manager, {
+          session_id: sessionId,
+          action: `click ${label}`
+        });
+        if (!clickResult.success) {
+          lastFailure = clickResult.error ?? lastFailure;
+          continue;
+        }
+        await sleep(POST_SUBMIT_PAUSE_MS);
+        const state = await hauntCaptureState(manager, {
+          session_id: sessionId,
+          include_screenshot: false,
+          include_dom: false
+        });
+        if (!samePage(state.url, options.loginUrl)) {
+          leftLoginPage = true;
+          break;
+        }
+        lastFailure = `clicked "${label}" but the page did not leave the login route`;
+      }
+      if (!leftLoginPage) continue;
+      const { cookies } = await hauntGetCookies(manager, {
+        session_id: sessionId
+      });
+      return cookies;
+    }
+    throw new Error(
+      `login failed after ${MAX_ATTEMPTS} attempts: ${lastFailure}`
+    );
+  } finally {
+    await hauntEndSession(manager, { session_id: sessionId });
+  }
+}
+
 // src/cli/providers/types.ts
 var DECIDE_ACTION_TOOL_NAME = "decide_action";
 var DECIDE_ACTION_TOOL_DESCRIPTION = "Choose the single next browser action to take as this persona, and report any issues observed on the current page state.";
@@ -34331,8 +34404,16 @@ function createMistralDecider(client, model) {
 }
 
 // src/cli/headless.ts
-var USAGE = "Usage: haunt-ci <url> [--personas p1,p2] [--steps N] [--provider anthropic|mistral] [--model id] [--headed]";
-var VALUED_FLAGS = ["personas", "steps", "provider", "model"];
+var USAGE = "Usage: haunt-ci <url> [--personas p1,p2] [--steps N] [--provider anthropic|mistral] [--model id] [--headed] [--email addr --password pw] [--login-url url]";
+var VALUED_FLAGS = [
+  "personas",
+  "steps",
+  "provider",
+  "model",
+  "email",
+  "password",
+  "login-url"
+];
 function parseArgs(argv) {
   const getFlag = (name) => {
     const idx = argv.indexOf(`--${name}`);
@@ -34361,13 +34442,21 @@ function parseArgs(argv) {
     );
   }
   const headless = !argv.includes("--headed");
+  const email = getFlag("email");
+  const password = getFlag("password");
+  if (email && !password || password && !email) {
+    throw new Error("--email and --password must be given together.");
+  }
   return {
     targetUrl,
     personas,
     steps,
     provider: providerFlag,
     model: getFlag("model"),
-    headless
+    headless,
+    email,
+    password,
+    loginUrl: getFlag("login-url")
   };
 }
 var DEFAULT_MODEL = {
@@ -34401,21 +34490,27 @@ function createDecider(resolved) {
     resolved.model
   );
 }
-function describeState(url, title, accessibilityTree, accessibilityTreeError, step, steps) {
+var UNAUTHENTICATED_NOTE = "Note: you are NOT logged in for this session. If this page shows content that looks private, personalized, or administrative (e.g. a dashboard, account data, admin controls) without redirecting you to a login page first, that is itself a serious security bug \u2014 report it.";
+function describeState(url, title, accessibilityTree, accessibilityTreeError, step, steps, authenticated) {
   const treeSection = accessibilityTree ? accessibilityTree : `(unavailable: ${accessibilityTreeError ?? "unknown error"})`;
-  return `URL: ${url}
+  const base = `URL: ${url}
 Title: ${title}
 Step ${step} of ${steps}
 
 Accessibility tree:
 ${treeSection}`;
+  return authenticated ? base : `${base}
+
+${UNAUTHENTICATED_NOTE}`;
 }
-async function runPersonaSession(decide, manager, personaName, targetUrl, steps, headless) {
+async function runPersonaSession(decide, manager, personaName, targetUrl, steps, headless, cookies) {
+  const authenticated = Boolean(cookies && cookies.length > 0);
   const spawnResult = await hauntSpawn(manager, {
     persona: personaName,
     target_url: targetUrl,
     headless,
-    timeout: steps
+    timeout: steps,
+    cookies
   });
   for (let step = 1; step <= steps; step++) {
     const state = await hauntCaptureState(manager, {
@@ -34429,7 +34524,8 @@ async function runPersonaSession(decide, manager, personaName, targetUrl, steps,
       state.accessibility_tree,
       state.accessibility_tree_error,
       step,
-      steps
+      steps,
+      authenticated
     );
     const { action, issues } = await decide(
       spawnResult.persona_description,
@@ -34460,7 +34556,8 @@ async function runHeadlessTest(decide, manager, options) {
         persona,
         options.targetUrl,
         options.steps,
-        options.headless
+        options.headless,
+        options.cookies
       )
     )
   );
@@ -34504,12 +34601,31 @@ async function main() {
   );
   const decide = createDecider(resolved);
   const manager = new SessionManager();
+  let cookies;
+  if (options.email && options.password) {
+    const loginUrl = options.loginUrl ?? new URL("/login", options.targetUrl).toString();
+    console.error(`[haunt-ci] authenticating at ${loginUrl}...`);
+    try {
+      cookies = await authenticate(manager, {
+        loginUrl,
+        email: options.email,
+        password: options.password,
+        headless: options.headless
+      });
+      console.error(`[haunt-ci] authenticated \u2014 ${cookies.length} cookie(s)`);
+    } catch (error) {
+      console.error(
+        "haunt-ci failed: login failed \u2014",
+        error instanceof Error ? error.message : String(error)
+      );
+      process.exit(2);
+    }
+  }
   try {
-    const { report, failures } = await runHeadlessTest(
-      decide,
-      manager,
-      options
-    );
+    const { report, failures } = await runHeadlessTest(decide, manager, {
+      ...options,
+      cookies
+    });
     for (const failure of failures) {
       console.error(`skipped ${failure}`);
     }
@@ -34531,6 +34647,7 @@ if (isMainModule(import.meta.url)) {
 export {
   Mistral,
   isMainModule,
+  authenticate,
   parseArgs,
   resolveProvider,
   createDecider,
