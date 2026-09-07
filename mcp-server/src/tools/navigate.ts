@@ -26,6 +26,20 @@ export interface NavigateOutput {
   steps_remaining: number;
 }
 
+// A fill/type/enter action targeting a password-like field carries the
+// literal secret value in its own text — e.g. "fill hunter2 in Password".
+// If that action fails, the raw action string must never end up verbatim
+// in an Issue description (which flows straight into the written report),
+// so the value is redacted before it's used for anything but the actual
+// browser interaction.
+const PASSWORD_FILL_RE =
+  /^((?:fill|type|enter|input)\s+)(.+?)(\s+in(?:to)?\s+.*password.*)$/i;
+
+function redactActionForReporting(action: string): string {
+  const match = action.match(PASSWORD_FILL_RE);
+  return match ? `${match[1]}[REDACTED]${match[3]}` : action;
+}
+
 async function executeAction(page: Page, action: string): Promise<void> {
   const trimmed = action.trim();
 
@@ -119,7 +133,7 @@ export async function hauntNavigate(
     const issue: Issue = {
       severity: 'major',
       category: 'ux',
-      description: `Action failed: "${input.action}". ${error instanceof Error ? error.message : String(error)}`,
+      description: `Action failed: "${redactActionForReporting(input.action)}". ${error instanceof Error ? error.message : String(error)}`,
       page_url: page.url(),
       screenshot_path: screenshotPath,
       recommendation:

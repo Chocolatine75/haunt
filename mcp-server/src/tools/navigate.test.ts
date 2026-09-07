@@ -151,6 +151,20 @@ describe('executeAction (via hauntNavigate)', () => {
     expect(result.error).toBeDefined();
   }, 5_000);
 
+  it('redacts a password value from the Issue description when the fill fails', async () => {
+    const secret = 'hunter2-super-secret';
+    const { result } = await navigateOn(
+      `<input type="text" data-testid="mystery-field" />`,
+      `fill ${secret} in Password`,
+    );
+
+    expect(result.success).toBe(false);
+    const [session] = manager.all();
+    const issue = session.issues.at(-1);
+    expect(issue?.description).toContain('[REDACTED]');
+    expect(issue?.description).not.toContain(secret);
+  }, 5_000);
+
   it('executes goto and press actions', async () => {
     const { result: gotoResult } = await navigateOn(
       '<p>start</p>',

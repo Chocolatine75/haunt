@@ -361,6 +361,11 @@ function hauntGenerateReport(input) {
 
 // src/tools/navigate.ts
 import { mkdirSync as mkdirSync3 } from "fs";
+var PASSWORD_FILL_RE = /^((?:fill|type|enter|input)\s+)(.+?)(\s+in(?:to)?\s+.*password.*)$/i;
+function redactActionForReporting(action) {
+  const match = action.match(PASSWORD_FILL_RE);
+  return match ? `${match[1]}[REDACTED]${match[3]}` : action;
+}
 async function executeAction(page, action) {
   const trimmed = action.trim();
   if (/^(goto|navigate to|go to)\s+/i.test(trimmed)) {
@@ -418,7 +423,7 @@ async function hauntNavigate(manager, input) {
     const issue = {
       severity: "major",
       category: "ux",
-      description: `Action failed: "${input.action}". ${error instanceof Error ? error.message : String(error)}`,
+      description: `Action failed: "${redactActionForReporting(input.action)}". ${error instanceof Error ? error.message : String(error)}`,
       page_url: page.url(),
       screenshot_path: screenshotPath,
       recommendation: "Ensure this interaction is reachable and clearly labeled."

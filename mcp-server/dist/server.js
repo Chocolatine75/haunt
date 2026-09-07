@@ -7,7 +7,7 @@ import {
   hauntGetCookies,
   hauntNavigate,
   hauntSpawn
-} from "./chunk-UBRXKP5T.js";
+} from "./chunk-JISPW6YE.js";
 import {
   _enum,
   _null,
