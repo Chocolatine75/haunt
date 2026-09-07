@@ -7741,6 +7741,15 @@ async function hauntSpawn(manager, input) {
     if (msg.type() === "error") consoleErrors.push(msg.text());
   });
   page.on("requestfailed", (request) => {
+    let origin;
+    try {
+      origin = new URL(request.url()).origin;
+    } catch {
+      origin = void 0;
+    }
+    if (origin !== void 0 && !allowedOrigins.has(origin)) {
+      return;
+    }
     networkErrors.push(
       `${request.method()} ${request.url()} \u2014 ${request.failure()?.errorText ?? "unknown"}`
     );

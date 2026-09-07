@@ -231,7 +231,13 @@ describe('sandboxing — origin allowlist', () => {
 
     serverA = createServer((req, res) => {
       res.setHeader('Content-Type', 'text/html');
-      res.end(`<script src="${baseB}/lib.js"></script><p>origin A</p>`);
+      // `defer` matters: a deferred script is only requested after
+      // domcontentloaded, but the browser still waits for it before firing
+      // `load`. That makes this fixture actually discriminate between
+      // freezing the allowlist at domcontentloaded (wrong — B would already
+      // be blocked) vs at load (correct) — a plain synchronous <script> tag
+      // would pass either way, since it's fetched before domcontentloaded.
+      res.end(`<script defer src="${baseB}/lib.js"></script><p>origin A</p>`);
     });
     await new Promise<void>((r) => serverA.listen(0, '127.0.0.1', r));
     baseA = `http://127.0.0.1:${(serverA.address() as AddressInfo).port}`;
@@ -273,6 +279,10 @@ describe('sandboxing — origin allowlist', () => {
     ).toBe(true);
     // A blocked navigation must never be misreported as an app bug
     expect(session.issues).toHaveLength(0);
+    // route.abort() also fires Playwright's requestfailed event — the
+    // blocked request must not leak into network_errors too, since that
+    // flows back to the orchestrator and later into reports.
+    expect(session.network_errors.some((r) => r.includes(baseC))).toBe(false);
   });
 
   it('does not block a request to an origin the target loaded legitimately at startup', async () => {

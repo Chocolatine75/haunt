@@ -106,6 +106,20 @@ export async function hauntSpawn(
   });
 
   page.on('requestfailed', (request) => {
+    // route.abort() on a sandbox-blocked request also fires this event.
+    // Those are already recorded in sandboxBlockedRequests by the route
+    // handler above — recording them here too would leak a sandbox block
+    // into network_errors, which must stay app-failures-only.
+    let origin: string | undefined;
+    try {
+      origin = new URL(request.url()).origin;
+    } catch {
+      origin = undefined;
+    }
+    if (origin !== undefined && !allowedOrigins.has(origin)) {
+      return;
+    }
+
     networkErrors.push(
       `${request.method()} ${request.url()} — ${request.failure()?.errorText ?? 'unknown'}`,
     );
