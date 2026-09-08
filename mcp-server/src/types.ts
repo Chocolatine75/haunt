@@ -46,6 +46,10 @@ export interface HauntSession {
   last_activity: number;
   step_count: number;
   max_steps: number;
+  // Total wall-clock budget since spawn, regardless of activity — distinct
+  // from the idle-based SESSION_TTL_MS reaping. Defaults to
+  // SESSION_MAX_ACTIVE_DURATION_MS; overridable per session.
+  max_active_duration_ms: number;
   // Mutable arrays — errors are captured via Playwright events and spliced out per step
   console_errors: string[];
   network_errors: string[];

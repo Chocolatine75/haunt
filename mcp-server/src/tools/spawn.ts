@@ -3,7 +3,11 @@ import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 import type { Cookie } from 'playwright';
 import { v4 as uuidv4 } from 'uuid';
-import { SCREENSHOT_MAX_AGE_MS, SESSION_TTL_MS } from '../constants.js';
+import {
+  SCREENSHOT_MAX_AGE_MS,
+  SESSION_MAX_ACTIVE_DURATION_MS,
+  SESSION_TTL_MS,
+} from '../constants.js';
 import { loadPersona } from '../persona/loader.js';
 import { purgeOldScreenshots } from '../screenshots.js';
 import type { SessionManager } from '../session/manager.js';
@@ -15,6 +19,9 @@ export interface SpawnInput {
   headless?: boolean;
   timeout?: number;
   cookies?: Cookie[];
+  // Overrides SESSION_MAX_ACTIVE_DURATION_MS for this session. Not exposed
+  // on the haunt_spawn MCP tool schema yet — no current caller needs it.
+  max_active_duration_ms?: number;
 }
 
 export interface SpawnOutput {
@@ -155,6 +162,8 @@ export async function hauntSpawn(
     last_activity: Date.now(),
     step_count: 0,
     max_steps: input.timeout ?? personaConfig.scenarios[0]?.max_steps ?? 30,
+    max_active_duration_ms:
+      input.max_active_duration_ms ?? SESSION_MAX_ACTIVE_DURATION_MS,
     console_errors: consoleErrors,
     network_errors: networkErrors,
     sandbox_blocked_requests: sandboxBlockedRequests,

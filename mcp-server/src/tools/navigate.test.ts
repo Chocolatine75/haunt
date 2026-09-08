@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { type Browser, type Page, chromium } from 'playwright';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { SESSION_MAX_ACTIVE_DURATION_MS } from '../constants.js';
 import { SessionManager } from '../session/manager.js';
 import type { HauntSession } from '../types.js';
 import { hauntNavigate } from './navigate.js';
@@ -28,6 +29,22 @@ function mockSessionAtStepLimit(): HauntSession {
   } as unknown as HauntSession;
 }
 
+function mockSessionPastDurationCap(): HauntSession {
+  return {
+    id: 'session-id',
+    step_count: 0,
+    max_steps: 30,
+    start_time: Date.now() - (SESSION_MAX_ACTIVE_DURATION_MS + 1_000),
+    max_active_duration_ms: SESSION_MAX_ACTIVE_DURATION_MS,
+    last_activity: Date.now(),
+    issues: [],
+    pages_visited: [],
+    console_errors: [],
+    network_errors: [],
+    sandbox_blocked_requests: [],
+  } as unknown as HauntSession;
+}
+
 describe('hauntNavigate', () => {
   it('refuses to act once step_count reaches max_steps', async () => {
     const manager = new SessionManager();
@@ -40,6 +57,18 @@ describe('hauntNavigate', () => {
 
     // Guard fires before touching the page, so step_count is left unchanged
     expect(session.step_count).toBe(3);
+  });
+
+  it('refuses to act once the active-duration cap is exceeded', async () => {
+    const manager = new SessionManager();
+    const session = mockSessionPastDurationCap();
+    manager.set(session.id, session);
+
+    await expect(
+      hauntNavigate(manager, { session_id: session.id, action: 'click Login' }),
+    ).rejects.toThrow(/active-duration cap/);
+
+    expect(session.step_count).toBe(0);
   });
 });
 
@@ -86,6 +115,8 @@ describe('executeAction (via hauntNavigate)', () => {
       id: 'session-id',
       step_count: 0,
       max_steps: 10,
+      start_time: Date.now(),
+      max_active_duration_ms: Number.MAX_SAFE_INTEGER,
       last_activity: Date.now(),
       issues: [],
       pages_visited: [],

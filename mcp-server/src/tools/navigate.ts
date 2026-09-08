@@ -108,6 +108,12 @@ export async function hauntNavigate(
     );
   }
 
+  if (Date.now() - session.start_time > session.max_active_duration_ms) {
+    throw new Error(
+      `Session ${session.id} exceeded its active-duration cap (${session.max_active_duration_ms}ms). Call haunt_end_session instead of navigating further.`,
+    );
+  }
+
   const { page } = session;
 
   // Record any issues the orchestrator flagged for this step

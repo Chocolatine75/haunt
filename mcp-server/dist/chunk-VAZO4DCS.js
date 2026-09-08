@@ -52,6 +52,7 @@ var REPORTS_DIR = ".haunt-reports";
 var SCREENSHOTS_DIR = ".haunt-reports/screenshots";
 var SCREENSHOT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1e3;
 var SESSION_TTL_MS = 10 * 60 * 1e3;
+var SESSION_MAX_ACTIVE_DURATION_MS = 15 * 60 * 1e3;
 
 // src/tools/capture.ts
 async function hauntCaptureState(manager, input) {
@@ -404,6 +405,11 @@ async function hauntNavigate(manager, input) {
   if (session.step_count >= session.max_steps) {
     throw new Error(
       `Session ${session.id} hit its step limit (${session.max_steps}). Call haunt_end_session instead of navigating further.`
+    );
+  }
+  if (Date.now() - session.start_time > session.max_active_duration_ms) {
+    throw new Error(
+      `Session ${session.id} exceeded its active-duration cap (${session.max_active_duration_ms}ms). Call haunt_end_session instead of navigating further.`
     );
   }
   const { page } = session;
@@ -7779,6 +7785,7 @@ async function hauntSpawn(manager, input) {
     last_activity: Date.now(),
     step_count: 0,
     max_steps: input.timeout ?? personaConfig.scenarios[0]?.max_steps ?? 30,
+    max_active_duration_ms: input.max_active_duration_ms ?? SESSION_MAX_ACTIVE_DURATION_MS,
     console_errors: consoleErrors,
     network_errors: networkErrors,
     sandbox_blocked_requests: sandboxBlockedRequests
