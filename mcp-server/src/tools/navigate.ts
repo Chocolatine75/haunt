@@ -22,9 +22,19 @@ export interface NavigateOutput {
   network_errors: string[];
   screenshot_path?: string;
   error?: string;
+  // Present only when this action tripped the origin sandbox. Suppressing
+  // haunt's own auto-generated Issue isn't enough on its own: the orchestrating
+  // LLM (interactive MCP path) and the decider LLM (headless path) both see
+  // this output and can file an Issue of their own from a bare
+  // "net::ERR_FAILED". This field, plus the prefixed `error`, is the signal
+  // that says "sandbox, not app bug".
+  sandbox_blocked?: string[];
   step: number;
   steps_remaining: number;
 }
+
+export const SANDBOX_BLOCK_PREFIX =
+  'Blocked by the haunt test sandbox (request targeted an origin outside the app under test) — this is not an app bug: ';
 
 // This redaction fires on every hauntNavigate fill/type/enter action whose
 // target field name looks like a password or email field, regardless of
@@ -162,6 +172,8 @@ export async function hauntNavigate(
       session.issues.push(issue);
     }
 
+    const rawError = error instanceof Error ? error.message : String(error);
+
     return {
       success: false,
       page_url: page.url(),
@@ -169,7 +181,12 @@ export async function hauntNavigate(
       console_errors: stepConsoleErrors,
       network_errors: stepNetworkErrors,
       screenshot_path: screenshotPath,
-      error: error instanceof Error ? error.message : String(error),
+      error: wasSandboxBlocked
+        ? `${SANDBOX_BLOCK_PREFIX}${rawError}`
+        : rawError,
+      sandbox_blocked: wasSandboxBlocked
+        ? session.sandbox_blocked_requests.slice(blockedCountBefore)
+        : undefined,
       step: session.step_count,
       steps_remaining: session.max_steps - session.step_count,
     };
@@ -178,6 +195,12 @@ export async function hauntNavigate(
   const currentUrl = page.url();
   session.pages_visited.push(currentUrl);
 
+  // A blocked *subresource* doesn't fail the action, but it can leave the page
+  // looking broken. Surfacing the block here too is what stops the orchestrator
+  // from reading that as an app bug.
+  const blockedDuringAction =
+    session.sandbox_blocked_requests.slice(blockedCountBefore);
+
   return {
     success: true,
     page_url: currentUrl,
@@ -185,6 +208,8 @@ export async function hauntNavigate(
     console_errors: stepConsoleErrors,
     network_errors: stepNetworkErrors,
     screenshot_path: screenshotPath,
+    sandbox_blocked:
+      blockedDuringAction.length > 0 ? blockedDuringAction : undefined,
     step: session.step_count,
     steps_remaining: session.max_steps - session.step_count,
   };

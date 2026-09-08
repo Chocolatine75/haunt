@@ -21,11 +21,14 @@ function mockSessionAtStepLimit(): HauntSession {
     id: 'session-id',
     step_count: 3,
     max_steps: 3,
+    start_time: Date.now(),
+    max_active_duration_ms: Number.MAX_SAFE_INTEGER,
     last_activity: Date.now(),
     issues: [],
     pages_visited: [],
     console_errors: [],
     network_errors: [],
+    sandbox_blocked_requests: [],
   } as unknown as HauntSession;
 }
 
@@ -252,6 +255,9 @@ describe('sandboxing — origin allowlist', () => {
   let baseA: string;
   let baseB: string;
   let baseC: string;
+  // Every request origin C actually receives. The redirect test asserts this
+  // stays empty — proving the block is real and not just recorded.
+  const cRequests: string[] = [];
 
   beforeAll(async () => {
     serverB = createServer((req, res) => {
@@ -264,6 +270,7 @@ describe('sandboxing — origin allowlist', () => {
       }
     });
     serverC = createServer((req, res) => {
+      cRequests.push(req.url ?? '');
       res.setHeader('Content-Type', 'text/html');
       res.end('<p>origin C</p>');
     });
@@ -275,6 +282,34 @@ describe('sandboxing — origin allowlist', () => {
     baseC = `http://127.0.0.1:${(serverC.address() as AddressInfo).port}`;
 
     serverA = createServer((req, res) => {
+      // An open redirect on the allowlisted origin — the shape of a real
+      // exfiltration attempt: attacker-controlled Location, secret in the
+      // query string, hop starts at an origin the sandbox trusts.
+      if (req.url?.startsWith('/redirect')) {
+        res.writeHead(302, { Location: `${baseC}/steal?data=secret` });
+        res.end();
+        return;
+      }
+      // Same-origin redirect — must still be followed, not blocked.
+      if (req.url === '/self-redirect') {
+        res.writeHead(302, { Location: '/echo-cookie' });
+        res.end();
+        return;
+      }
+      if (req.url === '/setcookie') {
+        res.writeHead(302, {
+          'Content-Type': 'text/html',
+          'Set-Cookie': 'sess=abc123; Path=/',
+          Location: '/echo-cookie',
+        });
+        res.end();
+        return;
+      }
+      if (req.url === '/echo-cookie') {
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(`<p id="c">${req.headers.cookie ?? 'none'}</p>`);
+        return;
+      }
       res.setHeader('Content-Type', 'text/html');
       // `defer` matters: a deferred script is only requested after
       // domcontentloaded, but the browser still waits for it before firing
@@ -328,6 +363,82 @@ describe('sandboxing — origin allowlist', () => {
     // blocked request must not leak into network_errors too, since that
     // flows back to the orchestrator and later into reports.
     expect(session.network_errors.some((r) => r.includes(baseC))).toBe(false);
+  });
+
+  // Regression: route.continue() hands the request to Playwright's network
+  // stack, which follows 3xx responses without re-invoking the route handler.
+  // A 302 from an allowlisted origin to an unlisted one therefore succeeded
+  // silently and was never recorded — a working exfiltration channel that
+  // defeated the whole sandbox. Redirects are now resolved manually.
+  it('blocks a cross-origin redirect from an allowlisted origin', async () => {
+    cRequests.length = 0;
+    sandboxManager = new SessionManager();
+    const spawnResult = await hauntSpawn(sandboxManager, {
+      persona: VALID_PERSONA,
+      target_url: baseA,
+      headless: true,
+      timeout: 5,
+    });
+
+    const result = await hauntNavigate(sandboxManager, {
+      session_id: spawnResult.session_id,
+      action: `goto ${baseA}/redirect`,
+    });
+
+    expect(result.success).toBe(false);
+    const session = sandboxManager.get(spawnResult.session_id);
+
+    // The redirect target was recorded as blocked...
+    const entry = session.sandbox_blocked_requests.find((r) =>
+      r.includes(baseC),
+    );
+    expect(entry).toBeDefined();
+    expect(entry).toContain('cross-origin redirect');
+    // ...with the query string stripped (it would carry PII into the report)
+    expect(entry).not.toContain('data=secret');
+    // ...and origin C never actually received the request
+    expect(cRequests).toHaveLength(0);
+
+    // A blocked redirect must never be misreported as an app bug
+    expect(session.issues).toHaveLength(0);
+    expect(session.network_errors.some((r) => r.includes(baseC))).toBe(false);
+
+    // ...and the caller (orchestrator / decider LLM) gets an explicit signal
+    expect(result.sandbox_blocked?.some((r) => r.includes(baseC))).toBe(true);
+    expect(result.error).toContain('haunt test sandbox');
+  });
+
+  // Resolving redirects manually means every request now goes through
+  // route.fetch() + route.fulfill() instead of route.continue(). These guard
+  // the two things that round-trip could silently break: the browser's cookie
+  // jar (haunt's whole --email/--password auth path depends on it) and
+  // ordinary same-origin redirects.
+  it('follows a same-origin redirect and preserves Set-Cookie through the sandbox', async () => {
+    sandboxManager = new SessionManager();
+    const spawnResult = await hauntSpawn(sandboxManager, {
+      persona: VALID_PERSONA,
+      // /setcookie sets a cookie AND redirects — exercising both at once
+      target_url: `${baseA}/setcookie`,
+      headless: true,
+      timeout: 5,
+    });
+
+    const session = sandboxManager.get(spawnResult.session_id);
+    expect(session.page.url()).toContain('/echo-cookie');
+    expect(
+      (await session.page.context().cookies()).some((c) => c.name === 'sess'),
+    ).toBe(true);
+
+    const result = await hauntNavigate(sandboxManager, {
+      session_id: spawnResult.session_id,
+      action: `goto ${baseA}/self-redirect`,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.page_url).toContain('/echo-cookie');
+    // The cookie was actually sent back to the server on that request
+    expect(await session.page.textContent('#c')).toContain('sess=abc123');
+    expect(session.sandbox_blocked_requests).toHaveLength(0);
   });
 
   it('does not block a request to an origin the target loaded legitimately at startup', async () => {

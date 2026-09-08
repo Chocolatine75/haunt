@@ -70,6 +70,20 @@ export async function hauntSpawn(
   // load. Once that load completes, the allowlist is frozen — any later
   // request (navigation or subresource) to an origin outside it is
   // blocked, not just detected after the fact.
+  //
+  // Redirects are resolved manually below rather than delegated to Playwright:
+  // route.continue() hands the request to Playwright's network stack, which
+  // follows 3xx responses opaquely WITHOUT re-invoking this handler for the
+  // redirect target. An allowlisted origin that 302s to an unlisted one would
+  // therefore reach that origin (query string and all) unblocked and
+  // unrecorded — a working exfiltration channel. route.fetch({ maxRedirects: 0 })
+  // stops at the 3xx so the Location target can be checked against the
+  // allowlist before the browser is ever handed the response.
+  //
+  // Recorded URLs are reduced to origin + pathname on purpose: query strings
+  // routinely carry PII (an OAuth redirect's login_hint=<email>, a session
+  // token, a search term) and these entries land verbatim in the written
+  // report, alongside the credential redaction navigate.ts already does.
   const allowedOrigins = new Set<string>();
   const sandboxBlockedRequests: string[] = [];
   let capturingAllowlist = true;
@@ -77,8 +91,11 @@ export async function hauntSpawn(
   await context.route('**/*', async (route) => {
     const request = route.request();
     let origin: string;
+    let originAndPath: string;
     try {
-      origin = new URL(request.url()).origin;
+      const parsed = new URL(request.url());
+      origin = parsed.origin;
+      originAndPath = `${parsed.origin}${parsed.pathname}`;
     } catch {
       sandboxBlockedRequests.push(
         `${request.method()} ${request.url()} (unparseable URL)`,
@@ -89,17 +106,53 @@ export async function hauntSpawn(
 
     if (capturingAllowlist) {
       allowedOrigins.add(origin);
-      await route.continue();
+    } else if (!allowedOrigins.has(origin)) {
+      sandboxBlockedRequests.push(`${request.method()} ${originAndPath}`);
+      await route.abort();
       return;
     }
 
-    if (allowedOrigins.has(origin)) {
-      await route.continue();
+    let response: Awaited<ReturnType<typeof route.fetch>>;
+    try {
+      response = await route.fetch({ maxRedirects: 0 });
+    } catch {
+      // A genuine transport failure (server down, DNS, connection reset).
+      // Aborting fires Playwright's requestfailed event, which records it in
+      // networkErrors exactly as an un-intercepted failure would have.
+      await route.abort();
       return;
     }
 
-    sandboxBlockedRequests.push(`${request.method()} ${request.url()}`);
-    await route.abort();
+    const status = response.status();
+    if (status >= 300 && status < 400) {
+      const location = response.headers().location;
+      if (location) {
+        let target: URL | undefined;
+        try {
+          target = new URL(location, request.url());
+        } catch {
+          target = undefined;
+        }
+        if (!target) {
+          sandboxBlockedRequests.push(
+            `${request.method()} ${originAndPath} -> ${location} (unparseable redirect target)`,
+          );
+          await route.abort();
+          return;
+        }
+        if (capturingAllowlist) {
+          allowedOrigins.add(target.origin);
+        } else if (!allowedOrigins.has(target.origin)) {
+          sandboxBlockedRequests.push(
+            `${request.method()} ${originAndPath} -> ${target.origin}${target.pathname} (cross-origin redirect)`,
+          );
+          await route.abort();
+          return;
+        }
+      }
+    }
+
+    await route.fulfill({ response });
   });
 
   const page = await context.newPage();
@@ -123,7 +176,10 @@ export async function hauntSpawn(
     } catch {
       origin = undefined;
     }
-    if (origin !== undefined && !allowedOrigins.has(origin)) {
+    // An unparseable URL was already recorded as a sandbox block by the route
+    // handler's own unparseable branch, so it is skipped here for the same
+    // reason a blocked-origin request is.
+    if (!origin || !allowedOrigins.has(origin)) {
       return;
     }
 

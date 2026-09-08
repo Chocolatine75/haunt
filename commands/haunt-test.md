@@ -143,6 +143,8 @@ Run all sessions yourself — do NOT spawn sub-agents or agents.
    - What if they navigate directly to a URL they shouldn't have access to?
    - What breaks when they don't follow the expected flow?
    Prioritize unexpected behavior over intended flows.
+**SANDBOX RULE: if a `haunt_navigate` result includes a `sandbox_blocked` field, do NOT report that action as an issue — the test sandbox blocked a request to an origin outside the app under test, which is not an app bug.**
+
 4. `haunt_navigate` for all sessions in a single message, with any `issues` spotted.
    Choose corner-case actions: submit empty forms, enter bad data, access protected URLs directly, trigger the same action twice.
 5. Repeat capture → navigate up to `steps - 1` more times.

@@ -179,6 +179,8 @@ scenarios:
 
 No AI vision. No magic. Just a real browser reading your accessibility tree — and an AI deciding what a confused user would do next.
 
+**Sessions are sandboxed to your app's own origins.** On the first visit haunt records every origin your app loads from (your dev server, your CDN, your API host) and freezes that list. Anything the session requests afterwards from a *genuinely new* origin — including a cross-origin redirect — is blocked and listed under "blocked requests" in the report. That's a sandbox block, not an app bug. If your app only calls a second API origin or port after a user interaction, make sure it's also reached during the initial page load, or that call will show up as blocked. Sessions are also capped at ~15 minutes of active time, after which they must be ended rather than continued.
+
 ---
 
 ## 🤖 Run it in CI

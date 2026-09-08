@@ -379,6 +379,7 @@ function hauntGenerateReport(input) {
 
 // src/tools/navigate.ts
 import { mkdirSync as mkdirSync3 } from "fs";
+var SANDBOX_BLOCK_PREFIX = "Blocked by the haunt test sandbox (request targeted an origin outside the app under test) \u2014 this is not an app bug: ";
 var CREDENTIAL_FILL_RE = /^((?:fill|type|enter|input)\s+)(.+?)(\s+in(?:to)?\s+.*(?:password|email).*)$/i;
 function redactActionForReporting(action) {
   const match = action.match(CREDENTIAL_FILL_RE);
@@ -456,6 +457,7 @@ async function hauntNavigate(manager, input) {
       };
       session.issues.push(issue);
     }
+    const rawError = error instanceof Error ? error.message : String(error);
     return {
       success: false,
       page_url: page.url(),
@@ -463,13 +465,15 @@ async function hauntNavigate(manager, input) {
       console_errors: stepConsoleErrors,
       network_errors: stepNetworkErrors,
       screenshot_path: screenshotPath,
-      error: error instanceof Error ? error.message : String(error),
+      error: wasSandboxBlocked ? `${SANDBOX_BLOCK_PREFIX}${rawError}` : rawError,
+      sandbox_blocked: wasSandboxBlocked ? session.sandbox_blocked_requests.slice(blockedCountBefore) : void 0,
       step: session.step_count,
       steps_remaining: session.max_steps - session.step_count
     };
   }
   const currentUrl = page.url();
   session.pages_visited.push(currentUrl);
+  const blockedDuringAction = session.sandbox_blocked_requests.slice(blockedCountBefore);
   return {
     success: true,
     page_url: currentUrl,
@@ -477,6 +481,7 @@ async function hauntNavigate(manager, input) {
     console_errors: stepConsoleErrors,
     network_errors: stepNetworkErrors,
     screenshot_path: screenshotPath,
+    sandbox_blocked: blockedDuringAction.length > 0 ? blockedDuringAction : void 0,
     step: session.step_count,
     steps_remaining: session.max_steps - session.step_count
   };
@@ -7736,8 +7741,11 @@ async function hauntSpawn(manager, input) {
   await context.route("**/*", async (route) => {
     const request = route.request();
     let origin;
+    let originAndPath;
     try {
-      origin = new URL(request.url()).origin;
+      const parsed = new URL(request.url());
+      origin = parsed.origin;
+      originAndPath = `${parsed.origin}${parsed.pathname}`;
     } catch {
       sandboxBlockedRequests.push(
         `${request.method()} ${request.url()} (unparseable URL)`
@@ -7747,15 +7755,47 @@ async function hauntSpawn(manager, input) {
     }
     if (capturingAllowlist) {
       allowedOrigins.add(origin);
-      await route.continue();
+    } else if (!allowedOrigins.has(origin)) {
+      sandboxBlockedRequests.push(`${request.method()} ${originAndPath}`);
+      await route.abort();
       return;
     }
-    if (allowedOrigins.has(origin)) {
-      await route.continue();
+    let response;
+    try {
+      response = await route.fetch({ maxRedirects: 0 });
+    } catch {
+      await route.abort();
       return;
     }
-    sandboxBlockedRequests.push(`${request.method()} ${request.url()}`);
-    await route.abort();
+    const status = response.status();
+    if (status >= 300 && status < 400) {
+      const location = response.headers().location;
+      if (location) {
+        let target;
+        try {
+          target = new URL(location, request.url());
+        } catch {
+          target = void 0;
+        }
+        if (!target) {
+          sandboxBlockedRequests.push(
+            `${request.method()} ${originAndPath} -> ${location} (unparseable redirect target)`
+          );
+          await route.abort();
+          return;
+        }
+        if (capturingAllowlist) {
+          allowedOrigins.add(target.origin);
+        } else if (!allowedOrigins.has(target.origin)) {
+          sandboxBlockedRequests.push(
+            `${request.method()} ${originAndPath} -> ${target.origin}${target.pathname} (cross-origin redirect)`
+          );
+          await route.abort();
+          return;
+        }
+      }
+    }
+    await route.fulfill({ response });
   });
   const page = await context.newPage();
   const consoleErrors = [];
@@ -7770,7 +7810,7 @@ async function hauntSpawn(manager, input) {
     } catch {
       origin = void 0;
     }
-    if (origin !== void 0 && !allowedOrigins.has(origin)) {
+    if (!origin || !allowedOrigins.has(origin)) {
       return;
     }
     networkErrors.push(

@@ -177,6 +177,18 @@ const UNAUTHENTICATED_NOTE =
   'account data, admin controls) without redirecting you to a login page ' +
   'first, that is itself a serious security bug — report it.';
 
+// The decider LLM never sees hauntNavigate's return value directly — only the
+// next step's state description. Without this note a sandbox-blocked request
+// reaches it as an unexplained broken-looking page, and it files an app bug.
+const SANDBOX_BLOCK_NOTE =
+  'Note: your last action was blocked by the haunt test sandbox because it ' +
+  'targeted an origin outside the app under test. This is NOT an app bug — ' +
+  'do not report it as an issue. Blocked: ';
+
+function sandboxBlockNote(blocked: string[]): string {
+  return `${SANDBOX_BLOCK_NOTE}${blocked.join('; ')}`;
+}
+
 function describeState(
   url: string,
   title: string,
@@ -185,12 +197,16 @@ function describeState(
   step: number,
   steps: number,
   authenticated: boolean,
+  sandboxBlocked?: string[],
 ): string {
   const treeSection = accessibilityTree
     ? accessibilityTree
     : `(unavailable: ${accessibilityTreeError ?? 'unknown error'})`;
   const base = `URL: ${url}\nTitle: ${title}\nStep ${step} of ${steps}\n\nAccessibility tree:\n${treeSection}`;
-  return authenticated ? base : `${base}\n\n${UNAUTHENTICATED_NOTE}`;
+  const sections = [base];
+  if (!authenticated) sections.push(UNAUTHENTICATED_NOTE);
+  if (sandboxBlocked?.length) sections.push(sandboxBlockNote(sandboxBlocked));
+  return sections.join('\n\n');
 }
 
 async function runPersonaSession(
@@ -211,6 +227,10 @@ async function runPersonaSession(
     cookies,
   });
 
+  // Carries a sandbox block from the step that caused it into the next step's
+  // state description, which is the only channel the decider LLM reads.
+  let sandboxBlocked: string[] | undefined;
+
   for (let step = 1; step <= steps; step++) {
     const state = await hauntCaptureState(manager, {
       session_id: spawnResult.session_id,
@@ -226,6 +246,7 @@ async function runPersonaSession(
       step,
       steps,
       authenticated,
+      sandboxBlocked,
     );
 
     const { action, issues } = await decide(
@@ -233,11 +254,12 @@ async function runPersonaSession(
       stateDescription,
     );
 
-    await hauntNavigate(manager, {
+    const navigateResult = await hauntNavigate(manager, {
       session_id: spawnResult.session_id,
       action,
       issues,
     });
+    sandboxBlocked = navigateResult.sandbox_blocked;
   }
 
   const endResult = await hauntEndSession(manager, {

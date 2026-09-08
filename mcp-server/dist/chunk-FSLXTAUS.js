@@ -8,7 +8,7 @@ import {
   hauntNavigate,
   hauntSpawn,
   zodToJsonSchema
-} from "./chunk-RD23EDT5.js";
+} from "./chunk-5ZKXMC72.js";
 import {
   Anthropic
 } from "./chunk-3E6BL45F.js";
@@ -34491,7 +34491,11 @@ function createDecider(resolved) {
   );
 }
 var UNAUTHENTICATED_NOTE = "Note: you are NOT logged in for this session. If this page shows content that looks private, personalized, or administrative (e.g. a dashboard, account data, admin controls) without redirecting you to a login page first, that is itself a serious security bug \u2014 report it.";
-function describeState(url, title, accessibilityTree, accessibilityTreeError, step, steps, authenticated) {
+var SANDBOX_BLOCK_NOTE = "Note: your last action was blocked by the haunt test sandbox because it targeted an origin outside the app under test. This is NOT an app bug \u2014 do not report it as an issue. Blocked: ";
+function sandboxBlockNote(blocked) {
+  return `${SANDBOX_BLOCK_NOTE}${blocked.join("; ")}`;
+}
+function describeState(url, title, accessibilityTree, accessibilityTreeError, step, steps, authenticated, sandboxBlocked) {
   const treeSection = accessibilityTree ? accessibilityTree : `(unavailable: ${accessibilityTreeError ?? "unknown error"})`;
   const base = `URL: ${url}
 Title: ${title}
@@ -34499,9 +34503,10 @@ Step ${step} of ${steps}
 
 Accessibility tree:
 ${treeSection}`;
-  return authenticated ? base : `${base}
-
-${UNAUTHENTICATED_NOTE}`;
+  const sections = [base];
+  if (!authenticated) sections.push(UNAUTHENTICATED_NOTE);
+  if (sandboxBlocked?.length) sections.push(sandboxBlockNote(sandboxBlocked));
+  return sections.join("\n\n");
 }
 async function runPersonaSession(decide, manager, personaName, targetUrl, steps, headless, cookies) {
   const authenticated = Boolean(cookies && cookies.length > 0);
@@ -34512,6 +34517,7 @@ async function runPersonaSession(decide, manager, personaName, targetUrl, steps,
     timeout: steps,
     cookies
   });
+  let sandboxBlocked;
   for (let step = 1; step <= steps; step++) {
     const state = await hauntCaptureState(manager, {
       session_id: spawnResult.session_id,
@@ -34525,17 +34531,19 @@ async function runPersonaSession(decide, manager, personaName, targetUrl, steps,
       state.accessibility_tree_error,
       step,
       steps,
-      authenticated
+      authenticated,
+      sandboxBlocked
     );
     const { action, issues } = await decide(
       spawnResult.persona_description,
       stateDescription
     );
-    await hauntNavigate(manager, {
+    const navigateResult = await hauntNavigate(manager, {
       session_id: spawnResult.session_id,
       action,
       issues
     });
+    sandboxBlocked = navigateResult.sandbox_blocked;
   }
   const endResult = await hauntEndSession(manager, {
     session_id: spawnResult.session_id
