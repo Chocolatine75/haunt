@@ -15,6 +15,7 @@ export interface EndSessionOutput {
   pages_visited: number;
   step_count: number;
   issues_found: Issue[];
+  sandbox_blocked_requests: string[];
   overall_impression: string;
 }
 
@@ -39,6 +40,7 @@ export async function hauntEndSession(
     pages_visited: session.pages_visited.length,
     step_count: session.step_count,
     issues_found: session.issues,
+    sandbox_blocked_requests: session.sandbox_blocked_requests,
     overall_impression:
       input.overall_impression ??
       `Completed ${session.step_count} steps across ${session.pages_visited.length} pages.`,

@@ -9,6 +9,7 @@ function mockSession(overrides: Partial<HauntSession> = {}): HauntSession {
     persona: { name: 'Confused Beginner' },
     browser: { close: vi.fn().mockResolvedValue(undefined) },
     issues: [],
+    sandbox_blocked_requests: [],
     pages_visited: ['http://localhost:3000/'],
     start_time: Date.now() - 5_000,
     last_activity: Date.now(),
@@ -83,5 +84,21 @@ describe('hauntEndSession', () => {
     expect(manager.has('ending')).toBe(false);
     expect(manager.has('stale')).toBe(false);
     expect(stale.browser.close).toHaveBeenCalledOnce();
+  });
+
+  it('surfaces sandbox_blocked_requests in the output', async () => {
+    const manager = new SessionManager();
+    const session = mockSession({
+      sandbox_blocked_requests: ['GET http://evil.example/ (blocked)'],
+    });
+    manager.set(session.id, session);
+
+    const result = await hauntEndSession(manager, {
+      session_id: session.id,
+    });
+
+    expect(result.sandbox_blocked_requests).toEqual([
+      'GET http://evil.example/ (blocked)',
+    ]);
   });
 });

@@ -8,6 +8,7 @@ export interface SessionResult {
   persona: string;
   overall_impression: string;
   issues: Issue[];
+  sandbox_blocked_requests?: string[];
 }
 
 export interface GenerateReportInput {
@@ -181,6 +182,10 @@ function renderComparisonSection(comparison: ComparisonResult): string {
   return lines.join('\n');
 }
 
+function renderSandboxBlockedSection(blocked: string[]): string {
+  return blocked.map((entry) => `- ${entry}`).join('\n');
+}
+
 function renderSummary(
   sessions: SessionResult[],
   sortedIssues: Issue[],
@@ -231,6 +236,9 @@ export function hauntGenerateReport(
 ): GenerateReportOutput {
   const date = input.date ?? todayISODate();
   const allIssues = input.sessions.flatMap((s) => s.issues);
+  const allBlockedRequests = input.sessions.flatMap(
+    (s) => s.sandbox_blocked_requests ?? [],
+  );
   const sorted = [...allIssues].sort(
     (a, b) =>
       SEVERITY_ORDER.indexOf(a.severity) - SEVERITY_ORDER.indexOf(b.severity),
@@ -334,6 +342,17 @@ export function hauntGenerateReport(
     '',
     `After fixing, run \`/haunt:haunt-test ${input.target_url}\` again to verify.`,
   );
+
+  if (allBlockedRequests.length > 0) {
+    bodySections.push(
+      '',
+      '## Sandbox-Blocked Requests',
+      '',
+      'These are not app bugs — the test sandbox blocked an attempt to reach an origin outside the target app, shown here for visibility into what the persona tried.',
+      '',
+      renderSandboxBlockedSection(allBlockedRequests),
+    );
+  }
 
   const markdown = bodySections.join('\n');
 

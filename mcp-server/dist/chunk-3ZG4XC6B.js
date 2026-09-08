@@ -107,6 +107,7 @@ async function hauntEndSession(manager, input) {
     pages_visited: session.pages_visited.length,
     step_count: session.step_count,
     issues_found: session.issues,
+    sandbox_blocked_requests: session.sandbox_blocked_requests,
     overall_impression: input.overall_impression ?? `Completed ${session.step_count} steps across ${session.pages_visited.length} pages.`
   };
   return output;
@@ -210,6 +211,9 @@ function renderComparisonSection(comparison) {
   }
   return lines.join("\n");
 }
+function renderSandboxBlockedSection(blocked) {
+  return blocked.map((entry) => `- ${entry}`).join("\n");
+}
 function renderSummary(sessions, sortedIssues, counts, topFix, reportPath, comparison) {
   const rule = "-".repeat(40);
   const lines = [
@@ -245,6 +249,9 @@ function renderSummary(sessions, sortedIssues, counts, topFix, reportPath, compa
 function hauntGenerateReport(input) {
   const date = input.date ?? todayISODate();
   const allIssues = input.sessions.flatMap((s) => s.issues);
+  const allBlockedRequests = input.sessions.flatMap(
+    (s) => s.sandbox_blocked_requests ?? []
+  );
   const sorted = [...allIssues].sort(
     (a, b) => SEVERITY_ORDER.indexOf(a.severity) - SEVERITY_ORDER.indexOf(b.severity)
   );
@@ -324,6 +331,16 @@ function hauntGenerateReport(input) {
     "",
     `After fixing, run \`/haunt:haunt-test ${input.target_url}\` again to verify.`
   );
+  if (allBlockedRequests.length > 0) {
+    bodySections.push(
+      "",
+      "## Sandbox-Blocked Requests",
+      "",
+      "These are not app bugs \u2014 the test sandbox blocked an attempt to reach an origin outside the target app, shown here for visibility into what the persona tried.",
+      "",
+      renderSandboxBlockedSection(allBlockedRequests)
+    );
+  }
   const markdown = bodySections.join("\n");
   mkdirSync2(REPORTS_DIR, { recursive: true });
   writeFileSync(report_path, markdown, "utf-8");

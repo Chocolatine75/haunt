@@ -8,7 +8,7 @@ import {
   hauntNavigate,
   hauntSpawn,
   zodToJsonSchema
-} from "./chunk-VAZO4DCS.js";
+} from "./chunk-3ZG4XC6B.js";
 import {
   Anthropic
 } from "./chunk-3E6BL45F.js";
@@ -34544,7 +34544,8 @@ async function runPersonaSession(decide, manager, personaName, targetUrl, steps,
     area: targetUrl,
     persona: spawnResult.persona_name,
     overall_impression: endResult.overall_impression,
-    issues: endResult.issues_found
+    issues: endResult.issues_found,
+    sandbox_blocked_requests: endResult.sandbox_blocked_requests
   };
 }
 async function runHeadlessTest(decide, manager, options) {

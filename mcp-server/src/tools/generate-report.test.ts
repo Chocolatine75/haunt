@@ -319,4 +319,44 @@ describe('hauntGenerateReport', () => {
       expect(result.markdown).toContain('Could not compare with');
     });
   });
+
+  it('renders a Sandbox-Blocked Requests section when any session has blocked requests', () => {
+    const result = hauntGenerateReport({
+      target_url: 'http://localhost:3000',
+      personas: ['malicious-user'],
+      date: '2026-01-01',
+      sessions: [
+        {
+          area: '/admin',
+          persona: 'Malicious User',
+          overall_impression: 'Tried to pivot elsewhere.',
+          issues: [],
+          sandbox_blocked_requests: ['GET http://evil.example/exfil (blocked)'],
+        },
+      ],
+    });
+
+    expect(result.markdown).toContain('## Sandbox-Blocked Requests');
+    expect(result.markdown).toContain(
+      'GET http://evil.example/exfil (blocked)',
+    );
+  });
+
+  it('omits the Sandbox-Blocked Requests section when nothing was blocked', () => {
+    const result = hauntGenerateReport({
+      target_url: 'http://localhost:3000',
+      personas: ['confused-beginner'],
+      date: '2026-01-01',
+      sessions: [
+        {
+          area: '/',
+          persona: 'Confused Beginner',
+          overall_impression: 'All good.',
+          issues: [],
+        },
+      ],
+    });
+
+    expect(result.markdown).not.toContain('## Sandbox-Blocked Requests');
+  });
 });

@@ -249,6 +249,7 @@ async function runPersonaSession(
     persona: spawnResult.persona_name,
     overall_impression: endResult.overall_impression,
     issues: endResult.issues_found,
+    sandbox_blocked_requests: endResult.sandbox_blocked_requests,
   };
 }
 
