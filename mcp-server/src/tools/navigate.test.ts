@@ -208,6 +208,20 @@ describe('executeAction (via hauntNavigate)', () => {
     expect(issue?.description).not.toContain(secret);
   }, 5_000);
 
+  it('redacts an email value from the Issue description when the fill fails', async () => {
+    const secretEmail = 'ci-test-user@example.com';
+    const { result } = await navigateOn(
+      `<input type="text" data-testid="mystery-field" />`,
+      `fill ${secretEmail} in Email`,
+    );
+
+    expect(result.success).toBe(false);
+    const [session] = manager.all();
+    const issue = session.issues.at(-1);
+    expect(issue?.description).toContain('[REDACTED]');
+    expect(issue?.description).not.toContain(secretEmail);
+  }, 5_000);
+
   it('executes goto and press actions', async () => {
     const { result: gotoResult } = await navigateOn(
       '<p>start</p>',

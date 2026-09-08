@@ -379,9 +379,9 @@ function hauntGenerateReport(input) {
 
 // src/tools/navigate.ts
 import { mkdirSync as mkdirSync3 } from "fs";
-var PASSWORD_FILL_RE = /^((?:fill|type|enter|input)\s+)(.+?)(\s+in(?:to)?\s+.*password.*)$/i;
+var CREDENTIAL_FILL_RE = /^((?:fill|type|enter|input)\s+)(.+?)(\s+in(?:to)?\s+.*(?:password|email).*)$/i;
 function redactActionForReporting(action) {
-  const match = action.match(PASSWORD_FILL_RE);
+  const match = action.match(CREDENTIAL_FILL_RE);
   return match ? `${match[1]}[REDACTED]${match[3]}` : action;
 }
 async function executeAction(page, action) {
