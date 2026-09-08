@@ -26,13 +26,21 @@ export interface NavigateOutput {
   steps_remaining: number;
 }
 
-// A fill/type/enter action targeting a credential field (password or email —
-// the two values a login flow fills, per authenticate.ts) carries the
-// literal secret/PII value in its own text — e.g. "fill hunter2 in Password"
-// or "fill user@example.com in Email". If that action fails, the raw action
-// string must never end up verbatim in an Issue description (which flows
-// straight into the written report), so the value is redacted before it's
-// used for anything but the actual browser interaction.
+// This redaction fires on every hauntNavigate fill/type/enter action whose
+// target field name looks like a password or email field, regardless of
+// caller — authenticate.ts's login flow, but equally a persona (e.g.
+// confused-beginner) exploring a signup/contact/newsletter form. The literal
+// value in the action string — e.g. "fill hunter2 in Password" or
+// "fill user@example.com in Email" — must never end up verbatim in an Issue
+// description (which flows straight into the written report) if that fill
+// fails, so it's redacted before use for anything but the actual browser
+// interaction.
+//
+// Field-name matching is a heuristic, not value inspection: it can't tell a
+// real login credential from an email address a persona is deliberately
+// typing into an unrelated form. That's an accepted trade-off — protecting
+// actual credentials outweighs losing some report specificity on the rare
+// non-credential email fill that happens to fail.
 const CREDENTIAL_FILL_RE =
   /^((?:fill|type|enter|input)\s+)(.+?)(\s+in(?:to)?\s+.*(?:password|email).*)$/i;
 
