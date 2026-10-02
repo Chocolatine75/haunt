@@ -7,9 +7,11 @@ import {
 import { SessionManager } from '../engine/session/manager.js';
 import { TOOLS, describeInputError, toolInputJsonSchema } from './tools.js';
 
-export function createServer(): Server {
-  const manager = new SessionManager();
-
+// The manager can be supplied by a caller that needs to reach the sessions
+// itself — the gate tests do, to read a page's real state behind the tools.
+export function createServer(
+  manager: SessionManager = new SessionManager(),
+): Server {
   const server = new Server(
     { name: 'haunt', version: '0.1.0' },
     { capabilities: { tools: {} } },

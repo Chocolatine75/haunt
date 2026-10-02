@@ -74,6 +74,15 @@ and, in short form, by every action result.
 - **R-A12 Text content.** Non-interactive text (headings, paragraphs, error
   messages, table cells) is present in reading order, because that is what a
   tester reads to judge the page.
+- **R-A13 Attributes on request.** The caller can name attributes to report
+  for each element (`data-testid`, for instance). None are reported unless
+  asked for.
+
+The snapshot comes in two formats. `text` is what a model reads, with each
+element's reference written `[e12]`, and is the one the size budget applies
+to (12,000 characters a page). `json` is the same snapshot as data, never
+paged, for callers that process it. The exact shape of both, and of every
+action and result below, is fixed in `mcp-server/src/gates/part-1/contract.ts`.
 
 ## B. The actions
 
@@ -130,16 +139,18 @@ of the tester's hands).
 ## C. What an action returns
 
 - **R-C1 Outcome.** `ok` or a failure with a code from section D.
-- **R-C2 What changed.** URL before and after; whether a navigation happened;
+- **R-C2 What changed.** URL before and after; whether a navigation happened
+  (a document load or any change of URL, `pushState` and hash included);
   tabs opened or closed; a dialog that appeared, with its message; a download
   that started, with its file name; whether focus moved; whether the DOM
   changed at all. An action that changed nothing says `no observable change`
-  — for a tester that is often the finding.
+  — for a tester that is often the finding. Focus moving to the control that
+  was clicked does not count as a change.
 - **R-C3 Fresh snapshot diff.** The result includes the snapshot diff
   (R-A9), so the tester rarely needs a separate capture call.
 - **R-C4 Settling.** The result is produced once the page has settled: no
   pending navigation, and network and DOM quiet for a short window, with a
-  hard cap. If the cap is hit the result says the page was still busy and
+  hard cap of 5 seconds. If the cap is hit the result says the page was still busy and
   what was pending. A slow page must never look like a finished one, and
   must never hang the action.
 - **R-C5 Timing.** Each result reports how long the action and the settling
@@ -167,7 +178,7 @@ raw Playwright stack.
 | `timeout` | `wait_for` condition not met | What was observed instead |
 | `navigation_failed` | The URL did not load | Status or network error |
 | `sandbox_blocked` | Outside the allowlist | The blocked URL, without query string |
-| `invalid_action` | Malformed parameters | Which parameter and why |
+| `invalid_action` | Malformed parameters (reported like any other failed step, so a sequence says which action was wrong) | Which parameter |
 
 - **R-D1** Every failure carries one of these codes and its required detail.
 - **R-D2** A failure that can be known immediately (`unknown_ref`,
@@ -188,8 +199,8 @@ raw Playwright stack.
   origin allowlist. A new tab opened by the page is sandboxed like the first.
 - **R-E2 Redaction.** A value typed into a password field, or into a field
   whose name suggests a credential, never appears in a result, an issue, a
-  log or a report. Detection now uses the element (`type=password`,
-  `autocomplete`) as well as its name.
+  log or a report: the snapshot shows `(filled)` in its place. Detection now
+  uses the element (`type=password`, `autocomplete`) as well as its name.
 - **R-E3 Callers updated.** `commands/haunt-test.md`, `haunt-ci`,
   `authenticate.ts` and the benchmark all use references and `haunt_act`.
   The sentence grammar and `haunt_navigate` are removed in the same release,
@@ -210,7 +221,12 @@ raw Playwright stack.
 
 # The gate
 
-Lives in `mcp-server/src/gates/part-1/`. All of it is deterministic: scripted
+Lives in `mcp-server/src/gates/part-1/`, one file per suite, and runs with
+`npm run gate`. Each test is registered with the requirements it proves, and
+`status.ts` lists the tests the implementation passes so far. A test that is
+not listed runs as an expected failure: CI stays green while it fails and
+turns red the moment it passes, which is the cue to list it. The part is
+accepted when every test is listed. All of it is deterministic: scripted
 actions through a real MCP client, a real Chromium, the gauntlet served on
 `127.0.0.1`. No model is called.
 
@@ -247,6 +263,8 @@ right element received a real click" from "something happened".
 | `huge` | 2,000 interactive elements and 20,000 text nodes |
 | `states` | A disabled button that enables after a valid form, `aria-disabled`, `pointer-events: none`, zero-size and `visibility: hidden` elements |
 | `spa` | Client-side routing with `pushState`, a route that never settles (a polling request every 200 ms), a route that streams its content |
+| `escape` | Eight ways of reaching another origin that the page never contacts while loading: links, a form post, `window.open`, `fetch`, a beacon, an image, an open redirect, and a frame doing the same |
+| `login` | A login form behind a header link that reads exactly like its submit button; one valid set of credentials |
 
 ## Gate suites
 
@@ -391,7 +409,7 @@ A gate that cannot fail proves nothing, so the gate is itself tested.
    let a new tab bypass the sandbox. A sabotage that leaves the gate green
    is a hole in the gate and blocks acceptance until a test is added.
 2. **No flakes.** The whole gate passes 20 times in a row on each of Linux,
-   macOS and Windows, without retries.
+   macOS and Windows, without retries (`npm run gate:soak`).
 3. **Coverage.** Every requirement id in this document appears in at least
    one gate test name, checked by a script.
 

