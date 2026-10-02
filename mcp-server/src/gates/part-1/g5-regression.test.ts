@@ -254,13 +254,15 @@ describe('G5 nothing regressed', () => {
       'a scripted decider drives a session using references read from the state description',
       async () => {
         const seen: string[] = [];
+        // A table cell on a line of its own — the status message also names
+        // the invoice it deleted.
+        const row = (invoice: string) => new RegExp(`^\\s*${invoice}$`, 'm');
         // Clicks the first "Delete" button it is shown, three times.
         const decide = (async (_system: string, state: string) => {
           seen.push(state);
           const line = state
             .split('\n')
-            .find((l) => l.includes('Delete') && REF_IN_TEXT.test(l));
-          REF_IN_TEXT.lastIndex = 0;
+            .find((l) => l.includes('"Delete"') && /\[e\d+\]/.test(l));
           const ref = line ? [...line.matchAll(REF_IN_TEXT)][0][1] : 'e0';
           const actions: Action[] = [{ type: 'click', ref }];
           return { actions, issues: [] };
@@ -276,10 +278,10 @@ describe('G5 nothing regressed', () => {
 
         expect(failures).toEqual([]);
         expect(seen).toHaveLength(3);
-        expect(seen[0]).toContain('INV-001');
-        expect(seen[1]).not.toContain('INV-001');
-        expect(seen[2]).not.toContain('INV-002');
-        expect(seen[2]).toContain('INV-003');
+        expect(seen[0]).toMatch(row('INV-001'));
+        expect(seen[1]).not.toMatch(row('INV-001'));
+        expect(seen[2]).not.toMatch(row('INV-002'));
+        expect(seen[2]).toMatch(row('INV-003'));
         // No failed action was turned into an issue on the way.
         expect(report.counts.total).toBe(0);
         expect(manager.all()).toEqual([]);
