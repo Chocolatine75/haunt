@@ -11,6 +11,7 @@ import type {
   SnapshotDiff,
   SnapshotElement,
 } from '../../gates/part-1/contract.js';
+import { currentSabotage } from '../sabotage.js';
 import type { HauntSession } from '../types.js';
 import { type RawElement, type RawSnapshot, collect } from './page-script.js';
 
@@ -36,6 +37,12 @@ export interface SnapshotState {
   targets: Map<string, RefTarget>;
   frameIds: WeakMap<Frame, string>;
   shadowIds: Map<string, string>;
+  // How many snapshots have been taken, and at which one each reference was
+  // issued: tells an element that was rebuilt from one that was always there.
+  seq: number;
+  issuedAt: Map<string, number>;
+  // Role, name and tag each reference was last seen with.
+  described: Map<string, string>;
   previous?: {
     comparable: Map<string, string>;
     textHash: string;
@@ -55,6 +62,9 @@ export function newSnapshotState(): SnapshotState {
     targets: new Map(),
     frameIds: new WeakMap(),
     shadowIds: new Map(),
+    seq: 0,
+    issuedAt: new Map(),
+    described: new Map(),
   };
 }
 
@@ -93,6 +103,70 @@ function comparable(element: SnapshotElement): string {
     ...rest
   } = element;
   return JSON.stringify(rest);
+}
+
+// What makes two elements "the same thing" to a tester.
+function identity(element: SnapshotElement): string {
+  return `${element.tag}|${element.role}|${element.name}`;
+}
+
+// What changed between an earlier state and a list of elements.
+export function diffBetween(
+  before: Map<string, string>,
+  elements: SnapshotElement[],
+): SnapshotDiff {
+  const diff: SnapshotDiff = { added: [], removed: [], changed: [] };
+  const now = new Set<string>();
+  for (const element of elements) {
+    now.add(element.ref);
+    const was = before.get(element.ref);
+    if (was === undefined) diff.added.push(element);
+    else if (was !== comparable(element)) diff.changed.push(element);
+  }
+  for (const ref of before.keys()) if (!now.has(ref)) diff.removed.push(ref);
+  return diff;
+}
+
+// The reference of an element known only by where it lives in its frame,
+// issuing one if it has none yet.
+export function refOfLocal(
+  session: HauntSession,
+  frame: Frame,
+  doc: string,
+  local: number,
+): string {
+  const state = session.snapshot;
+  const id = frame === frame.page().mainFrame() ? '' : frameIdOf(state, frame);
+  const key = `${id}:${doc}:${local}`;
+  let ref = state.refByKey.get(key);
+  if (!ref) {
+    ref = `e${state.nextRef++}`;
+    state.issuedAt.set(ref, state.seq);
+    state.refByKey.set(key, ref);
+    state.targets.set(ref, { frame, doc, local });
+  }
+  return ref;
+}
+
+// For a reference whose node is gone: the one element in the current page
+// that is the same thing and did not exist when that reference was issued.
+// An element that was already there (another "Delete" button) is not it.
+export function similarTo(
+  session: HauntSession,
+  stale: string,
+  current: SnapshotElement[],
+): string | undefined {
+  const state = session.snapshot;
+  const wanted = state.described.get(stale);
+  const since = state.issuedAt.get(stale) ?? 0;
+  if (!wanted) return undefined;
+  const candidates = current.filter(
+    (e) =>
+      e.ref !== stale &&
+      identity(e) === wanted &&
+      (state.issuedAt.get(e.ref) ?? 0) > since,
+  );
+  return candidates.length === 1 ? candidates[0].ref : undefined;
 }
 
 function elementLine(e: SnapshotElement, depth: number): string {
@@ -253,7 +327,13 @@ export async function takeSnapshot(
 
   const within = options.within ? state.targets.get(options.within) : undefined;
   const frames = within ? [within.frame] : page.frames();
+  state.seq++;
+  const flag = currentSabotage();
   const collectOptions = (frame: Frame) => ({
+    sabotage:
+      flag === 'closed_shadow_dropped' || flag === 'redaction_by_label_only'
+        ? flag
+        : undefined,
     attributes: options.include_attributes ?? [],
     within: within && within.frame === frame ? within.local : undefined,
   });
@@ -288,11 +368,27 @@ export async function takeSnapshot(
   const textParts: string[] = [];
   const previousRefs = state.previous?.comparable;
 
+  // Sabotage only: numbers handed out afresh at every snapshot.
+  const positional = new Map<string, string>();
   const refFor = (capture: FrameCapture, local: number): string => {
     const key = `${capture.id}:${capture.raw.doc}:${local}`;
+    if (flag === 'reference_reused') {
+      let reused = positional.get(key);
+      if (!reused) {
+        reused = `e${positional.size + 1}`;
+        positional.set(key, reused);
+        state.targets.set(reused, {
+          frame: capture.frame,
+          doc: capture.raw.doc,
+          local,
+        });
+      }
+      return reused;
+    }
     let ref = state.refByKey.get(key);
     if (!ref) {
       ref = `e${state.nextRef++}`;
+      state.issuedAt.set(ref, state.seq);
       state.refByKey.set(key, ref);
       state.targets.set(ref, {
         frame: capture.frame,
@@ -351,6 +447,7 @@ export async function takeSnapshot(
         if (covered_by !== undefined)
           element.covered_by = refFor(capture, covered_by);
         if (previousRefs && !previousRefs.has(ref)) element.is_new = true;
+        state.described.set(ref, identity(element));
         return element;
       },
     );
@@ -425,19 +522,19 @@ export async function takeSnapshot(
     );
   }
   snapshot.text = rendered.join('\n');
+  if (flag === 'cut_mid_element') {
+    // Cut by character count, in the middle of the last element line.
+    const last = snapshot.text.lastIndexOf('\n- ');
+    if (last > 0) snapshot.text = snapshot.text.slice(0, last + 6);
+  }
 
   // --- diff against the previous snapshot of this session
   const now = new Map(elements.map((e) => [e.ref, comparable(e)]));
   if (options.diff) {
-    const diff: SnapshotDiff = { added: [], removed: [], changed: [] };
-    const before = state.previous?.comparable ?? new Map<string, string>();
-    for (const element of elements) {
-      const was = before.get(element.ref);
-      if (was === undefined) diff.added.push(element);
-      else if (was !== now.get(element.ref)) diff.changed.push(element);
-    }
-    for (const ref of before.keys()) if (!now.has(ref)) diff.removed.push(ref);
-    snapshot.diff = diff;
+    snapshot.diff = diffBetween(
+      state.previous?.comparable ?? new Map<string, string>(),
+      elements,
+    );
   }
 
   if (format === 'json') {

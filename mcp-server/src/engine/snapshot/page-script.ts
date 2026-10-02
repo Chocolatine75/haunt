@@ -47,23 +47,53 @@ export interface RawSnapshot {
 
 export interface CollectOptions {
   attributes: string[];
+  // Deliberate breakages, for the gate's own tests (engine/sabotage.ts).
+  sabotage?: 'closed_shadow_dropped' | 'redaction_by_label_only';
   // Restrict to the subtree of the element with this local id.
   within?: number;
 }
 
-// Installed before any page script runs. Closed shadow roots cannot be
-// reached from outside once created, so they are remembered as they are made.
+// Installed before any page script runs.
+//
+// - Closed shadow roots cannot be reached from outside once created, so they
+//   are remembered as they are made.
+// - Short timers and DOM mutations are tracked, so that after an action the
+//   engine can tell a page that has finished reacting from one that has not.
 export function installHooks(): void {
   const w = window as unknown as Record<string, unknown>;
   if (w.__haunt) return;
+
+  const native = {
+    setTimeout: window.setTimeout.bind(window),
+    clearTimeout: window.clearTimeout.bind(window),
+    setInterval: window.setInterval.bind(window),
+    clearInterval: window.clearInterval.bind(window),
+  };
   const state = {
     doc: Math.random().toString(36).slice(2),
     roots: new WeakMap<Element, ShadowRoot>(),
     ids: new WeakMap<Node, number>(),
     nodes: new Map<number, WeakRef<Node>>(),
     next: 1,
+    native,
+    // Pending timers short enough to be "the page still reacting".
+    timers: new Map<number, { at: number; delay: number; repeat: boolean }>(),
+    lastMutation: 0,
   };
   Object.defineProperty(window, '__haunt', { value: state, enumerable: false });
+
+  const observer = new MutationObserver(() => {
+    state.lastMutation = Date.now();
+  });
+  const watch = (root: Node) =>
+    observer.observe(root, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      characterData: true,
+    });
+  watch(document);
+
   const original = Element.prototype.attachShadow;
   Element.prototype.attachShadow = function (
     this: Element,
@@ -71,8 +101,57 @@ export function installHooks(): void {
   ) {
     const root = original.call(this, init);
     state.roots.set(this, root);
+    watch(root);
     return root;
   };
+
+  const SHORT_MS = 2_000;
+  // biome-ignore lint/suspicious/noExplicitAny: mirrors the DOM signatures
+  type Handler = any;
+  window.setTimeout = ((
+    handler: Handler,
+    delay?: number,
+    ...args: unknown[]
+  ) => {
+    const ms = Number(delay) || 0;
+    let id = 0;
+    const run =
+      typeof handler === 'function'
+        ? function (this: unknown, ...inner: unknown[]) {
+            state.timers.delete(id);
+            return handler.apply(this, inner);
+          }
+        : handler;
+    id = native.setTimeout(run, delay, ...args) as unknown as number;
+    if (ms <= SHORT_MS) {
+      state.timers.set(id, { at: Date.now(), delay: ms, repeat: false });
+      // A string handler cannot be wrapped; forget it once it is due.
+      if (typeof handler !== 'function') {
+        native.setTimeout(() => state.timers.delete(id), ms + 1);
+      }
+    }
+    return id;
+  }) as typeof window.setTimeout;
+  window.clearTimeout = ((id?: number) => {
+    if (id !== undefined) state.timers.delete(id);
+    return native.clearTimeout(id);
+  }) as typeof window.clearTimeout;
+  window.setInterval = ((
+    handler: Handler,
+    delay?: number,
+    ...args: unknown[]
+  ) => {
+    const ms = Number(delay) || 0;
+    const id = native.setInterval(handler, delay, ...args) as unknown as number;
+    if (ms <= SHORT_MS) {
+      state.timers.set(id, { at: Date.now(), delay: ms, repeat: true });
+    }
+    return id;
+  }) as typeof window.setInterval;
+  window.clearInterval = ((id?: number) => {
+    if (id !== undefined) state.timers.delete(id);
+    return native.clearInterval(id);
+  }) as typeof window.clearInterval;
 }
 
 // Returns the RawSnapshot as a JSON string: handing Playwright one string
@@ -113,7 +192,10 @@ export function collect(options: CollectOptions): string {
     return id;
   };
   const shadowOf = (el: Element): ShadowRoot | null =>
-    el.shadowRoot ?? st.roots.get(el) ?? null;
+    el.shadowRoot ??
+    (options.sabotage === 'closed_shadow_dropped'
+      ? null
+      : (st.roots.get(el) ?? null));
 
   const INTERACTIVE_ROLES = new Set([
     'button',
@@ -347,6 +429,9 @@ export function collect(options: CollectOptions): string {
   const CREDENTIAL = /pass(word|code|phrase)?|pwd|secret|\bpin\b|e-?mail/i;
   const isCredential = (el: Element, name: string): boolean => {
     if (!(el instanceof HTMLInputElement)) return false;
+    if (options.sabotage === 'redaction_by_label_only') {
+      return CREDENTIAL.test(name);
+    }
     if (el.type === 'password' || el.type === 'email') return true;
     if (/password|one-time-code|cc-number|cc-csc/.test(el.autocomplete || ''))
       return true;

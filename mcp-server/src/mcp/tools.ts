@@ -8,6 +8,8 @@
 // engine's input type is a compile error here rather than a runtime surprise.
 import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
+import { hauntAct } from '../engine/act/act.js';
+import { actionSchema } from '../engine/act/schema.js';
 import { hauntCaptureState } from '../engine/capture.js';
 import { hauntEndSession } from '../engine/end-session.js';
 import { hauntGetCookies } from '../engine/get-cookies.js';
@@ -46,6 +48,9 @@ export interface ToolDefinition<S extends z.ZodTypeAny = z.ZodTypeAny> {
   name: string;
   description: string;
   input: S;
+  // When what is accepted is deliberately looser than what is documented:
+  // the schema shown to hosts. Defaults to `input`.
+  listing?: z.ZodTypeAny;
   // Declared as a method so definitions with different input schemas can sit
   // in one array.
   run(manager: SessionManager, input: z.infer<S>): unknown;
@@ -114,6 +119,33 @@ export const TOOLS: ToolDefinition[] = [
         .describe('Issues the orchestrator observed during this step'),
     }),
     run: (manager, input) => hauntNavigate(manager, input),
+  }),
+  defineTool({
+    name: 'haunt_act',
+    description:
+      'Run one or more actions on elements named by their reference from the snapshot (click, fill, type, press, select, check, hover, scroll, drag, upload, goto, tab, dialog, wait_for, read…). Each action reports what it really changed: navigation, new tab, dialog, download, or nothing at all. A sequence stops at the first failure, navigation, dialog or new tab. A failed action says why (covered and by what, disabled, stale reference…); it is information, not necessarily an app bug.',
+    // Each action is checked by the engine, so that a malformed one is
+    // reported as a failed step (with the others in the sequence) rather
+    // than rejecting the whole call.
+    input: z.object({
+      session_id: z.string(),
+      actions: z.array(z.record(z.unknown())).min(1),
+      issues: z.array(issueSchema).optional(),
+    }),
+    listing: z.object({
+      session_id: z.string().describe('Session ID from haunt_spawn'),
+      actions: z
+        .array(actionSchema)
+        .min(1)
+        .describe(
+          'Run in order; execution stops when one fails or changes the page under the rest',
+        ),
+      issues: z
+        .array(issueSchema)
+        .optional()
+        .describe('Issues the orchestrator observed during this step'),
+    }),
+    run: (manager, input) => hauntAct(manager, input),
   }),
   defineTool({
     name: 'haunt_capture_state',
@@ -227,7 +259,7 @@ export const TOOLS: ToolDefinition[] = [
 export function toolInputJsonSchema(
   tool: ToolDefinition,
 ): Record<string, unknown> {
-  const { $schema, ...schema } = zodToJsonSchema(tool.input, {
+  const { $schema, ...schema } = zodToJsonSchema(tool.listing ?? tool.input, {
     $refStrategy: 'none',
   }) as Record<string, unknown>;
   return schema;

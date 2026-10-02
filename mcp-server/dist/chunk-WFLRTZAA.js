@@ -54,24 +54,87 @@ var SCREENSHOT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1e3;
 var SESSION_TTL_MS = 10 * 60 * 1e3;
 var SESSION_MAX_ACTIVE_DURATION_MS = 15 * 60 * 1e3;
 
+// src/engine/sabotage.ts
+var current = null;
+function currentSabotage() {
+  return current;
+}
+function sabotaged(name) {
+  return current === name;
+}
+
 // src/engine/snapshot/page-script.ts
 function installHooks() {
   const w = window;
   if (w.__haunt) return;
+  const native = {
+    setTimeout: window.setTimeout.bind(window),
+    clearTimeout: window.clearTimeout.bind(window),
+    setInterval: window.setInterval.bind(window),
+    clearInterval: window.clearInterval.bind(window)
+  };
   const state = {
     doc: Math.random().toString(36).slice(2),
     roots: /* @__PURE__ */ new WeakMap(),
     ids: /* @__PURE__ */ new WeakMap(),
     nodes: /* @__PURE__ */ new Map(),
-    next: 1
+    next: 1,
+    native,
+    // Pending timers short enough to be "the page still reacting".
+    timers: /* @__PURE__ */ new Map(),
+    lastMutation: 0
   };
   Object.defineProperty(window, "__haunt", { value: state, enumerable: false });
+  const observer = new MutationObserver(() => {
+    state.lastMutation = Date.now();
+  });
+  const watch = (root) => observer.observe(root, {
+    subtree: true,
+    childList: true,
+    attributes: true,
+    characterData: true
+  });
+  watch(document);
   const original = Element.prototype.attachShadow;
   Element.prototype.attachShadow = function(init) {
     const root = original.call(this, init);
     state.roots.set(this, root);
+    watch(root);
     return root;
   };
+  const SHORT_MS = 2e3;
+  window.setTimeout = ((handler, delay, ...args) => {
+    const ms = Number(delay) || 0;
+    let id = 0;
+    const run = typeof handler === "function" ? function(...inner) {
+      state.timers.delete(id);
+      return handler.apply(this, inner);
+    } : handler;
+    id = native.setTimeout(run, delay, ...args);
+    if (ms <= SHORT_MS) {
+      state.timers.set(id, { at: Date.now(), delay: ms, repeat: false });
+      if (typeof handler !== "function") {
+        native.setTimeout(() => state.timers.delete(id), ms + 1);
+      }
+    }
+    return id;
+  });
+  window.clearTimeout = ((id) => {
+    if (id !== void 0) state.timers.delete(id);
+    return native.clearTimeout(id);
+  });
+  window.setInterval = ((handler, delay, ...args) => {
+    const ms = Number(delay) || 0;
+    const id = native.setInterval(handler, delay, ...args);
+    if (ms <= SHORT_MS) {
+      state.timers.set(id, { at: Date.now(), delay: ms, repeat: true });
+    }
+    return id;
+  });
+  window.clearInterval = ((id) => {
+    if (id !== void 0) state.timers.delete(id);
+    return native.clearInterval(id);
+  });
 }
 function collect(options) {
   let state = window.__haunt;
@@ -98,7 +161,7 @@ function collect(options) {
     }
     return id;
   };
-  const shadowOf = (el) => el.shadowRoot ?? st.roots.get(el) ?? null;
+  const shadowOf = (el) => el.shadowRoot ?? (options.sabotage === "closed_shadow_dropped" ? null : st.roots.get(el) ?? null);
   const INTERACTIVE_ROLES = /* @__PURE__ */ new Set([
     "button",
     "link",
@@ -292,6 +355,9 @@ function collect(options) {
   const CREDENTIAL = /pass(word|code|phrase)?|pwd|secret|\bpin\b|e-?mail/i;
   const isCredential = (el, name) => {
     if (!(el instanceof HTMLInputElement)) return false;
+    if (options.sabotage === "redaction_by_label_only") {
+      return CREDENTIAL.test(name);
+    }
     if (el.type === "password" || el.type === "email") return true;
     if (/password|one-time-code|cc-number|cc-csc/.test(el.autocomplete || ""))
       return true;
@@ -531,7 +597,10 @@ function newSnapshotState() {
     refByKey: /* @__PURE__ */ new Map(),
     targets: /* @__PURE__ */ new Map(),
     frameIds: /* @__PURE__ */ new WeakMap(),
-    shadowIds: /* @__PURE__ */ new Map()
+    shadowIds: /* @__PURE__ */ new Map(),
+    seq: 0,
+    issuedAt: /* @__PURE__ */ new Map(),
+    described: /* @__PURE__ */ new Map()
   };
 }
 function withTimeout(promise, ms) {
@@ -557,6 +626,44 @@ function comparable(element) {
     ...rest
   } = element;
   return JSON.stringify(rest);
+}
+function identity(element) {
+  return `${element.tag}|${element.role}|${element.name}`;
+}
+function diffBetween(before, elements) {
+  const diff = { added: [], removed: [], changed: [] };
+  const now = /* @__PURE__ */ new Set();
+  for (const element of elements) {
+    now.add(element.ref);
+    const was = before.get(element.ref);
+    if (was === void 0) diff.added.push(element);
+    else if (was !== comparable(element)) diff.changed.push(element);
+  }
+  for (const ref of before.keys()) if (!now.has(ref)) diff.removed.push(ref);
+  return diff;
+}
+function refOfLocal(session, frame, doc, local) {
+  const state = session.snapshot;
+  const id = frame === frame.page().mainFrame() ? "" : frameIdOf(state, frame);
+  const key = `${id}:${doc}:${local}`;
+  let ref = state.refByKey.get(key);
+  if (!ref) {
+    ref = `e${state.nextRef++}`;
+    state.issuedAt.set(ref, state.seq);
+    state.refByKey.set(key, ref);
+    state.targets.set(ref, { frame, doc, local });
+  }
+  return ref;
+}
+function similarTo(session, stale, current2) {
+  const state = session.snapshot;
+  const wanted = state.described.get(stale);
+  const since = state.issuedAt.get(stale) ?? 0;
+  if (!wanted) return void 0;
+  const candidates = current2.filter(
+    (e) => e.ref !== stale && identity(e) === wanted && (state.issuedAt.get(e.ref) ?? 0) > since
+  );
+  return candidates.length === 1 ? candidates[0].ref : void 0;
 }
 function elementLine(e, depth) {
   const parts = [`${"  ".repeat(depth)}- ${e.role}`];
@@ -684,7 +791,10 @@ async function takeSnapshot(session, options = {}) {
   }
   const within = options.within ? state.targets.get(options.within) : void 0;
   const frames = within ? [within.frame] : page.frames();
+  state.seq++;
+  const flag = currentSabotage();
   const collectOptions = (frame) => ({
+    sabotage: flag === "closed_shadow_dropped" || flag === "redaction_by_label_only" ? flag : void 0,
     attributes: options.include_attributes ?? [],
     within: within && within.frame === frame ? within.local : void 0
   });
@@ -715,11 +825,26 @@ async function takeSnapshot(session, options = {}) {
   const body = [];
   const textParts = [];
   const previousRefs = state.previous?.comparable;
+  const positional = /* @__PURE__ */ new Map();
   const refFor = (capture, local) => {
     const key = `${capture.id}:${capture.raw.doc}:${local}`;
+    if (flag === "reference_reused") {
+      let reused = positional.get(key);
+      if (!reused) {
+        reused = `e${positional.size + 1}`;
+        positional.set(key, reused);
+        state.targets.set(reused, {
+          frame: capture.frame,
+          doc: capture.raw.doc,
+          local
+        });
+      }
+      return reused;
+    }
     let ref = state.refByKey.get(key);
     if (!ref) {
       ref = `e${state.nextRef++}`;
+      state.issuedAt.set(ref, state.seq);
       state.refByKey.set(key, ref);
       state.targets.set(ref, {
         frame: capture.frame,
@@ -776,6 +901,7 @@ async function takeSnapshot(session, options = {}) {
         if (covered_by !== void 0)
           element.covered_by = refFor(capture, covered_by);
         if (previousRefs && !previousRefs.has(ref)) element.is_new = true;
+        state.described.set(ref, identity(element));
         return element;
       }
     );
@@ -837,17 +963,16 @@ async function takeSnapshot(session, options = {}) {
     );
   }
   snapshot.text = rendered.join("\n");
+  if (flag === "cut_mid_element") {
+    const last = snapshot.text.lastIndexOf("\n- ");
+    if (last > 0) snapshot.text = snapshot.text.slice(0, last + 6);
+  }
   const now = new Map(elements.map((e) => [e.ref, comparable(e)]));
   if (options.diff) {
-    const diff = { added: [], removed: [], changed: [] };
-    const before = state.previous?.comparable ?? /* @__PURE__ */ new Map();
-    for (const element of elements) {
-      const was = before.get(element.ref);
-      if (was === void 0) diff.added.push(element);
-      else if (was !== now.get(element.ref)) diff.changed.push(element);
-    }
-    for (const ref of before.keys()) if (!now.has(ref)) diff.removed.push(ref);
-    snapshot.diff = diff;
+    snapshot.diff = diffBetween(
+      state.previous?.comparable ?? /* @__PURE__ */ new Map(),
+      elements
+    );
   }
   if (format === "json") {
     snapshot.elements = elements;
@@ -1357,6 +1482,55 @@ function v4(options, buf, offset) {
   return unsafeStringify(rnds);
 }
 var v4_default = v4;
+
+// src/engine/act/runtime.ts
+function attachRuntime(context, snapshot) {
+  const runtime = {
+    tabs: [],
+    opened: [],
+    closed: [],
+    downloads: [],
+    inflight: /* @__PURE__ */ new Map(),
+    recent: [],
+    navigations: /* @__PURE__ */ new WeakMap(),
+    dialogWaiters: /* @__PURE__ */ new Set()
+  };
+  context.on("page", (page) => {
+    runtime.tabs.push(page);
+    runtime.opened.push(runtime.tabs.length - 1);
+    page.on("close", () => {
+      const index = runtime.tabs.indexOf(page);
+      if (index === -1) return;
+      runtime.closed.push(index);
+      runtime.tabs.splice(index, 1);
+    });
+    page.on("framenavigated", (frame) => {
+      if (frame !== page.mainFrame()) return;
+      runtime.navigations.set(page, (runtime.navigations.get(page) ?? 0) + 1);
+    });
+    page.on("download", (download) => {
+      runtime.downloads.push(download.suggestedFilename());
+      download.cancel().catch(() => {
+      });
+    });
+    page.on("dialog", (dialog) => {
+      runtime.dialog = dialog;
+      snapshot.dialog = { type: dialog.type(), message: dialog.message() };
+      for (const wake of runtime.dialogWaiters) wake();
+      runtime.dialogWaiters.clear();
+    });
+  });
+  context.on("request", (request) => {
+    const entry = { url: request.url(), at: Date.now() };
+    runtime.inflight.set(request, entry);
+    runtime.recent.push(entry);
+    if (runtime.recent.length > 50) runtime.recent.shift();
+  });
+  const done = (request) => runtime.inflight.delete(request);
+  context.on("requestfinished", done);
+  context.on("requestfailed", done);
+  return runtime;
+}
 
 // src/engine/persona/loader.ts
 import { readFileSync as readFileSync2 } from "fs";
@@ -8569,9 +8743,17 @@ async function hauntSpawn(manager, input) {
       await route.abort();
       return;
     }
+    let exempt = false;
+    if (sabotaged("new_tab_unsandboxed")) {
+      try {
+        exempt = runtime.tabs.indexOf(request.frame().page()) > 0;
+      } catch {
+        exempt = true;
+      }
+    }
     if (capturingAllowlist) {
       allowedOrigins.add(origin);
-    } else if (!allowedOrigins.has(origin)) {
+    } else if (!allowedOrigins.has(origin) && !exempt) {
       sandboxBlockedRequests.push(`${request.method()} ${originAndPath}`);
       await route.abort();
       return;
@@ -8615,18 +8797,13 @@ async function hauntSpawn(manager, input) {
   });
   await context.addInitScript(installHooks);
   const snapshotState = newSnapshotState();
-  context.on("page", (opened) => {
-    opened.on("dialog", (dialog) => {
-      snapshotState.dialog = { type: dialog.type(), message: dialog.message() };
-    });
-  });
-  const page = await context.newPage();
+  const runtime = attachRuntime(context, snapshotState);
   const consoleErrors = [];
   const networkErrors = [];
-  page.on("console", (msg) => {
+  context.on("console", (msg) => {
     if (msg.type() === "error") consoleErrors.push(msg.text());
   });
-  page.on("requestfailed", (request) => {
+  context.on("requestfailed", (request) => {
     let origin;
     try {
       origin = new URL(request.url()).origin;
@@ -8640,6 +8817,7 @@ async function hauntSpawn(manager, input) {
       `${request.method()} ${request.url()} \u2014 ${request.failure()?.errorText ?? "unknown"}`
     );
   });
+  const page = await context.newPage();
   try {
     await page.goto(input.target_url, {
       waitUntil: "domcontentloaded",
@@ -8669,7 +8847,8 @@ async function hauntSpawn(manager, input) {
     console_errors: consoleErrors,
     network_errors: networkErrors,
     sandbox_blocked_requests: sandboxBlockedRequests,
-    snapshot: snapshotState
+    snapshot: snapshotState,
+    runtime
   };
   manager.set(sessionId, session);
   return {
@@ -9980,6 +10159,12 @@ export {
   external_exports,
   zodToJsonSchema,
   SessionManager,
+  SESSION_TTL_MS,
+  sabotaged,
+  diffBetween,
+  refOfLocal,
+  similarTo,
+  takeSnapshot,
   hauntCaptureState,
   hauntEndSession,
   hauntGetCookies,

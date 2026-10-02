@@ -17,6 +17,7 @@ const EXPECTED_TOOLS = [
   'haunt_end_session',
   'haunt_estimate_cost',
   'haunt_generate_report',
+  'haunt_act',
 ];
 
 // Protocol-level tests that need no browser: what a host sees when it lists
