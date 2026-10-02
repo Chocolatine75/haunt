@@ -1,6 +1,5 @@
 # Report-Quality Benchmark Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build `haunt-benchmark`, a scriptable CLI that runs haunt against the demo app, scores the resulting report against a versioned ground-truth list of known bugs (recall, false positives, fix actionability, format compliance), and prints/saves a scorecard — so any future change to haunt can be checked for report-quality regression with one command instead of manual live testing.
 
@@ -8,7 +7,7 @@
 
 **Tech Stack:** TypeScript, Vitest, tsup, `@anthropic-ai/sdk`, `@mistralai/mistralai` (both already dependencies — no new packages).
 
-**Spec:** `docs/superpowers/specs/2026-09-04-report-quality-benchmark-design.md`
+**Spec:** `docs/v2/specs/2026-09-04-report-quality-benchmark-design.md`
 
 ## Global Constraints
 
