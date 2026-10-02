@@ -32,6 +32,8 @@ not done, and is not merged as done, until every test in its gate passes.
    down. Skipping, loosening an assertion or raising a timeout to go green
    counts as weakening.
 4. **Green means green in CI**, on Linux, macOS and Windows, with no retries.
+   Pull requests run macOS only; the three systems run on `v2` once the
+   part is merged, and the part is accepted when that run is green.
    A gate test that passes only sometimes is failing.
 5. **Earlier gates stay green.** A part that breaks a previous gate is not
    accepted.

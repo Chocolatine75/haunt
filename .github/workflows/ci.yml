@@ -19,7 +19,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # Pull requests run macOS only, to keep the loop short. Linux and
+        # Windows run when the change lands: on a push to v2 or master.
+        os: ${{ fromJSON(github.event_name == 'push' && '["ubuntu-latest","macos-latest","windows-latest"]' || '["macos-latest"]') }}
     defaults:
       run:
         working-directory: mcp-server
