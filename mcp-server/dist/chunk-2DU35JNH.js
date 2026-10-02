@@ -1,14 +1,15 @@
 import { createRequire } from 'module'; const require = createRequire(import.meta.url);
 import {
   SessionManager,
+  actionSchema,
+  hauntAct,
   hauntCaptureState,
   hauntEndSession,
   hauntGenerateReport,
   hauntGetCookies,
-  hauntNavigate,
   hauntSpawn,
   zodToJsonSchema
-} from "./chunk-FPI7GNJD.js";
+} from "./chunk-TVFI5C7Y.js";
 import {
   Anthropic
 } from "./chunk-MMWLM6BK.js";
@@ -34200,11 +34201,10 @@ var Mistral = class extends ClientSDK {
 };
 
 // src/cli/authenticate.ts
-var SUBMIT_BUTTON_LABELS = ["Log in", "Sign in", "Login", "Submit"];
-var HYDRATION_PAUSE_MS = 2e3;
-var POST_SUBMIT_PAUSE_MS = 2500;
+var RETRY_PAUSE_MS = 1500;
 var MAX_ATTEMPTS = 2;
 var sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+var USER_FIELD = /e-?mail|user(name)?|login|identifiant/i;
 function samePage(a, b) {
   try {
     const urlA = new URL(a);
@@ -34215,72 +34215,95 @@ function samePage(a, b) {
   }
 }
 async function authenticate(manager, options) {
-  const stepsPerAttempt = SUBMIT_BUTTON_LABELS.length * 3;
   const spawnResult = await hauntSpawn(manager, {
     persona: options.persona ?? "confused-beginner",
     target_url: options.loginUrl,
     headless: options.headless,
-    timeout: stepsPerAttempt * MAX_ATTEMPTS
+    // Two fills and a click per attempt, with room to spare.
+    timeout: MAX_ATTEMPTS * 6
   });
-  const sessionId = spawnResult.session_id;
+  const session_id = spawnResult.session_id;
+  const leftLoginPage = (url) => !samePage(url, options.loginUrl);
   try {
     let lastFailure = "unknown error";
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      await sleep(HYDRATION_PAUSE_MS);
-      let leftLoginPage = false;
-      for (const label of SUBMIT_BUTTON_LABELS) {
-        await hauntNavigate(manager, {
-          session_id: sessionId,
-          action: `fill ${options.email} in Email`
-        });
-        await hauntNavigate(manager, {
-          session_id: sessionId,
-          action: `fill ${options.password} in Password`
-        });
-        const clickResult = await hauntNavigate(manager, {
-          session_id: sessionId,
-          action: `click ${label}`
-        });
-        if (!clickResult.success) {
-          lastFailure = clickResult.error ?? lastFailure;
-          continue;
-        }
-        await sleep(POST_SUBMIT_PAUSE_MS);
-        const state = await hauntCaptureState(manager, {
-          session_id: sessionId,
-          include_screenshot: false,
-          include_dom: false
-        });
-        if (!samePage(state.url, options.loginUrl)) {
-          leftLoginPage = true;
-          break;
-        }
-        lastFailure = `clicked "${label}" but the page did not leave the login route`;
-      }
-      if (!leftLoginPage) continue;
-      const { cookies } = await hauntGetCookies(manager, {
-        session_id: sessionId
+      if (attempt > 1) await sleep(RETRY_PAUSE_MS);
+      const { elements = [] } = await hauntCaptureState(manager, {
+        session_id,
+        format: "json"
       });
-      return cookies;
+      const passwordAt = elements.findIndex((e) => e.input_type === "password");
+      const password = elements[passwordAt];
+      const user = elements.find((e) => e.input_type === "email") ?? elements.slice(0, Math.max(passwordAt, 0)).reverse().find(
+        (e) => (e.role === "textbox" || e.role === "searchbox") && e.input_type !== "password" && USER_FIELD.test(`${e.name} ${e.placeholder ?? ""}`)
+      );
+      if (!user || !password) {
+        lastFailure = `no ${user ? "password" : "email"} field was found on the login page`;
+        continue;
+      }
+      const typed = await hauntAct(manager, {
+        session_id,
+        actions: [
+          { type: "fill", ref: user.ref, text: options.email },
+          {
+            type: "fill",
+            ref: password.ref,
+            text: options.password,
+            submit: true
+          }
+        ]
+      });
+      if (leftLoginPage(typed.url)) return await cookiesOf(manager, session_id);
+      const failed = typed.results.find((r) => !r.ok);
+      if (failed) {
+        lastFailure = failed.error?.message ?? lastFailure;
+        continue;
+      }
+      if (typed.results.some((r) => r.changes.navigated)) {
+        lastFailure = "the page did not leave the login route";
+        continue;
+      }
+      const button = elements.slice(passwordAt + 1).find((e) => e.role === "button" && !e.disabled && !e.hidden);
+      if (!button) {
+        lastFailure = "no submit button was found after the password field";
+        continue;
+      }
+      const clicked = await hauntAct(manager, {
+        session_id,
+        actions: [{ type: "click", ref: button.ref }]
+      });
+      if (leftLoginPage(clicked.url))
+        return await cookiesOf(manager, session_id);
+      lastFailure = clicked.results[0]?.error?.message ?? `clicked "${button.name}" but the page did not leave the login route`;
     }
     throw new Error(
       `login failed after ${MAX_ATTEMPTS} attempts: ${lastFailure}`
     );
   } finally {
-    await hauntEndSession(manager, { session_id: sessionId });
+    await hauntEndSession(manager, { session_id });
   }
+}
+async function cookiesOf(manager, session_id) {
+  return (await hauntGetCookies(manager, { session_id })).cookies;
 }
 
 // src/cli/providers/types.ts
 var DECIDE_ACTION_TOOL_NAME = "decide_action";
-var DECIDE_ACTION_TOOL_DESCRIPTION = "Choose the single next browser action to take as this persona, and report any issues observed on the current page state.";
+var DECIDE_ACTION_TOOL_DESCRIPTION = 'Choose the next browser actions to take as this persona, naming elements by the reference shown in the page snapshot (e.g. "e12"), and report any issues observed on the current page state.';
+var MAX_ACTIONS_PER_STEP = 5;
 function decideActionParameters() {
+  const { $schema, ...action } = zodToJsonSchema(actionSchema, {
+    $refStrategy: "none"
+  });
   return {
     type: "object",
     properties: {
-      action: {
-        type: "string",
-        description: 'Natural-language action: "click <target>", "fill <text> in <field>", "goto <url>", or "press <key>"'
+      actions: {
+        type: "array",
+        minItems: 1,
+        maxItems: MAX_ACTIONS_PER_STEP,
+        description: "Usually one action. Several only when the later ones do not depend on what the earlier ones do to the page (filling the fields of one form, for instance).",
+        items: action
       },
       issues: {
         type: "array",
@@ -34315,17 +34338,20 @@ function decideActionParameters() {
         }
       }
     },
-    required: ["action"]
+    required: ["actions"]
   };
 }
 function parseDecideActionInput(input) {
   const parsed = input;
-  if (!parsed.action) {
+  if (!Array.isArray(parsed.actions) || parsed.actions.length === 0) {
     throw new Error(
-      `${DECIDE_ACTION_TOOL_NAME} tool call was missing "action"`
+      `${DECIDE_ACTION_TOOL_NAME} tool call was missing "actions"`
     );
   }
-  return { action: parsed.action, issues: parsed.issues ?? [] };
+  return {
+    actions: parsed.actions.slice(0, MAX_ACTIONS_PER_STEP),
+    issues: parsed.issues ?? []
+  };
 }
 
 // src/cli/providers/anthropic.ts
@@ -34481,20 +34507,55 @@ function createDecider(resolved) {
 }
 var UNAUTHENTICATED_NOTE = "Note: you are NOT logged in for this session. If this page shows content that looks private, personalized, or administrative (e.g. a dashboard, account data, admin controls) without redirecting you to a login page first, that is itself a serious security bug \u2014 report it.";
 var SANDBOX_BLOCK_NOTE = "Note: your last action was blocked by the haunt test sandbox because it targeted an origin outside the app under test. This is NOT an app bug \u2014 do not report it as an issue. Blocked: ";
-function sandboxBlockNote(blocked) {
-  return `${SANDBOX_BLOCK_NOTE}${blocked.join("; ")}`;
+var HOW_TO_ACT = "Elements are named by the reference in square brackets, e.g. [e12]. Use that reference in your actions. A failed action is information about the page (covered, disabled, gone), not necessarily a bug. An action that changed nothing at all on a control that should do something is worth reporting.";
+function describeOutcome(result) {
+  const lines = result.results.map((step, i) => {
+    if (!step.ok)
+      return `${i + 1}. ${step.type}: FAILED \u2014 ${step.error?.message}`;
+    const effects = [];
+    if (step.changes.navigated)
+      effects.push(`went to ${step.changes.url_after}`);
+    if (step.changes.tabs_opened.length > 0) effects.push("opened a new tab");
+    if (step.changes.dialog) {
+      effects.push(
+        `a ${step.changes.dialog.type} dialog opened: "${step.changes.dialog.message}"`
+      );
+    }
+    if (step.changes.download)
+      effects.push(`downloaded ${step.changes.download.filename}`);
+    if (step.changes.none) effects.push("nothing changed on the page");
+    else if (effects.length === 0) effects.push("the page changed");
+    if (!step.settled)
+      effects.push("the page was still busy when the wait ran out");
+    return `${i + 1}. ${step.type}: ${effects.join(", ")}`;
+  });
+  if (result.requested > result.executed) {
+    lines.push(
+      `(${result.requested - result.executed} further action(s) were not run)`
+    );
+  }
+  if (result.console_errors.length > 0) {
+    lines.push(
+      `Console errors: ${result.console_errors.slice(0, 5).join(" | ")}`
+    );
+  }
+  if (result.network_errors.length > 0) {
+    lines.push(
+      `Failed requests: ${result.network_errors.slice(0, 5).join(" | ")}`
+    );
+  }
+  return `Your last actions:
+${lines.join("\n")}`;
 }
-function describeState(url, title, accessibilityTree, accessibilityTreeError, step, steps, authenticated, sandboxBlocked) {
-  const treeSection = accessibilityTree ? accessibilityTree : `(unavailable: ${accessibilityTreeError ?? "unknown error"})`;
-  const base = `URL: ${url}
-Title: ${title}
-Step ${step} of ${steps}
+function describeState(snapshot, step, steps, authenticated, last) {
+  const sections = [`Step ${step} of ${steps}
 
-Accessibility tree:
-${treeSection}`;
-  const sections = [base];
+${snapshot}`, HOW_TO_ACT];
+  if (last) sections.push(describeOutcome(last));
   if (!authenticated) sections.push(UNAUTHENTICATED_NOTE);
-  if (sandboxBlocked?.length) sections.push(sandboxBlockNote(sandboxBlocked));
+  if (last?.sandbox_blocked?.length) {
+    sections.push(`${SANDBOX_BLOCK_NOTE}${last.sandbox_blocked.join("; ")}`);
+  }
   return sections.join("\n\n");
 }
 async function runPersonaSession(decide, manager, personaName, targetUrl, steps, headless, cookies) {
@@ -34503,36 +34564,35 @@ async function runPersonaSession(decide, manager, personaName, targetUrl, steps,
     persona: personaName,
     target_url: targetUrl,
     headless,
-    timeout: steps,
+    // One step is one decision, which may carry several actions.
+    timeout: steps * MAX_ACTIONS_PER_STEP,
     cookies
   });
-  let sandboxBlocked;
-  for (let step = 1; step <= steps; step++) {
-    const state = await hauntCaptureState(manager, {
-      session_id: spawnResult.session_id,
-      include_screenshot: false,
-      include_dom: false
-    });
-    const stateDescription = describeState(
-      state.url,
-      state.title,
-      state.accessibility_tree,
-      state.accessibility_tree_error,
-      step,
-      steps,
-      authenticated,
-      sandboxBlocked
-    );
-    const { action, issues } = await decide(
-      spawnResult.persona_description,
-      stateDescription
-    );
-    const navigateResult = await hauntNavigate(manager, {
-      session_id: spawnResult.session_id,
-      action,
-      issues
-    });
-    sandboxBlocked = navigateResult.sandbox_blocked;
+  try {
+    let last;
+    for (let step = 1; step <= steps; step++) {
+      const state = await hauntCaptureState(manager, {
+        session_id: spawnResult.session_id,
+        format: "text"
+      });
+      const { actions, issues } = await decide(
+        spawnResult.persona_description,
+        describeState(state.text, step, steps, authenticated, last)
+      );
+      last = await hauntAct(manager, {
+        session_id: spawnResult.session_id,
+        actions,
+        issues
+      });
+    }
+  } catch (error) {
+    if (manager.has(spawnResult.session_id)) {
+      await hauntEndSession(manager, {
+        session_id: spawnResult.session_id
+      }).catch(() => {
+      });
+    }
+    throw error;
   }
   const endResult = await hauntEndSession(manager, {
     session_id: spawnResult.session_id

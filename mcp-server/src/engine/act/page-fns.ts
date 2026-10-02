@@ -184,7 +184,28 @@ export async function probe(
     return result;
   }
   const rect = el.getBoundingClientRect();
+  // Still, and not in the middle of a finite animation or transition of its
+  // own or of something it sits in. Comparing positions alone can be fooled
+  // when two frames land almost on top of each other on a busy machine.
+  const animating = (() => {
+    for (let n: Element | null = el; n; n = parentOf(n)) {
+      for (const animation of n.getAnimations?.() ?? []) {
+        const timing = animation.effect?.getComputedTiming();
+        const finite = timing
+          ? Number.isFinite(timing.endTime as number)
+          : true;
+        if (
+          finite &&
+          (animation.pending || animation.playState === 'running')
+        ) {
+          return true;
+        }
+      }
+    }
+    return false;
+  })();
   result.stable =
+    !animating &&
     Math.abs(rect.left - before.left) < 0.5 &&
     Math.abs(rect.top - before.top) < 0.5 &&
     Math.abs(rect.width - before.width) < 0.5 &&

@@ -19,9 +19,7 @@ const LOGIN_PAGE = `
   <input type="password" placeholder="Password" />
   <button onclick="location.href='/dashboard'">Log in</button>
 `;
-// All four candidate labels are present (as no-ops) so each click resolves
-// immediately instead of burning through navigate.ts's multi-role search
-// timeouts for the labels that don't exist on the page.
+// Buttons that do nothing: the page never leaves the login route.
 const LOGIN_PAGE_NO_REDIRECT = `
   <input type="email" placeholder="Email" />
   <input type="password" placeholder="Password" />
@@ -41,6 +39,21 @@ const LOGIN_PAGE_WITH_DECOY = `
   <button onclick="location.href='/dashboard'">Sign in</button>
 `;
 
+// A real form: Enter in the password field submits it.
+const LOGIN_FORM = `
+  <form action="/dashboard">
+    <input name="user" placeholder="Username" />
+    <input type="password" placeholder="Password" />
+    <button>Go</button>
+  </form>
+`;
+const NO_PASSWORD =
+  '<input type="email" placeholder="Email" /><button>Next</button>';
+const NO_BUTTON = `
+  <input type="email" placeholder="Email" />
+  <input type="password" placeholder="Password" />
+`;
+
 let server: Server;
 let baseUrl: string;
 
@@ -53,7 +66,13 @@ beforeAll(async () => {
       res.end(LOGIN_PAGE_NO_REDIRECT);
     } else if (req.url === '/login-decoy') {
       res.end(LOGIN_PAGE_WITH_DECOY);
-    } else if (req.url === '/dashboard') {
+    } else if (req.url === '/login-form') {
+      res.end(LOGIN_FORM);
+    } else if (req.url === '/login-no-password') {
+      res.end(NO_PASSWORD);
+    } else if (req.url === '/login-no-button') {
+      res.end(NO_BUTTON);
+    } else if (req.url?.startsWith('/dashboard')) {
       res.end('<p>dashboard</p>');
     } else {
       res.statusCode = 404;
@@ -120,4 +139,41 @@ describe('authenticate', () => {
 
     expect(Array.isArray(cookies)).toBe(true);
   }, 20_000);
+
+  it('submits a real form with Enter, finding the user field by its placeholder', async () => {
+    const manager = new SessionManager();
+    const cookies = await authenticate(manager, {
+      loginUrl: `${baseUrl}/login-form`,
+      email: 'ghost',
+      password: 'boo',
+      headless: true,
+      persona: VALID_PERSONA,
+    });
+    expect(Array.isArray(cookies)).toBe(true);
+    expect(manager.all()).toHaveLength(0);
+  }, 20_000);
+
+  it.each([
+    ['/login-no-password', /no password field was found/],
+    ['/login-no-button', /no submit button was found/],
+    ['/missing', /no email field was found/],
+  ])(
+    'says what is missing on %s, without the credentials',
+    async (path, message) => {
+      const manager = new SessionManager();
+      const attempt = authenticate(manager, {
+        loginUrl: `${baseUrl}${path}`,
+        email: 'someone@example.com',
+        password: 'not-in-the-message',
+        headless: true,
+        persona: VALID_PERSONA,
+      });
+      await expect(attempt).rejects.toThrow(message);
+      await expect(attempt).rejects.not.toThrow(
+        /not-in-the-message|someone@example/,
+      );
+      expect(manager.all()).toHaveLength(0);
+    },
+    20_000,
+  );
 });

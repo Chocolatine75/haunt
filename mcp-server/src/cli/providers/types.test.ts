@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { decideActionParameters, parseDecideActionInput } from './types.js';
+import { ACTION_TYPES } from '../../gates/part-1/contract.js';
+import {
+  MAX_ACTIONS_PER_STEP,
+  decideActionParameters,
+  parseDecideActionInput,
+} from './types.js';
 
 describe('parseDecideActionInput', () => {
-  it('returns the action and its issues', () => {
+  const click = { type: 'click' as const, ref: 'e1' };
+
+  it('returns the actions and the issues', () => {
     const issue = {
       severity: 'minor' as const,
       category: 'ux' as const,
@@ -11,29 +18,44 @@ describe('parseDecideActionInput', () => {
       recommendation: 'r',
     };
     expect(
-      parseDecideActionInput({ action: 'click Login', issues: [issue] }),
-    ).toEqual({ action: 'click Login', issues: [issue] });
+      parseDecideActionInput({ actions: [click], issues: [issue] }),
+    ).toEqual({ actions: [click], issues: [issue] });
   });
 
   it('defaults issues to an empty list', () => {
-    expect(parseDecideActionInput({ action: 'press Enter' })).toEqual({
-      action: 'press Enter',
+    expect(parseDecideActionInput({ actions: [click] })).toEqual({
+      actions: [click],
       issues: [],
     });
   });
 
-  it.each([[{}], [{ action: '' }], [{ issues: [] }]])(
-    'rejects %j, which has no action to execute',
-    (input) => {
-      expect(() => parseDecideActionInput(input)).toThrow(
-        'decide_action tool call was missing "action"',
-      );
-    },
-  );
+  it('keeps at most five actions of one decision', () => {
+    const many = Array.from({ length: 9 }, () => click);
+    expect(parseDecideActionInput({ actions: many }).actions).toHaveLength(
+      MAX_ACTIONS_PER_STEP,
+    );
+  });
+
+  it.each([
+    [{}],
+    [{ actions: [] }],
+    [{ actions: 'click e1' }],
+    [{ issues: [] }],
+  ])('rejects %j, which has nothing to execute', (input) => {
+    expect(() => parseDecideActionInput(input)).toThrow(
+      'decide_action tool call was missing "actions"',
+    );
+  });
 });
 
 describe('decideActionParameters', () => {
-  it('requires only the action, so a step with nothing to report is valid', () => {
-    expect(decideActionParameters().required).toEqual(['action']);
+  it('requires only the actions, so a step with nothing to report is valid', () => {
+    expect(decideActionParameters().required).toEqual(['actions']);
+  });
+
+  it('describes every action the engine accepts', () => {
+    const schema = JSON.stringify(decideActionParameters());
+    for (const type of ACTION_TYPES)
+      expect(schema, type).toContain(`"${type}"`);
   });
 });

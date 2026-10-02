@@ -1,21 +1,16 @@
 import { createRequire } from 'module'; const require = createRequire(import.meta.url);
 import {
-  SESSION_TTL_MS,
   SessionManager,
-  diffBetween,
+  actionSchema,
   external_exports,
+  hauntAct,
   hauntCaptureState,
   hauntEndSession,
   hauntGenerateReport,
   hauntGetCookies,
-  hauntNavigate,
   hauntSpawn,
-  refOfLocal,
-  sabotaged,
-  similarTo,
-  takeSnapshot,
   zodToJsonSchema
-} from "./chunk-FPI7GNJD.js";
+} from "./chunk-TVFI5C7Y.js";
 import {
   _enum,
   _null,
@@ -2286,26 +2281,26 @@ var require_resolve = __commonJS({
         addAnchor.call(this, sch.$anchor);
         addAnchor.call(this, sch.$dynamicAnchor);
         baseIds[jsonPtr] = innerBaseId;
-        function addRef(ref2) {
+        function addRef(ref) {
           const _resolve = this.opts.uriResolver.resolve;
-          ref2 = normalizeId(innerBaseId ? _resolve(innerBaseId, ref2) : ref2);
-          if (schemaRefs.has(ref2))
-            throw ambiguos(ref2);
-          schemaRefs.add(ref2);
-          let schOrRef = this.refs[ref2];
+          ref = normalizeId(innerBaseId ? _resolve(innerBaseId, ref) : ref);
+          if (schemaRefs.has(ref))
+            throw ambiguos(ref);
+          schemaRefs.add(ref);
+          let schOrRef = this.refs[ref];
           if (typeof schOrRef == "string")
             schOrRef = this.refs[schOrRef];
           if (typeof schOrRef == "object") {
-            checkAmbiguosRef(sch, schOrRef.schema, ref2);
-          } else if (ref2 !== normalizeId(fullPath)) {
-            if (ref2[0] === "#") {
-              checkAmbiguosRef(sch, localRefs[ref2], ref2);
-              localRefs[ref2] = sch;
+            checkAmbiguosRef(sch, schOrRef.schema, ref);
+          } else if (ref !== normalizeId(fullPath)) {
+            if (ref[0] === "#") {
+              checkAmbiguosRef(sch, localRefs[ref], ref);
+              localRefs[ref] = sch;
             } else {
-              this.refs[ref2] = fullPath;
+              this.refs[ref] = fullPath;
             }
           }
-          return ref2;
+          return ref;
         }
         function addAnchor(anchor) {
           if (typeof anchor == "string") {
@@ -2316,12 +2311,12 @@ var require_resolve = __commonJS({
         }
       });
       return localRefs;
-      function checkAmbiguosRef(sch1, sch2, ref2) {
+      function checkAmbiguosRef(sch1, sch2, ref) {
         if (sch2 !== void 0 && !equal(sch1, sch2))
-          throw ambiguos(ref2);
+          throw ambiguos(ref);
       }
-      function ambiguos(ref2) {
-        return new Error(`reference "${ref2}" resolves to more than one schema`);
+      function ambiguos(ref) {
+        return new Error(`reference "${ref}" resolves to more than one schema`);
       }
     }
     exports.getSchemaRefs = getSchemaRefs;
@@ -2859,9 +2854,9 @@ var require_ref_error = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     var resolve_1 = require_resolve();
     var MissingRefError = class extends Error {
-      constructor(resolver, baseId, ref2, msg) {
-        super(msg || `can't resolve reference ${ref2} from id ${baseId}`);
-        this.missingRef = (0, resolve_1.resolveUrl)(resolver, baseId, ref2);
+      constructor(resolver, baseId, ref, msg) {
+        super(msg || `can't resolve reference ${ref} from id ${baseId}`);
+        this.missingRef = (0, resolve_1.resolveUrl)(resolver, baseId, ref);
         this.missingSchema = (0, resolve_1.normalizeId)((0, resolve_1.getFullPath)(resolver, this.missingRef));
       }
     };
@@ -2987,22 +2982,22 @@ var require_compile = __commonJS({
       }
     }
     exports.compileSchema = compileSchema;
-    function resolveRef(root, baseId, ref2) {
+    function resolveRef(root, baseId, ref) {
       var _a;
-      ref2 = (0, resolve_1.resolveUrl)(this.opts.uriResolver, baseId, ref2);
-      const schOrFunc = root.refs[ref2];
+      ref = (0, resolve_1.resolveUrl)(this.opts.uriResolver, baseId, ref);
+      const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve2.call(this, root, ref2);
+      let _sch = resolve.call(this, root, ref);
       if (_sch === void 0) {
-        const schema = (_a = root.localRefs) === null || _a === void 0 ? void 0 : _a[ref2];
+        const schema = (_a = root.localRefs) === null || _a === void 0 ? void 0 : _a[ref];
         const { schemaId } = this.opts;
         if (schema)
           _sch = new SchemaEnv({ schema, schemaId, root, baseId });
       }
       if (_sch === void 0)
         return;
-      return root.refs[ref2] = inlineOrCompile.call(this, _sch);
+      return root.refs[ref] = inlineOrCompile.call(this, _sch);
     }
     exports.resolveRef = resolveRef;
     function inlineOrCompile(sch) {
@@ -3020,14 +3015,14 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve2(root, ref2) {
+    function resolve(root, ref) {
       let sch;
-      while (typeof (sch = this.refs[ref2]) == "string")
-        ref2 = sch;
-      return sch || this.schemas[ref2] || resolveSchema.call(this, root, ref2);
+      while (typeof (sch = this.refs[ref]) == "string")
+        ref = sch;
+      return sch || this.schemas[ref] || resolveSchema.call(this, root, ref);
     }
-    function resolveSchema(root, ref2) {
-      const p = this.opts.uriResolver.parse(ref2);
+    function resolveSchema(root, ref) {
+      const p = this.opts.uriResolver.parse(ref);
       const refPath = (0, resolve_1._getFullPath)(this.opts.uriResolver, p);
       let baseId = (0, resolve_1.getFullPath)(this.opts.uriResolver, root.baseId, void 0);
       if (Object.keys(root.schema).length > 0 && refPath === baseId) {
@@ -3045,7 +3040,7 @@ var require_compile = __commonJS({
         return;
       if (!schOrRef.validate)
         compileSchema.call(this, schOrRef);
-      if (id === (0, resolve_1.normalizeId)(ref2)) {
+      if (id === (0, resolve_1.normalizeId)(ref)) {
         const { schema } = schOrRef;
         const { schemaId } = this.opts;
         const schId = schema[schemaId];
@@ -3850,7 +3845,7 @@ var require_fast_uri = __commonJS({
       }
       return uri;
     }
-    function resolve2(baseURI, relativeURI, options) {
+    function resolve(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const {
         parsed: baseParsed,
@@ -4218,7 +4213,7 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize,
-      resolve: resolve2,
+      resolve,
       resolveComponent,
       equal,
       serialize,
@@ -4441,26 +4436,26 @@ var require_core = __commonJS({
             return _compileAsync.call(this, sch);
           }
         }
-        function checkLoaded({ missingSchema: ref2, missingRef }) {
-          if (this.refs[ref2]) {
-            throw new Error(`AnySchema ${ref2} is loaded but ${missingRef} cannot be resolved`);
+        function checkLoaded({ missingSchema: ref, missingRef }) {
+          if (this.refs[ref]) {
+            throw new Error(`AnySchema ${ref} is loaded but ${missingRef} cannot be resolved`);
           }
         }
-        async function loadMissingSchema(ref2) {
-          const _schema = await _loadSchema.call(this, ref2);
-          if (!this.refs[ref2])
+        async function loadMissingSchema(ref) {
+          const _schema = await _loadSchema.call(this, ref);
+          if (!this.refs[ref])
             await loadMetaSchema.call(this, _schema.$schema);
-          if (!this.refs[ref2])
-            this.addSchema(_schema, ref2, meta);
+          if (!this.refs[ref])
+            this.addSchema(_schema, ref, meta);
         }
-        async function _loadSchema(ref2) {
-          const p = this._loading[ref2];
+        async function _loadSchema(ref) {
+          const p = this._loading[ref];
           if (p)
             return p;
           try {
-            return await (this._loading[ref2] = loadSchema(ref2));
+            return await (this._loading[ref] = loadSchema(ref));
           } finally {
-            delete this._loading[ref2];
+            delete this._loading[ref];
           }
         }
       }
@@ -6619,12 +6614,12 @@ var require_discriminator = __commonJS({
           for (let i = 0; i < oneOf.length; i++) {
             let sch = oneOf[i];
             if ((sch === null || sch === void 0 ? void 0 : sch.$ref) && !(0, util_1.schemaHasRulesButRef)(sch, it.self.RULES)) {
-              const ref2 = sch.$ref;
-              sch = compile_1.resolveRef.call(it.self, it.schemaEnv.root, it.baseId, ref2);
+              const ref = sch.$ref;
+              sch = compile_1.resolveRef.call(it.self, it.schemaEnv.root, it.baseId, ref);
               if (sch instanceof compile_1.SchemaEnv)
                 sch = sch.schema;
               if (sch === void 0)
-                throw new ref_error_1.default(it.opts.uriResolver, it.baseId, ref2);
+                throw new ref_error_1.default(it.opts.uriResolver, it.baseId, ref);
             }
             const propSch = (_a = sch === null || sch === void 0 ? void 0 : sch.properties) === null || _a === void 0 ? void 0 : _a[tagName];
             if (typeof propSch != "object") {
@@ -8822,12 +8817,12 @@ var StdioServerTransport = class {
     this.onclose?.();
   }
   send(message) {
-    return new Promise((resolve2) => {
+    return new Promise((resolve) => {
       const json = serializeMessage(message);
       if (this._stdout.write(json)) {
-        resolve2();
+        resolve();
       } else {
-        this._stdout.once("drain", resolve2);
+        this._stdout.once("drain", resolve);
       }
     });
   }
@@ -9422,7 +9417,7 @@ var Protocol = class {
           return;
         }
         const pollInterval = task2.pollInterval ?? this._options?.defaultTaskPollInterval ?? 1e3;
-        await new Promise((resolve2) => setTimeout(resolve2, pollInterval));
+        await new Promise((resolve) => setTimeout(resolve, pollInterval));
         options?.signal?.throwIfAborted();
       }
     } catch (error) {
@@ -9439,7 +9434,7 @@ var Protocol = class {
    */
   request(request, resultSchema, options) {
     const { relatedRequestId, resumptionToken, onresumptiontoken, task, relatedTask } = options ?? {};
-    return new Promise((resolve2, reject) => {
+    return new Promise((resolve, reject) => {
       const earlyReject = (error) => {
         reject(error);
       };
@@ -9517,7 +9512,7 @@ var Protocol = class {
           if (!parseResult.success) {
             reject(parseResult.error);
           } else {
-            resolve2(parseResult.data);
+            resolve(parseResult.data);
           }
         } catch (error) {
           reject(error);
@@ -9778,12 +9773,12 @@ var Protocol = class {
       }
     } catch {
     }
-    return new Promise((resolve2, reject) => {
+    return new Promise((resolve, reject) => {
       if (signal.aborted) {
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
         return;
       }
-      const timeoutId = setTimeout(resolve2, interval);
+      const timeoutId = setTimeout(resolve, interval);
       signal.addEventListener("abort", () => {
         clearTimeout(timeoutId);
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
@@ -10563,1273 +10558,6 @@ var Server = class extends Protocol {
   }
 };
 
-// src/engine/act/act.ts
-import { existsSync } from "fs";
-
-// src/engine/act/page-fns.ts
-function locate(target) {
-  const state = window.__haunt;
-  if (!state || state.doc !== target.doc) return null;
-  const node = state.nodes.get(target.local)?.deref();
-  return node instanceof Element && node.isConnected ? node : null;
-}
-async function probe(el, centre = false) {
-  const state = window.__haunt;
-  const idOf = (node) => {
-    let id = state.ids.get(node);
-    if (!id) {
-      id = state.next++;
-      state.ids.set(node, id);
-      state.nodes.set(id, new WeakRef(node));
-    }
-    return id;
-  };
-  const shadowOf = (e) => e.shadowRoot ?? state.roots.get(e) ?? null;
-  const parentOf = (node) => {
-    if (node.parentElement) return node.parentElement;
-    const root = node.getRootNode();
-    return root instanceof ShadowRoot ? root.host : null;
-  };
-  const contains = (outer, inner) => {
-    for (let n = inner; n; n = parentOf(n))
-      if (n === outer) return true;
-    return false;
-  };
-  const html = el;
-  const input = el;
-  const explicit = el.getAttribute("role")?.trim().split(/\s+/)[0];
-  const role = explicit ?? (el.tagName === "BUTTON" ? "button" : el.tagName === "A" ? "link" : el.tagName === "SELECT" ? "combobox" : el.tagName === "INPUT" || el.tagName === "TEXTAREA" || html.isContentEditable ? "textbox" : "generic");
-  const result = {
-    connected: el.isConnected,
-    tag: el.tagName.toLowerCase(),
-    role,
-    input_type: el.tagName === "INPUT" ? input.type : void 0,
-    disabled: el.matches(":disabled") || el.getAttribute("aria-disabled") === "true",
-    readonly: Boolean(input.readOnly),
-    editable: "none",
-    ignores_pointer: false,
-    stable: true
-  };
-  if (!result.connected) return result;
-  if (el.tagName === "TEXTAREA") result.editable = "value";
-  else if (el.tagName === "INPUT") {
-    result.editable = [
-      "checkbox",
-      "radio",
-      "file",
-      "button",
-      "submit",
-      "reset",
-      "image",
-      "hidden"
-    ].includes(input.type) ? "none" : "value";
-  } else if (html.isContentEditable) result.editable = "content";
-  if (el.tagName === "INPUT" && (input.type === "checkbox" || input.type === "radio")) {
-    result.checked = input.checked;
-  } else if (el.hasAttribute("aria-checked")) {
-    result.checked = el.getAttribute("aria-checked") === "true";
-  }
-  const style = getComputedStyle(el);
-  if (el.getClientRects().length === 0) result.hidden = "display";
-  else if (style.visibility !== "visible") result.hidden = "visibility";
-  else {
-    const size = el.getBoundingClientRect();
-    if (size.width === 0 || size.height === 0) result.hidden = "zero_size";
-  }
-  if (result.hidden) return result;
-  const visibleIn = (rect2) => {
-    if (rect2.top < 0 || rect2.left < 0 || rect2.bottom > innerHeight || rect2.right > innerWidth)
-      return false;
-    const cx = rect2.left + rect2.width / 2;
-    const cy = rect2.top + rect2.height / 2;
-    for (let n = parentOf(el); n && n !== document.body && n !== document.documentElement; n = parentOf(n)) {
-      const s = getComputedStyle(n);
-      if (s.overflowX === "visible" && s.overflowY === "visible") continue;
-      const box = n.getBoundingClientRect();
-      if (cx < box.left || cx > box.right || cy < box.top || cy > box.bottom)
-        return false;
-    }
-    return true;
-  };
-  if (!visibleIn(el.getBoundingClientRect())) {
-    const where = centre ? "center" : "nearest";
-    el.scrollIntoView({
-      block: where,
-      inline: where,
-      behavior: "instant"
-    });
-  }
-  const before = el.getBoundingClientRect();
-  await new Promise(
-    (resolve2) => requestAnimationFrame(() => requestAnimationFrame(() => resolve2()))
-  );
-  if (!el.isConnected) {
-    result.connected = false;
-    return result;
-  }
-  const rect = el.getBoundingClientRect();
-  result.stable = Math.abs(rect.left - before.left) < 0.5 && Math.abs(rect.top - before.top) < 0.5 && Math.abs(rect.width - before.width) < 0.5 && Math.abs(rect.height - before.height) < 0.5;
-  if (style.pointerEvents === "none") {
-    result.ignores_pointer = true;
-    return result;
-  }
-  const x = Math.min(Math.max(rect.left + rect.width / 2, 0), innerWidth - 1);
-  const y = Math.min(Math.max(rect.top + rect.height / 2, 0), innerHeight - 1);
-  let top = document.elementFromPoint(x, y);
-  for (; ; ) {
-    const inner = top ? shadowOf(top)?.elementFromPoint(x, y) : null;
-    if (!inner || inner === top) break;
-    top = inner;
-  }
-  if (top && top !== el && !contains(el, top) && !contains(top, el)) {
-    const label = top.closest("label");
-    if (!(label && label.control === el)) result.covered_by = idOf(top);
-  }
-  return result;
-}
-function waitQuiet(args) {
-  const state = window.__haunt;
-  const read = () => {
-    if (!state)
-      return {
-        quiet: true,
-        ready: document.readyState === "complete",
-        timers: []
-      };
-    const timers = [];
-    for (const timer of state.timers.values()) {
-      if (timer.at >= args.since) {
-        timers.push(`${timer.repeat ? "interval" : "timer"}(${timer.delay}ms)`);
-      }
-    }
-    const still = args.ignoreMutations || Date.now() - Math.max(state.lastMutation, args.from) >= args.quietMs;
-    const ready2 = document.readyState === "complete";
-    return { quiet: still && ready2 && timers.length === 0, ready: ready2, timers };
-  };
-  const wait = state?.native.setTimeout ?? window.setTimeout.bind(window);
-  return new Promise((resolve2) => {
-    const deadline = Date.now() + args.maxMs;
-    const tick = () => {
-      const now = read();
-      if (now.quiet || Date.now() >= deadline) resolve2(now);
-      else wait(tick, 15);
-    };
-    let started = false;
-    const start = () => {
-      if (started) return;
-      started = true;
-      tick();
-    };
-    requestAnimationFrame(() => requestAnimationFrame(start));
-    wait(start, 100);
-  });
-}
-function sinceMutation() {
-  const state = window.__haunt;
-  return state?.lastMutation ? Date.now() - state.lastMutation : 1e9;
-}
-function focusedId() {
-  const state = window.__haunt;
-  let active = document.activeElement;
-  for (; ; ) {
-    const root = active ? active.shadowRoot ?? state?.roots.get(active) : null;
-    const inner = root?.activeElement;
-    if (!inner) break;
-    active = inner;
-  }
-  if (!active || active === document.body || !state) return 0;
-  let id = state.ids.get(active);
-  if (!id) {
-    id = state.next++;
-    state.ids.set(active, id);
-    state.nodes.set(id, new WeakRef(active));
-  }
-  return id;
-}
-function fileInputFor(el) {
-  const isFile = (n) => n instanceof HTMLInputElement && n.type === "file";
-  if (isFile(el)) return el;
-  const inside = el.querySelector("input[type=file]");
-  if (inside) return inside;
-  if (el instanceof HTMLLabelElement && isFile(el.control)) return el.control;
-  let scope = el.parentElement;
-  for (let depth = 0; scope && depth < 2; depth++, scope = scope.parentElement) {
-    const near = scope.querySelectorAll("input[type=file]");
-    if (near.length === 1) return near[0];
-    if (near.length > 1) return null;
-  }
-  return null;
-}
-function listOptions(el) {
-  const squash = (t) => t.replace(/\s+/g, " ").trim();
-  if (el instanceof HTMLSelectElement) {
-    return [...el.options].map((o) => ({
-      label: squash(o.label || o.text),
-      value: o.value,
-      selected: o.selected,
-      disabled: o.disabled
-    }));
-  }
-  const root = el.getRootNode();
-  const controlled = (el.getAttribute("aria-controls") ?? el.getAttribute("aria-owns") ?? "").split(/\s+/).map((id) => id ? root.getElementById(id) : null).filter((n) => n !== null);
-  const scopes = [el, ...controlled];
-  const options = scopes.flatMap((scope) => [
-    ...scope.querySelectorAll("[role=option]")
-  ]);
-  if (options.length === 0 && el.getAttribute("role") !== "listbox")
-    return null;
-  return options.map((o) => ({
-    label: squash(o.textContent ?? ""),
-    value: o.getAttribute("data-value") ?? squash(o.textContent ?? ""),
-    selected: o.getAttribute("aria-selected") === "true",
-    disabled: o.getAttribute("aria-disabled") === "true"
-  }));
-}
-function hasText(text) {
-  const state = window.__haunt;
-  const needle = text.replace(/\s+/g, " ").trim();
-  const seen = (root) => {
-    const body = root instanceof Document ? root.body : root;
-    if (!body) return false;
-    const own = body.innerText ?? body.textContent ?? "";
-    if (own.replace(/\s+/g, " ").includes(needle)) return true;
-    for (const el of body.querySelectorAll("*")) {
-      const shadow = el.shadowRoot ?? state?.roots.get(el);
-      if (shadow && seen(shadow)) return true;
-    }
-    return false;
-  };
-  return seen(document);
-}
-function scrollToText(text) {
-  const needle = text.replace(/\s+/g, " ").trim();
-  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-    if ((node.nodeValue ?? "").replace(/\s+/g, " ").includes(needle) && node.parentElement) {
-      const el = node.parentElement;
-      if (el.getClientRects().length === 0) continue;
-      el.scrollIntoView({
-        block: "center",
-        inline: "nearest",
-        behavior: "instant"
-      });
-      return true;
-    }
-  }
-  return false;
-}
-function scrollBy(el, args) {
-  let target = el;
-  while (target && target !== document.body && target !== document.documentElement) {
-    const s = getComputedStyle(target);
-    const can = /(auto|scroll)/.test(s.overflowY) && target.scrollHeight > target.clientHeight || /(auto|scroll)/.test(s.overflowX) && target.scrollWidth > target.clientWidth;
-    if (can) break;
-    target = target.parentElement;
-  }
-  const page = !target || target === document.body || target === document.documentElement;
-  const horizontal = args.direction === "left" || args.direction === "right";
-  const size = page ? horizontal ? innerWidth : innerHeight : horizontal ? target.clientWidth : target.clientHeight;
-  const distance = (args.amount ?? size) * (args.direction === "up" || args.direction === "left" ? -1 : 1);
-  const options = {
-    left: horizontal ? distance : 0,
-    top: horizontal ? 0 : distance,
-    behavior: "instant"
-  };
-  if (page) window.scrollBy(options);
-  else target.scrollBy(options);
-}
-
-// src/engine/act/schema.ts
-var ref = external_exports.string().describe('Element reference from the snapshot, e.g. "e12"');
-var actions = external_exports.discriminatedUnion("type", [
-  external_exports.object({
-    type: external_exports.literal("click"),
-    ref,
-    button: external_exports.enum(["left", "right", "middle"]).optional(),
-    count: external_exports.union([external_exports.literal(1), external_exports.literal(2), external_exports.literal(3)]).optional().describe("2 for a double click"),
-    modifiers: external_exports.array(external_exports.enum(["Alt", "Control", "Meta", "Shift"])).optional()
-  }),
-  external_exports.object({
-    type: external_exports.literal("fill"),
-    ref,
-    text: external_exports.string().describe("The value, taken literally"),
-    clear: external_exports.boolean().optional().describe("Replace what is there. Default: true"),
-    submit: external_exports.boolean().optional().describe("Press Enter afterwards")
-  }),
-  external_exports.object({
-    type: external_exports.literal("type"),
-    ref: ref.optional().describe("Defaults to the focused element"),
-    text: external_exports.string().describe("Typed key by key, for fields that react to keystrokes"),
-    delay_ms: external_exports.number().min(0).optional()
-  }),
-  external_exports.object({
-    type: external_exports.literal("press"),
-    keys: external_exports.union([external_exports.string(), external_exports.array(external_exports.string()).min(1)]).describe('"Enter", "Control+A", or a list pressed in order'),
-    ref: ref.optional()
-  }),
-  external_exports.object({
-    type: external_exports.literal("select"),
-    ref,
-    values: external_exports.array(external_exports.string()).min(1).describe("Option labels or values of a native select")
-  }),
-  external_exports.object({ type: external_exports.literal("options"), ref }),
-  external_exports.object({
-    type: external_exports.literal("check"),
-    ref,
-    checked: external_exports.boolean().describe("The state to end in; nothing happens if it is already there")
-  }),
-  external_exports.object({ type: external_exports.literal("hover"), ref }),
-  external_exports.object({
-    type: external_exports.literal("scroll"),
-    direction: external_exports.enum(["up", "down", "left", "right"]),
-    amount: external_exports.number().positive().optional().describe("Pixels. Default: one page"),
-    ref: ref.optional().describe("A scroll container. Default: the page")
-  }),
-  external_exports.object({
-    type: external_exports.literal("scroll_to"),
-    ref: ref.optional(),
-    text: external_exports.string().optional().describe("Scroll to the first place this text appears")
-  }),
-  external_exports.object({
-    type: external_exports.literal("drag"),
-    from_ref: ref,
-    to_ref: ref.optional(),
-    offset: external_exports.object({ x: external_exports.number(), y: external_exports.number() }).optional().describe(
-      "Pixels from the centre of to_ref, or of from_ref when there is no to_ref"
-    )
-  }),
-  external_exports.object({
-    type: external_exports.literal("upload"),
-    ref,
-    files: external_exports.array(external_exports.string()).min(1).describe("Absolute paths")
-  }),
-  external_exports.object({ type: external_exports.literal("goto"), url: external_exports.string() }),
-  external_exports.object({ type: external_exports.literal("back") }),
-  external_exports.object({ type: external_exports.literal("forward") }),
-  external_exports.object({ type: external_exports.literal("reload") }),
-  external_exports.object({
-    type: external_exports.literal("wait_for"),
-    text: external_exports.string().optional().describe("Until this text is visible"),
-    ref: ref.optional().describe("Until this element is visible"),
-    gone: external_exports.string().optional().describe("Until this text is no longer there"),
-    url: external_exports.string().optional().describe("Until the URL contains this"),
-    ms: external_exports.number().min(0).max(6e4).optional().describe("A fixed pause"),
-    timeout_ms: external_exports.number().positive().max(6e4).optional()
-  }),
-  external_exports.object({
-    type: external_exports.literal("tab"),
-    op: external_exports.enum(["switch", "close", "new"]),
-    index: external_exports.number().int().min(0).optional(),
-    url: external_exports.string().optional()
-  }),
-  external_exports.object({
-    type: external_exports.literal("dialog"),
-    accept: external_exports.boolean(),
-    text: external_exports.string().optional().describe("What to enter in a prompt")
-  }),
-  external_exports.object({
-    type: external_exports.literal("resize"),
-    width: external_exports.number().int().min(200).max(4e3),
-    height: external_exports.number().int().min(200).max(4e3)
-  }),
-  external_exports.object({ type: external_exports.literal("read"), ref: ref.optional() })
-]);
-var actionSchema = actions.superRefine((action, ctx) => {
-  const missing = (path, message) => ctx.addIssue({ code: external_exports.ZodIssueCode.custom, path: [path], message });
-  if (action.type === "wait_for") {
-    const { text, ref: r, gone, url, ms } = action;
-    if ([text, r, gone, url, ms].every((v) => v === void 0)) {
-      missing("text", "wait_for needs one of text, ref, gone, url or ms");
-    }
-  }
-  if (action.type === "tab" && action.op !== "new" && action.index === void 0) {
-    missing("index", `tab ${action.op} needs an index`);
-  }
-  if (action.type === "scroll_to" && action.ref === void 0 && action.text === void 0) {
-    missing("ref", "scroll_to needs a ref or a text");
-  }
-  if (action.type === "drag" && action.to_ref === void 0 && action.offset === void 0) {
-    missing("to_ref", "drag needs a to_ref or an offset");
-  }
-});
-function validateAction(input) {
-  const parsed = actionSchema.safeParse(input);
-  if (parsed.success) return { ok: true, action: parsed.data };
-  const issue = parsed.error.issues[0];
-  const parameter = String(issue.path[0] ?? "type");
-  const type = input?.type;
-  const message = parameter === "type" ? `Unknown action type ${JSON.stringify(type)}.` : `Invalid ${JSON.stringify(parameter)} for ${String(type)}: ${issue.message}.`;
-  return { ok: false, parameter, message };
-}
-
-// src/engine/act/act.ts
-var SETTLE_CAP_MS = 5e3;
-var QUIET_MS = 60;
-var ACTIONABLE_MS = 1700;
-var NAVIGATION_MS = 15e3;
-var ActionFailure = class extends Error {
-  constructor(detail) {
-    super(detail.message);
-    this.detail = detail;
-  }
-  detail;
-};
-function fail(code, message, extra = {}) {
-  throw new ActionFailure({ code, message, ...extra });
-}
-var sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-function withTimeout(promise, ms) {
-  return Promise.race([
-    promise.catch(() => void 0),
-    new Promise(
-      (resolve2) => setTimeout(() => resolve2(void 0), ms)
-    )
-  ]);
-}
-async function unlessDialog(session, work) {
-  const { runtime } = session;
-  if (runtime.dialog) return;
-  let wake = () => {
-  };
-  const opened = new Promise((resolve2) => {
-    wake = () => resolve2("dialog");
-    runtime.dialogWaiters.add(wake);
-  });
-  try {
-    const first = await Promise.race([
-      work.then(() => "done"),
-      opened
-    ]);
-    if (first === "dialog") work.catch(() => {
-    });
-  } finally {
-    runtime.dialogWaiters.delete(wake);
-  }
-}
-async function resolve(session, ref2) {
-  const target = session.snapshot.targets.get(ref2);
-  if (!target) {
-    fail(
-      "unknown_ref",
-      `No element has the reference ${ref2}. Take a snapshot and use a reference from it.`
-    );
-  }
-  const found = target.frame.isDetached() ? void 0 : await withTimeout(
-    target.frame.evaluateHandle(locate, {
-      doc: target.doc,
-      local: target.local
-    }),
-    2e3
-  );
-  const handle = found?.asElement();
-  if (handle)
-    return { handle, frame: target.frame };
-  const current = await takeSnapshot(session, { format: "json" }, true);
-  const similar = similarTo(session, ref2, current.elements ?? []);
-  if (similar && sabotaged("stale_resolved_by_name"))
-    return resolve(session, similar);
-  fail(
-    "stale_ref",
-    similar ? `The element ${ref2} referred to no longer exists; it was replaced by ${similar}.` : `The element ${ref2} referred to no longer exists.`,
-    { similar_ref: similar }
-  );
-}
-async function ready(session, ref2, options) {
-  const deadline = Date.now() + ACTIONABLE_MS;
-  let centre = false;
-  for (; ; ) {
-    const { handle, frame } = await resolve(session, ref2);
-    const state = await withTimeout(handle.evaluate(probe, centre), 3e3);
-    const last = Date.now() >= deadline;
-    if (!state || !state.connected) {
-      await resolve(session, ref2);
-      if (!last) continue;
-      fail("stale_ref", `The element ${ref2} referred to no longer exists.`);
-    }
-    if (state.disabled) {
-      fail("disabled", `${ref2} is disabled, so it cannot be used.`);
-    }
-    if (state.hidden) {
-      if (last) {
-        const why = {
-          display: "it is not rendered (display: none)",
-          visibility: "it is invisible (visibility: hidden)",
-          zero_size: "it has no size"
-        }[state.hidden];
-        fail("not_visible", `${ref2} cannot be seen: ${why}.`, {
-          reason: state.hidden
-        });
-      }
-    } else if (options.pointer && !sabotaged("no_actionability_check")) {
-      if (state.ignores_pointer) {
-        fail(
-          "covered",
-          `${ref2} ignores the pointer (pointer-events: none): a click there goes to whatever is behind it.`
-        );
-      }
-      if (state.covered_by !== void 0 && !sabotaged("ok_on_covered")) {
-        if (!centre) {
-          centre = true;
-          continue;
-        }
-        if (last) {
-          const target = session.snapshot.targets.get(ref2);
-          const cover = refOfLocal(
-            session,
-            frame,
-            target?.doc ?? "",
-            state.covered_by
-          );
-          fail(
-            "covered",
-            `${ref2} is covered by ${cover}, which would receive the click instead.`,
-            {
-              covered_by: cover
-            }
-          );
-        }
-      } else if (state.stable) {
-        let box = await handle.boundingBox();
-        const view = session.page.viewportSize();
-        const cx = box ? box.x + box.width / 2 : -1;
-        const cy = box ? box.y + box.height / 2 : -1;
-        if (box && view && (cx < 0 || cy < 0 || cx > view.width || cy > view.height)) {
-          await handle.scrollIntoViewIfNeeded({ timeout: 1e3 }).catch(() => {
-          });
-          box = await handle.boundingBox();
-        }
-        if (box) {
-          return {
-            handle,
-            frame,
-            probe: state,
-            x: box.x + box.width / 2,
-            y: box.y + box.height / 2
-          };
-        }
-      }
-    } else {
-      const box = await handle.boundingBox();
-      return {
-        handle,
-        frame,
-        probe: state,
-        x: box ? box.x + box.width / 2 : 0,
-        y: box ? box.y + box.height / 2 : 0
-      };
-    }
-    await sleep(40);
-  }
-}
-var KEY_ALIASES = {
-  " ": "Space",
-  Esc: "Escape",
-  Return: "Enter"
-};
-async function pressKey(session, key) {
-  const name = KEY_ALIASES[key] ?? key;
-  try {
-    await unlessDialog(session, session.page.keyboard.press(name));
-  } catch (error) {
-    if (error instanceof Error && /Unknown key/.test(error.message)) {
-      fail("invalid_action", `Unknown key ${JSON.stringify(key)}.`, {
-        parameter: "keys"
-      });
-    }
-    throw error;
-  }
-}
-async function typeText(session, text, delay) {
-  const { keyboard } = session.page;
-  let run = "";
-  const flush = async () => {
-    if (run) await keyboard.type(run, { delay });
-    run = "";
-  };
-  for (const char of Array.from(text)) {
-    if (char === "\n") {
-      await flush();
-      await unlessDialog(session, keyboard.press("Enter"));
-    } else if (char.length === 1 && char >= " " && char <= "~") {
-      run += char;
-    } else {
-      await flush();
-      await keyboard.insertText(char);
-    }
-  }
-  await flush();
-}
-async function focus(handle) {
-  await handle.evaluate((el) => el.focus());
-}
-async function centreOf(handle) {
-  const box = await handle.boundingBox();
-  if (!box)
-    fail("not_visible", "The drop target cannot be seen.", {
-      reason: "display"
-    });
-  return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
-}
-function navigationFailure(session, blockedBefore, error) {
-  const blocked = session.sandbox_blocked_requests.slice(blockedBefore);
-  if (blocked.length > 0) {
-    fail(
-      "sandbox_blocked",
-      "Blocked by the haunt test sandbox: the address is outside the app under test. This is not an app bug.",
-      { blocked: blocked[blocked.length - 1] }
-    );
-  }
-  const message = error instanceof Error ? error.message : String(error);
-  if (/invalid URL/i.test(message)) {
-    fail("invalid_action", "That is not a URL that can be opened.", {
-      parameter: "url"
-    });
-  }
-  const net = message.match(/net::[A-Z_]+/)?.[0] ?? "the page did not load";
-  fail("navigation_failed", `The page could not be loaded (${net}).`, {
-    status: net
-  });
-}
-async function execute(session, action) {
-  const page = session.page;
-  const { runtime } = session;
-  switch (action.type) {
-    case "click": {
-      const target = await ready(session, action.ref, { pointer: true });
-      if (sabotaged("scripted_click")) {
-        await target.handle.evaluate((el) => el.click());
-        return {};
-      }
-      const modifiers = action.modifiers ?? [];
-      for (const key of modifiers) await page.keyboard.down(key);
-      try {
-        await unlessDialog(
-          session,
-          page.mouse.click(target.x, target.y, {
-            button: action.button ?? "left",
-            clickCount: action.count ?? 1
-          })
-        );
-      } finally {
-        if (!runtime.dialog)
-          for (const key of modifiers) await page.keyboard.up(key);
-      }
-      return {};
-    }
-    case "fill": {
-      const target = await ready(session, action.ref, { pointer: false });
-      const { probe: p, handle } = target;
-      if (p.editable === "none" || p.readonly) {
-        fail(
-          "not_editable",
-          p.readonly ? `${action.ref} is read-only.` : `${action.ref} is a ${p.role}, which takes no text.`,
-          { role: p.role }
-        );
-      }
-      if (p.input_type === "range") {
-        await handle.evaluate((el, value) => {
-          const input = el;
-          Object.getOwnPropertyDescriptor(
-            HTMLInputElement.prototype,
-            "value"
-          )?.set?.call(input, value);
-          input.dispatchEvent(new Event("input", { bubbles: true }));
-          input.dispatchEvent(new Event("change", { bubbles: true }));
-        }, action.text);
-      } else if (action.clear === false) {
-        await focus(handle);
-        await handle.evaluate((el) => {
-          if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
-            try {
-              el.setSelectionRange(el.value.length, el.value.length);
-            } catch {
-            }
-          } else {
-            const range = document.createRange();
-            range.selectNodeContents(el);
-            range.collapse(false);
-            getSelection()?.removeAllRanges();
-            getSelection()?.addRange(range);
-          }
-        });
-        await page.keyboard.insertText(action.text);
-      } else {
-        try {
-          await handle.fill(action.text, { force: true, timeout: 1500 });
-        } catch (error) {
-          const message = error instanceof Error ? error.message : "";
-          if (/Malformed value|Cannot type text into/.test(message)) {
-            fail(
-              "invalid_action",
-              `That text is not a valid value for a ${p.input_type} field.`,
-              {
-                parameter: "text"
-              }
-            );
-          }
-          throw error;
-        }
-      }
-      if (action.submit) {
-        await focus(handle);
-        await pressKey(session, "Enter");
-      }
-      return {};
-    }
-    case "type": {
-      if (action.ref) {
-        const target = await ready(session, action.ref, { pointer: false });
-        if (target.probe.editable === "none" && target.probe.role !== "combobox") {
-          fail(
-            "not_editable",
-            `${action.ref} is a ${target.probe.role}, which takes no text.`,
-            {
-              role: target.probe.role
-            }
-          );
-        }
-        await focus(target.handle);
-      }
-      await typeText(session, action.text, action.delay_ms);
-      return {};
-    }
-    case "press": {
-      if (action.ref) {
-        const target = await ready(session, action.ref, { pointer: false });
-        await focus(target.handle);
-      }
-      const keys = Array.isArray(action.keys) ? action.keys : [action.keys];
-      for (const key of keys) {
-        if (runtime.dialog) break;
-        await pressKey(session, key);
-      }
-      return {};
-    }
-    case "select": {
-      const target = await ready(session, action.ref, { pointer: false });
-      if (target.probe.tag !== "select") {
-        fail(
-          "not_editable",
-          `${action.ref} is not a native select; open it and click the option instead.`,
-          {
-            role: target.probe.role
-          }
-        );
-      }
-      const options = await target.handle.evaluate(listOptions) ?? [];
-      const chosen = action.values.map(
-        (wanted) => options.find(
-          (o) => !o.disabled && (o.label === wanted || o.value === wanted)
-        )
-      );
-      const missing = action.values.filter((_, i) => !chosen[i]);
-      if (missing.length > 0) {
-        fail(
-          "no_such_option",
-          `No selectable option matches ${missing.map((m) => JSON.stringify(m)).join(", ")}.`,
-          { options: options.map((o) => o.label) }
-        );
-      }
-      await target.handle.selectOption(
-        chosen.map((o) => ({ value: o.value })),
-        { force: true, timeout: 1500 }
-      );
-      return {};
-    }
-    case "options": {
-      const { handle } = await resolve(session, action.ref);
-      const options = await handle.evaluate(listOptions);
-      if (!options) {
-        fail("not_editable", `${action.ref} has no list of options.`, {
-          role: "generic"
-        });
-      }
-      return { options };
-    }
-    case "check": {
-      const target = await ready(session, action.ref, { pointer: true });
-      if (target.probe.checked === void 0) {
-        fail(
-          "not_editable",
-          `${action.ref} is a ${target.probe.role}, which has no checked state.`,
-          {
-            role: target.probe.role
-          }
-        );
-      }
-      if (target.probe.checked === action.checked) return {};
-      if (target.probe.input_type === "radio" && !action.checked) {
-        fail(
-          "invalid_action",
-          "A radio button cannot be unchecked; check another one.",
-          {
-            parameter: "checked"
-          }
-        );
-      }
-      await unlessDialog(session, page.mouse.click(target.x, target.y));
-      return {};
-    }
-    case "hover": {
-      const target = await ready(session, action.ref, { pointer: true });
-      await page.mouse.move(target.x, target.y, { steps: 4 });
-      return {};
-    }
-    case "scroll": {
-      const handle = action.ref ? (await resolve(session, action.ref)).handle : await page.evaluateHandle(
-        () => document.documentElement
-      );
-      await handle.evaluate(scrollBy, {
-        direction: action.direction,
-        amount: action.amount
-      });
-      return {};
-    }
-    case "scroll_to": {
-      if (action.ref) {
-        const { handle } = await resolve(session, action.ref);
-        await handle.evaluate(
-          (el) => el.scrollIntoView({
-            block: "center",
-            inline: "center",
-            behavior: "instant"
-          })
-        );
-        return {};
-      }
-      for (const frame of page.frames()) {
-        if (await withTimeout(
-          frame.evaluate(scrollToText, action.text),
-          2e3
-        ))
-          return {};
-      }
-      return fail("timeout", "That text is not on the page.", {
-        observed: `text not found on ${page.url()}`
-      });
-    }
-    case "drag": {
-      const source = await ready(session, action.from_ref, { pointer: true });
-      let end = {
-        x: source.x + (action.offset?.x ?? 0),
-        y: source.y + (action.offset?.y ?? 0)
-      };
-      if (action.to_ref) {
-        const destination = await resolve(session, action.to_ref);
-        const centre = await centreOf(destination.handle);
-        end = {
-          x: centre.x + (action.offset?.x ?? 0),
-          y: centre.y + (action.offset?.y ?? 0)
-        };
-      }
-      await page.mouse.move(source.x, source.y);
-      await page.mouse.down();
-      await page.mouse.move((source.x + end.x) / 2, (source.y + end.y) / 2, {
-        steps: 8
-      });
-      await page.mouse.move(end.x, end.y, { steps: 8 });
-      await unlessDialog(session, page.mouse.up());
-      return {};
-    }
-    case "upload": {
-      const { handle } = await resolve(session, action.ref);
-      const input = (await handle.evaluateHandle(fileInputFor)).asElement();
-      if (!input) {
-        fail(
-          "not_a_file_input",
-          `${action.ref} is not a file input and has none attached to it.`
-        );
-      }
-      const absent = action.files.filter((file) => !existsSync(file));
-      if (absent.length > 0) {
-        fail("invalid_action", `No such file: ${absent.join(", ")}.`, {
-          parameter: "files"
-        });
-      }
-      await input.setInputFiles(action.files);
-      return {};
-    }
-    case "goto": {
-      const blockedBefore = session.sandbox_blocked_requests.length;
-      try {
-        await page.goto(action.url, {
-          waitUntil: "domcontentloaded",
-          timeout: NAVIGATION_MS
-        });
-      } catch (error) {
-        navigationFailure(session, blockedBefore, error);
-      }
-      return {};
-    }
-    case "back":
-    case "forward":
-    case "reload": {
-      const options = {
-        waitUntil: "domcontentloaded",
-        timeout: NAVIGATION_MS
-      };
-      const blockedBefore = session.sandbox_blocked_requests.length;
-      try {
-        const move = action.type === "back" ? page.goBack(options) : action.type === "forward" ? page.goForward(options) : page.reload(options);
-        await unlessDialog(session, move);
-      } catch (error) {
-        navigationFailure(session, blockedBefore, error);
-      }
-      return {};
-    }
-    case "wait_for": {
-      if (action.ms !== void 0) await sleep(action.ms);
-      const conditional = [
-        action.text,
-        action.ref,
-        action.gone,
-        action.url
-      ].some((v) => v !== void 0);
-      if (!conditional) return {};
-      const deadline = Date.now() + (action.timeout_ms ?? 1500);
-      const anyFrameHas = async (text) => {
-        for (const frame of session.page.frames()) {
-          if (await withTimeout(frame.evaluate(hasText, text), 1e3))
-            return true;
-        }
-        return false;
-      };
-      let unmet = "";
-      for (; ; ) {
-        if (runtime.dialog) return {};
-        unmet = "";
-        if (action.text !== void 0 && !await anyFrameHas(action.text)) {
-          unmet = `the text ${JSON.stringify(action.text)} is not there`;
-        } else if (action.gone !== void 0 && await anyFrameHas(action.gone)) {
-          unmet = `the text ${JSON.stringify(action.gone)} is still there`;
-        } else if (action.url !== void 0 && !session.page.url().includes(action.url)) {
-          unmet = "the URL does not contain it";
-        } else if (action.ref !== void 0) {
-          const target = session.snapshot.targets.get(action.ref);
-          if (!target)
-            fail("unknown_ref", `No element has the reference ${action.ref}.`);
-          const handle = target.frame.isDetached() ? void 0 : (await withTimeout(
-            target.frame.evaluateHandle(locate, {
-              doc: target.doc,
-              local: target.local
-            }),
-            1e3
-          ))?.asElement();
-          const state = handle ? await withTimeout(handle.evaluate(probe, false), 2e3) : void 0;
-          if (!state?.connected) unmet = `${action.ref} is not on the page`;
-          else if (state.hidden) unmet = `${action.ref} is hidden`;
-        }
-        if (!unmet) return {};
-        if (Date.now() >= deadline) break;
-        await sleep(80);
-      }
-      const title = await withTimeout(session.page.title(), 500) ?? "";
-      return fail("timeout", `Waited, but ${unmet}.`, {
-        observed: `${unmet}; the page is "${title}" at ${session.page.url()}`
-      });
-    }
-    case "tab": {
-      if (action.op === "new") {
-        const blockedBefore = session.sandbox_blocked_requests.length;
-        const opened = await page.context().newPage();
-        if (action.url) {
-          try {
-            await opened.goto(action.url, {
-              waitUntil: "domcontentloaded",
-              timeout: NAVIGATION_MS
-            });
-          } catch (error) {
-            await opened.close().catch(() => {
-            });
-            runtime.opened.length = 0;
-            runtime.closed.length = 0;
-            navigationFailure(session, blockedBefore, error);
-          }
-        }
-        session.page = opened;
-        return {};
-      }
-      const target = runtime.tabs[action.index];
-      if (!target) {
-        fail(
-          "invalid_action",
-          `There is no tab ${action.index}; ${runtime.tabs.length} are open.`,
-          {
-            parameter: "index"
-          }
-        );
-      }
-      if (action.op === "switch") {
-        session.page = target;
-        await target.bringToFront().catch(() => {
-        });
-        return {};
-      }
-      if (runtime.tabs.length === 1) {
-        fail(
-          "invalid_action",
-          "The last tab cannot be closed; end the session instead.",
-          {
-            parameter: "index"
-          }
-        );
-      }
-      const wasActive = target === session.page;
-      await target.close();
-      if (wasActive) {
-        session.page = runtime.tabs[Math.max(0, action.index - 1)] ?? runtime.tabs[0];
-        await session.page.bringToFront().catch(() => {
-        });
-      }
-      return {};
-    }
-    case "dialog": {
-      const dialog = runtime.dialog;
-      if (!dialog) fail("no_dialog", "No dialog is open.");
-      runtime.dialog = void 0;
-      session.snapshot.dialog = void 0;
-      if (action.accept) await dialog.accept(action.text);
-      else await dialog.dismiss();
-      return {};
-    }
-    case "resize": {
-      await page.setViewportSize({
-        width: action.width,
-        height: action.height
-      });
-      return {};
-    }
-    case "read": {
-      if (action.ref) {
-        const { handle } = await resolve(session, action.ref);
-        return {
-          text: await handle.evaluate(
-            (el) => el.innerText ?? el.textContent ?? ""
-          )
-        };
-      }
-      return {
-        text: await page.evaluate(() => document.body?.innerText ?? "")
-      };
-    }
-  }
-}
-var pathOf = (url) => {
-  try {
-    const parsed = new URL(url);
-    return `${parsed.origin}${parsed.pathname}`;
-  } catch {
-    return url;
-  }
-};
-async function settle(session, since, from, ignoreMutations) {
-  if (sabotaged("no_settling")) return { settled: true };
-  const { runtime } = session;
-  const deadline = from + SETTLE_CAP_MS;
-  let timers = [];
-  for (; ; ) {
-    if (runtime.dialog) return { settled: true };
-    const remaining = deadline - Date.now();
-    const frames = session.page.isClosed() ? [] : session.page.frames();
-    const slice = Math.max(20, Math.min(remaining, 250));
-    const readings = await Promise.all(
-      frames.map(
-        (frame) => frame.isDetached() ? Promise.resolve({ quiet: true, ready: true, timers: [] }) : withTimeout(
-          frame.evaluate(waitQuiet, {
-            since,
-            from,
-            quietMs: QUIET_MS,
-            maxMs: slice,
-            ignoreMutations
-          }),
-          slice + 500
-        )
-      )
-    );
-    if (runtime.dialog) return { settled: true };
-    const started = [...runtime.inflight.values()].filter((r) => r.at >= since);
-    const quiet = readings.every((r) => r?.quiet);
-    timers = readings.flatMap((r) => r?.timers ?? []);
-    if (quiet && started.length === 0) return { settled: true };
-    if (Date.now() >= deadline) {
-      const recent = runtime.recent.filter((r) => r.at >= since).map((r) => pathOf(r.url));
-      const pending = [
-        .../* @__PURE__ */ new Set([
-          ...started.map((r) => pathOf(r.url)),
-          ...recent.slice(-5),
-          ...timers
-        ])
-      ];
-      return { settled: false, pending };
-    }
-    if (!quiet && readings.some((r) => r === void 0)) await sleep(30);
-  }
-}
-async function focusOf(session) {
-  if (session.runtime.dialog || session.page.isClosed()) return -1;
-  return await withTimeout(session.page.evaluate(focusedId), 1e3) ?? -1;
-}
-function isEmpty(diff) {
-  return !diff || diff.added.length === 0 && diff.removed.length === 0 && diff.changed.length === 0;
-}
-async function runStep(session, input) {
-  const { runtime } = session;
-  const startedAt = Date.now();
-  const pageBefore = session.page;
-  const urlBefore = pageBefore.url();
-  const navigationsBefore = runtime.navigations.get(pageBefore) ?? 0;
-  const downloadsBefore = runtime.downloads.length;
-  const textBefore = session.snapshot.previous?.textHash;
-  const focusBefore = await focusOf(session);
-  const dialogBefore = runtime.dialog;
-  const alreadyChanging = !runtime.dialog && (await withTimeout(session.page.evaluate(sinceMutation), 1e3) ?? 1e9) < 150;
-  runtime.opened.length = 0;
-  runtime.closed.length = 0;
-  const type = input?.type ?? "click";
-  let error;
-  let outcome = {};
-  const validation = validateAction(input);
-  if (!validation.ok) {
-    error = {
-      code: "invalid_action",
-      message: validation.message,
-      parameter: validation.parameter
-    };
-  } else if (runtime.dialog && validation.action.type !== "dialog") {
-    const dialog2 = session.snapshot.dialog ?? { type: "alert", message: "" };
-    error = {
-      code: "dialog_open",
-      message: `A ${dialog2.type} dialog is open and blocks the page; answer it with a dialog action first.`,
-      dialog: dialog2
-    };
-  } else {
-    try {
-      outcome = await execute(session, validation.action);
-    } catch (caught) {
-      if (caught instanceof ActionFailure) error = caught.detail;
-      else {
-        const message = (caught instanceof Error ? caught.message : String(caught)).split("\n")[0];
-        error = {
-          code: "timeout",
-          message: `The action could not be completed: ${message}`,
-          observed: message
-        };
-      }
-    }
-  }
-  const actionMs = Date.now() - startedAt;
-  const settleFrom = Date.now();
-  const settled = error ? { settled: true } : await settle(session, startedAt, settleFrom, alreadyChanging);
-  const settleMs = Date.now() - settleFrom;
-  const page = session.page;
-  const switched = page !== pageBefore;
-  const after = await takeSnapshot(
-    session,
-    { format: "json", diff: true },
-    true
-  );
-  const dialog = runtime.dialog && runtime.dialog !== dialogBefore ? session.snapshot.dialog : void 0;
-  const download = runtime.downloads[downloadsBefore];
-  const navigated = !switched && !page.isClosed() && ((runtime.navigations.get(page) ?? 0) !== navigationsBefore || page.url() !== urlBefore);
-  const domChanged = !runtime.dialog && (!isEmpty(after.diff) || session.snapshot.previous?.textHash !== textBefore);
-  const changes = {
-    url_before: urlBefore,
-    url_after: page.isClosed() ? urlBefore : page.url(),
-    navigated,
-    tabs_opened: [...runtime.opened],
-    tabs_closed: [...runtime.closed],
-    focus_moved: await focusOf(session) !== focusBefore,
-    dom_changed: domChanged,
-    none: false
-  };
-  if (dialog) changes.dialog = dialog;
-  if (download) changes.download = { filename: download };
-  changes.none = !navigated && !switched && changes.tabs_opened.length === 0 && changes.tabs_closed.length === 0 && !dialog && !download && !domChanged;
-  const step = {
-    type,
-    ok: !error,
-    changes,
-    settled: settled.settled,
-    action_ms: actionMs,
-    settle_ms: settleMs
-  };
-  if (error) step.error = error;
-  if (settled.pending) step.pending = settled.pending;
-  if (outcome.options) step.options = outcome.options;
-  if (outcome.text !== void 0) step.text = outcome.text;
-  return step;
-}
-function stopAfter(step) {
-  if (!step.ok) return "failed";
-  if (step.changes.dialog) return "dialog";
-  if (step.type === "tab" || step.changes.tabs_opened.length > 0 || step.changes.tabs_closed.length > 0) {
-    return "tab";
-  }
-  if (step.changes.navigated) return "navigated";
-  return void 0;
-}
-async function hauntAct(manager, input) {
-  const session = manager.get(input.session_id);
-  await manager.reapStale(SESSION_TTL_MS);
-  if (session.step_count >= session.max_steps) {
-    throw new Error(
-      `Session ${session.id} hit its step limit (${session.max_steps}). Call haunt_end_session instead of acting further.`
-    );
-  }
-  if (Date.now() - session.start_time > session.max_active_duration_ms) {
-    throw new Error(
-      `Session ${session.id} exceeded its active-duration cap (${session.max_active_duration_ms}ms). Call haunt_end_session instead of acting further.`
-    );
-  }
-  if (input.issues?.length) session.issues.push(...input.issues);
-  const blockedBefore = session.sandbox_blocked_requests.length;
-  const known = session.snapshot.previous;
-  let current = false;
-  if (known && !session.runtime.dialog && known.snapshot.url === session.page.url()) {
-    const ages = await Promise.all(
-      session.page.frames().map((frame) => withTimeout(frame.evaluate(sinceMutation), 500))
-    );
-    const sinceRead = Date.now() - known.at;
-    current = ages.every((age) => age !== void 0 && age > sinceRead + 5);
-  }
-  if (!current) await takeSnapshot(session, { format: "json" }, true);
-  const before = new Map(session.snapshot.previous?.comparable ?? []);
-  const results = [];
-  let stopped;
-  for (let i = 0; i < input.actions.length; i++) {
-    if (session.step_count >= session.max_steps) {
-      stopped = "step_limit";
-      break;
-    }
-    session.step_count++;
-    const step = await runStep(session, input.actions[i]);
-    results.push(step);
-    const reason = stopAfter(step);
-    if (reason && (reason === "failed" || i < input.actions.length - 1)) {
-      stopped = reason;
-      break;
-    }
-  }
-  const page = session.page;
-  if (!page.isClosed()) session.pages_visited.push(page.url());
-  const blocked = session.sandbox_blocked_requests.slice(blockedBefore);
-  const result = {
-    results,
-    executed: results.length,
-    requested: input.actions.length,
-    url: page.isClosed() ? "" : page.url(),
-    title: session.runtime.dialog ? "" : await withTimeout(page.title(), 1e3) ?? "",
-    diff: diffBetween(before, session.snapshot.previous?.elements ?? []),
-    console_errors: session.console_errors.splice(0),
-    network_errors: session.network_errors.splice(0),
-    step: session.step_count,
-    steps_remaining: session.max_steps - session.step_count
-  };
-  if (stopped) result.stopped = stopped;
-  if (blocked.length > 0) result.sandbox_blocked = blocked;
-  return result;
-}
-
 // src/engine/report/estimate-cost.ts
 function hauntEstimateCost(input) {
   const { route_count, steps_per_route } = input;
@@ -11892,18 +10620,6 @@ var TOOLS = [
     run: (manager, input) => hauntGetCookies(manager, input)
   }),
   defineTool({
-    name: "haunt_navigate",
-    description: 'Execute a browser action decided by the orchestrator (as the persona). Actions: "click <target>", "fill <text> in <field>", "goto <url>", "press <key>".',
-    input: external_exports.object({
-      session_id: external_exports.string().describe("Session ID from haunt_spawn"),
-      action: external_exports.string().describe(
-        'Action to perform, e.g. "click Login", "fill test@example.com in Email", "goto http://localhost:3000/about", "press Enter"'
-      ),
-      issues: external_exports.array(issueSchema).optional().describe("Issues the orchestrator observed during this step")
-    }),
-    run: (manager, input) => hauntNavigate(manager, input)
-  }),
-  defineTool({
     name: "haunt_act",
     description: "Run one or more actions on elements named by their reference from the snapshot (click, fill, type, press, select, check, hover, scroll, drag, upload, goto, tab, dialog, wait_for, read\u2026). Each action reports what it really changed: navigation, new tab, dialog, download, or nothing at all. A sequence stops at the first failure, navigation, dialog or new tab. A failed action says why (covered and by what, disabled, stale reference\u2026); it is information, not necessarily an app bug.",
     // Each action is checked by the engine, so that a malformed one is
@@ -11925,7 +10641,7 @@ var TOOLS = [
   }),
   defineTool({
     name: "haunt_capture_state",
-    description: "Capture the current page state. With a format, returns the page snapshot: every actionable element with a stable reference like [e12], in reading order with the surrounding text, across frames and shadow roots. Call this before deciding each action.",
+    description: "Capture the current page as a snapshot: every actionable element with a stable reference like [e12], in reading order with the surrounding text, across frames and shadow roots. Call this before deciding each action; use the references with haunt_act.",
     input: external_exports.object({
       session_id: external_exports.string(),
       format: external_exports.enum(["text", "json"]).optional().describe(
@@ -11936,10 +10652,7 @@ var TOOLS = [
       actionable_only: external_exports.boolean().optional().describe("Leave out the surrounding text, keep only elements"),
       page: external_exports.number().optional().describe("Which page of a text snapshot that did not fit in one"),
       include_attributes: external_exports.array(external_exports.string()).optional().describe("Attributes to report for each element, e.g. data-testid"),
-      include_screenshot: external_exports.boolean().optional().describe("Default: true"),
-      include_dom: external_exports.boolean().optional().describe(
-        "Include raw HTML snapshot (capped at 5000 chars). Default: false"
-      )
+      include_screenshot: external_exports.boolean().optional().describe("Also save a screenshot. Default: false")
     }),
     run: (manager, input) => hauntCaptureState(manager, input)
   }),
@@ -12004,7 +10717,7 @@ function describeInputError(toolName, error) {
 // src/mcp/server.ts
 function createServer(manager = new SessionManager()) {
   const server = new Server(
-    { name: "haunt", version: "0.1.0" },
+    { name: "haunt", version: "0.2.0" },
     { capabilities: { tools: {} } }
   );
   server.setRequestHandler(ListToolsRequestSchema, async () => ({

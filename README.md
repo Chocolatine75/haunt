@@ -29,7 +29,7 @@ They submit empty forms. They paste garbage into your inputs. They bookmark rand
 We ran Haunt on a SaaS app after months of manual testing. 2 minutes, 6 bugs:
 
 ```
-haunt v0.1.0  —  phantom user testing
+haunt v0.2.0  —  phantom user testing
 
 scouting...
 routes: /  /signup  /dashboard  /pricing
@@ -177,7 +177,7 @@ scenarios:
                                 "For Claude" section auto-fixes everything
 ```
 
-No AI vision. No magic. Just a real browser reading your accessibility tree — and an AI deciding what a confused user would do next.
+No AI vision. No magic. A real browser, a snapshot of every element a user could act on, real clicks and keystrokes on them — and an AI deciding what a confused user would do next.
 
 **Sessions are sandboxed to your app's own origins.** On the first visit haunt records every origin your app loads from (your dev server, your CDN, your API host) and freezes that list. Anything the session requests afterwards from a *genuinely new* origin — including a cross-origin redirect — is blocked and listed under "blocked requests" in the report. That's a sandbox block, not an app bug. If your app only calls a second API origin or port after a user interaction, make sure it's also reached during the initial page load, or that call will show up as blocked. Sessions are also capped at ~15 minutes of active time, after which they must be ended rather than continued.
 

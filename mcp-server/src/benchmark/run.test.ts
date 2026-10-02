@@ -112,7 +112,7 @@ describe('isHelpRequested', () => {
 });
 
 function fakeDecider(): ActionDecider {
-  return async () => ({ action: 'press A', issues: [] });
+  return async () => ({ actions: [{ type: 'press', keys: 'A' }], issues: [] });
 }
 
 function fakeJudge(

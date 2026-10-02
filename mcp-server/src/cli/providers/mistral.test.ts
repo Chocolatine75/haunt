@@ -3,9 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Issue } from '../../engine/types.js';
 import { createMistralDecider } from './mistral.js';
 
-function mockClient(
-  turns: Array<{ action: string; issues?: Issue[] } | string>,
-): Mistral {
+function mockClient(turns: unknown[]): Mistral {
   let call = 0;
   const complete = vi.fn(async () => {
     const turn = turns[Math.min(call, turns.length - 1)];
@@ -40,7 +38,7 @@ describe('createMistralDecider', () => {
   it('reads the action and issues out of an object-typed tool call', async () => {
     const client = mockClient([
       {
-        action: 'click Login',
+        actions: [{ type: 'click', ref: 'e1' }],
         issues: [
           {
             severity: 'minor',
@@ -55,16 +53,18 @@ describe('createMistralDecider', () => {
     const decide = createMistralDecider(client, 'mistral-small-latest');
 
     const result = await decide('You are...', 'state');
-    expect(result.action).toBe('click Login');
+    expect(result.actions).toEqual([{ type: 'click', ref: 'e1' }]);
     expect(result.issues).toHaveLength(1);
   });
 
   it('parses arguments when the SDK returns them as a JSON string', async () => {
-    const client = mockClient([JSON.stringify({ action: 'press Enter' })]);
+    const client = mockClient([
+      JSON.stringify({ actions: [{ type: 'press', keys: 'Enter' }] }),
+    ]);
     const decide = createMistralDecider(client, 'mistral-small-latest');
 
     const result = await decide('sys', 'state');
-    expect(result.action).toBe('press Enter');
+    expect(result.actions).toEqual([{ type: 'press', keys: 'Enter' }]);
     expect(result.issues).toEqual([]);
   });
 
@@ -90,7 +90,9 @@ describe('createMistralDecider', () => {
   });
 
   it('calls the SDK with the model, forced toolChoice, and a system message', async () => {
-    const client = mockClient([{ action: 'press Enter' }]);
+    const client = mockClient([
+      { actions: [{ type: 'press', keys: 'Enter' }] },
+    ]);
     const decide = createMistralDecider(client, 'mistral-small-latest');
 
     await decide('You are a confused beginner', 'URL: /signup');

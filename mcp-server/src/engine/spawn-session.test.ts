@@ -12,8 +12,9 @@ import {
   type FixtureApp,
   startFixtureApp,
 } from '../test-support/fixture-app.js';
+import { hauntAct } from './act/act.js';
+import { hauntCaptureState } from './capture.js';
 import { SESSION_MAX_ACTIVE_DURATION_MS } from './constants.js';
-import { hauntNavigate } from './navigate.js';
 import { SessionManager } from './session/manager.js';
 import { hauntSpawn } from './spawn.js';
 
@@ -134,7 +135,10 @@ describe('hauntSpawn (real origin)', () => {
     await new Promise((r) => setTimeout(r, 10));
 
     await expect(
-      hauntNavigate(manager, { session_id, action: `goto ${app.baseUrl}` }),
+      hauntAct(manager, {
+        session_id,
+        actions: [{ type: 'goto', url: app.baseUrl }],
+      }),
     ).rejects.toThrow(/active-duration cap \(1ms\)/);
   });
 
@@ -175,6 +179,19 @@ describe('sandboxing — requests made by the page itself', () => {
   let outsiderUrl: string;
   const outsiderRequests: string[] = [];
   let manager: SessionManager;
+
+  async function clickNamed(session_id: string, name: string) {
+    const { elements = [] } = await hauntCaptureState(manager, {
+      session_id,
+      format: 'json',
+    });
+    const target = elements.find((e) => e.name === name);
+    if (!target) throw new Error(`no element named ${name}`);
+    return hauntAct(manager, {
+      session_id,
+      actions: [{ type: 'click', ref: target.ref }],
+    });
+  }
 
   beforeAll(async () => {
     outsider = createServer((req, res) => {
@@ -220,7 +237,7 @@ describe('sandboxing — requests made by the page itself', () => {
     });
     const session = manager.get(session_id);
 
-    await hauntNavigate(manager, { session_id, action: 'click Track me' });
+    await clickNamed(session_id, 'Track me');
     await session.page.waitForFunction(() => document.title === 'sent');
 
     expect(outsiderRequests).toEqual([]);
@@ -239,16 +256,13 @@ describe('sandboxing — requests made by the page itself', () => {
       target_url: targetUrl,
     });
 
-    const result = await hauntNavigate(manager, {
-      session_id,
-      action: 'click Pay',
-    });
+    const result = await clickNamed(session_id, 'Pay');
     const session = manager.get(session_id);
     await expect
       .poll(() => session.sandbox_blocked_requests)
       .toEqual([`POST ${outsiderUrl}/collect`]);
 
-    expect(result.success).toBe(true);
+    expect(result.results[0].ok).toBe(true);
     expect(outsiderRequests).toEqual([]);
     expect(session.issues).toEqual([]);
   });
@@ -260,12 +274,12 @@ describe('sandboxing — requests made by the page itself', () => {
       target_url: targetUrl,
     });
 
-    const result = await hauntNavigate(manager, {
+    const result = await hauntAct(manager, {
       session_id,
-      action: `goto ${targetUrl}/bad-redirect`,
+      actions: [{ type: 'goto', url: `${targetUrl}/bad-redirect` }],
     });
 
-    expect(result.success).toBe(false);
+    expect(result.results[0].error?.code).toBe('sandbox_blocked');
     expect(result.sandbox_blocked).toEqual([
       `GET ${targetUrl}/bad-redirect -> http://[not-a-host (unparseable redirect target)`,
     ]);
@@ -280,17 +294,17 @@ describe('sandboxing — requests made by the page itself', () => {
       target_url: outsiderUrl,
     });
 
-    const result = await hauntNavigate(manager, {
+    const result = await hauntAct(manager, {
       session_id,
-      action: `goto ${outsiderUrl}/again`,
+      actions: [{ type: 'goto', url: `${outsiderUrl}/again` }],
     });
-    expect(result.success).toBe(true);
+    expect(result.results[0].ok).toBe(true);
 
-    const blocked = await hauntNavigate(manager, {
+    const blocked = await hauntAct(manager, {
       session_id,
-      action: `goto ${targetUrl}`,
+      actions: [{ type: 'goto', url: targetUrl }],
     });
-    expect(blocked.success).toBe(false);
+    expect(blocked.results[0].ok).toBe(false);
     expect(blocked.sandbox_blocked).toEqual([`GET ${targetUrl}/`]);
   });
 });
