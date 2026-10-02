@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — printing</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<h1>Printing…</h1>
+<script>
+  // Gone half a second after it opened.
+  setTimeout(() => {
+    if (window.opener) window.opener.postMessage('print window closed', '*');
+    window.close();
+  }, 500);
+</script>
+</body>
+</html>

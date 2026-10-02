@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — forms</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<h1>Forms</h1>
+<form id="main" novalidate>
+  <section>
+    <h2>Labels</h2>
+    <label for="f-text">Full name</label>
+    <input id="f-text" data-g="text" type="text" name="name" required>
+
+    <label>Email address <input data-g="email" type="email" name="email" required></label>
+
+    <span id="lbl-number">Quantity</span>
+    <input data-g="number" type="number" name="quantity" min="1" max="99" aria-labelledby="lbl-number">
+
+    <input data-g="search" type="search" name="q" placeholder="Search products">
+
+    <!-- No label, no placeholder, no aria: only its position identifies it. -->
+    <input data-g="unlabelled" type="text" name="mystery">
+  </section>
+
+  <section>
+    <h2>Every type</h2>
+    <label>Password <input data-g="password" type="password" name="password" autocomplete="current-password"></label>
+    <label>Phone <input data-g="tel" type="tel" name="tel"></label>
+    <label>Website <input data-g="url" type="url" name="url"></label>
+    <label>Birthday <input data-g="date" type="date" name="date"></label>
+    <label>Alarm <input data-g="time" type="time" name="time"></label>
+    <label>Appointment <input data-g="datetime" type="datetime-local" name="datetime"></label>
+    <label>Billing month <input data-g="month" type="month" name="month"></label>
+    <label>Sprint week <input data-g="week" type="week" name="week"></label>
+    <label>Accent colour <input data-g="color" type="color" name="color" value="#000000"></label>
+    <label>Volume <input data-g="range" type="range" name="range" min="0" max="100" value="50"></label>
+    <label>Bio <textarea data-g="textarea" name="bio" rows="3"></textarea></label>
+    <label><input data-g="terms" type="checkbox" name="terms"> I accept the terms</label>
+    <fieldset>
+      <legend>Plan</legend>
+      <label><input data-g="plan-free" type="radio" name="plan" value="free"> Free</label>
+      <label><input data-g="plan-pro" type="radio" name="plan" value="pro"> Pro</label>
+      <label><input data-g="plan-team" type="radio" name="plan" value="team"> Team</label>
+    </fieldset>
+    <div data-g="switch" role="switch" aria-checked="false" tabindex="0" aria-label="Email notifications"
+         style="display:inline-block;width:44px;height:22px;border-radius:11px;background:#999;cursor:pointer"></div>
+  </section>
+
+  <section>
+    <h2>Inputs that listen to keys</h2>
+    <!-- Driven by keydown only: setting .value directly leaves it empty. -->
+    <label>Mobile (masked) <input data-g="masked" type="text" inputmode="numeric" name="masked" placeholder="(555) 555-5555"></label>
+
+    <!-- Suggestions appear on keyup only. -->
+    <label>City <input data-g="city" type="text" name="city" autocomplete="off" aria-controls="city-list"></label>
+    <ul id="city-list" role="listbox" hidden></ul>
+
+    <label>Price <input data-g="price" type="text" name="price"></label>
+  </section>
+
+  <section>
+    <h2>States</h2>
+    <label>Coupon <input data-g="coupon" type="text" name="coupon" aria-invalid="true" value="EXPIRED"></label>
+    <label>Account id <input data-g="readonly" type="text" name="account" value="ACC-0042" readonly></label>
+    <label>Legacy code <input data-g="disabled-input" type="text" name="legacy" value="n/a" disabled></label>
+  </section>
+
+  <button data-g="submit" type="submit">Create account</button>
+  <button data-g="reset" type="reset">Clear</button>
+</form>
+<p id="result" role="status"></p>
+
+<script>
+  const G = window.__gauntlet;
+
+  // Switch
+  const sw = G.find('switch');
+  const toggle = () => {
+    const next = sw.getAttribute('aria-checked') !== 'true';
+    sw.setAttribute('aria-checked', String(next));
+    sw.style.background = next ? '#2a7' : '#999';
+    G.record('switch', 'switch', next);
+  };
+  sw.addEventListener('click', toggle);
+  sw.addEventListener('keydown', (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggle(); } });
+
+  // Masked phone: the value is rebuilt from the keys pressed.
+  const masked = G.find('masked');
+  let digits = '';
+  const render = () => {
+    const d = digits;
+    masked.value = d.length === 0 ? '' : d.length <= 3 ? `(${d}` : d.length <= 6 ? `(${d.slice(0, 3)}) ${d.slice(3)}` : `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
+    G.state.maskedDigits = digits;
+  };
+  G.state.maskedDigits = '';
+  masked.addEventListener('keydown', (e) => {
+    if (e.key === 'Tab') return;
+    e.preventDefault();
+    if (/^\d$/.test(e.key) && digits.length < 10) digits += e.key;
+    else if (e.key === 'Backspace') digits = digits.slice(0, -1);
+    render();
+  });
+
+  // City autocomplete, on keyup.
+  const CITIES = ['Paris', 'Parma', 'Perth', 'Porto', 'Prague', 'Lyon', 'Lima', 'Lisbon'];
+  const city = G.find('city');
+  const list = document.getElementById('city-list');
+  city.addEventListener('keyup', () => {
+    const q = city.value.trim().toLowerCase();
+    const matches = q ? CITIES.filter((c) => c.toLowerCase().startsWith(q)) : [];
+    list.innerHTML = '';
+    list.hidden = matches.length === 0;
+    for (const name of matches) {
+      const li = document.createElement('li');
+      li.setAttribute('role', 'option');
+      li.setAttribute('data-g', `city-option-${name.toLowerCase()}`);
+      li.textContent = name;
+      li.style.cursor = 'pointer';
+      li.addEventListener('click', () => {
+        city.value = name;
+        list.hidden = true;
+        list.innerHTML = '';
+        G.record('pick', 'city', name);
+      });
+      list.appendChild(li);
+    }
+    G.state.citySuggestions = matches;
+  });
+
+  // Price reformats when the field loses focus.
+  const price = G.find('price');
+  price.addEventListener('blur', () => {
+    const n = Number(price.value.replace(/,/g, ''));
+    if (price.value !== '' && Number.isFinite(n)) {
+      price.value = n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+  });
+
+  document.getElementById('main').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const data = {};
+    for (const [k, v] of new FormData(e.target)) data[k] = v;
+    G.record('submit', 'main', data);
+    document.getElementById('result').textContent = 'Account created';
+  });
+</script>
+</body>
+</html>

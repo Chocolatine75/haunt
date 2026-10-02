@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — scroll</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+<style>
+  #infinite { height: 240px; width: 320px; overflow-y: auto; border: 1px solid #999; }
+  #infinite button { display: block; width: 100%; height: 30px; box-sizing: border-box; }
+  #wide { width: 420px; overflow-x: auto; border: 1px solid #999; }
+  #wide td { min-width: 110px; white-space: nowrap; }
+  #outer { height: 260px; width: 360px; overflow-y: auto; border: 1px solid #999; }
+  #inner { height: 130px; overflow-y: auto; border: 1px solid #c66; margin: 10px; }
+  #inner div, #outer > div.row { height: 28px; }
+  #virtual { position: relative; height: 300px; width: 320px; overflow-y: auto; border: 1px solid #999; }
+  #virtual .row { position: absolute; left: 0; right: 0; height: 30px; box-sizing: border-box; }
+  #virtual .row button { width: 100%; height: 30px; box-sizing: border-box; }
+</style>
+</head>
+<body>
+<h1>Scroll</h1>
+
+<section>
+  <h2>Infinite list (20 more each time the end is reached)</h2>
+  <div id="infinite" data-g="infinite" tabindex="0" aria-label="Infinite list"></div>
+</section>
+
+<section>
+  <h2>Wide table</h2>
+  <div id="wide" data-g="wide" tabindex="0" aria-label="Wide table"><table><tbody><tr id="wide-row"></tr></tbody></table></div>
+</section>
+
+<section>
+  <h2>A scroll area inside a scroll area</h2>
+  <div id="outer" data-g="outer" tabindex="0" aria-label="Outer area">
+    <div id="inner" data-g="inner" tabindex="0" aria-label="Inner area"></div>
+  </div>
+</section>
+
+<section>
+  <h2>Virtualised list (5,000 rows, only the visible ones exist)</h2>
+  <div id="virtual" data-g="virtual" tabindex="0" aria-label="Virtual list"><div id="virtual-sizer"></div></div>
+</section>
+
+<!-- Makes the document itself 10,000 px tall. -->
+<div style="height: 9000px" aria-hidden="true"></div>
+<button data-g="page-bottom" type="button">Bottom of the page</button>
+<p id="result" role="status"></p>
+
+<script>
+  const G = window.__gauntlet;
+  const result = document.getElementById('result');
+  const say = (text) => { result.textContent = text; };
+
+  // --- Infinite list
+  const infinite = document.getElementById('infinite');
+  let loaded = 0;
+  const sentinel = document.createElement('div');
+  sentinel.style.height = '1px';
+  function loadMore() {
+    if (loaded >= 400) return;
+    for (let i = 0; i < 20; i++) {
+      loaded++;
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.dataset.g = `item-${loaded}`;
+      button.textContent = `Item ${loaded}`;
+      button.addEventListener('click', () => say(`Opened ${button.textContent}`));
+      infinite.insertBefore(button, sentinel);
+    }
+    G.state.loaded = loaded;
+  }
+  infinite.append(sentinel);
+  loadMore();
+  new IntersectionObserver((entries) => {
+    if (entries.some((e) => e.isIntersecting)) loadMore();
+  }, { root: infinite }).observe(sentinel);
+
+  // --- Wide table: the only control is in the last of 40 columns.
+  const row = document.getElementById('wide-row');
+  for (let i = 1; i <= 39; i++) {
+    const td = document.createElement('td');
+    td.textContent = `Column ${i}`;
+    row.append(td);
+  }
+  const last = document.createElement('td');
+  last.innerHTML = '<button data-g="wide-action" type="button">Export</button>';
+  row.append(last);
+  last.querySelector('button').addEventListener('click', () => say('Exported'));
+
+  // --- Nested scroll areas
+  const outer = document.getElementById('outer');
+  const inner = document.getElementById('inner');
+  for (let i = 1; i <= 40; i++) {
+    const div = document.createElement('div');
+    div.textContent = `Inner line ${i}`;
+    inner.append(div);
+  }
+  const innerButton = document.createElement('button');
+  innerButton.type = 'button';
+  innerButton.dataset.g = 'inner-action';
+  innerButton.textContent = 'Inner action';
+  innerButton.addEventListener('click', () => say('Inner action done'));
+  inner.append(innerButton);
+  for (let i = 1; i <= 30; i++) {
+    const div = document.createElement('div');
+    div.className = 'row';
+    div.textContent = `Outer line ${i}`;
+    outer.append(div);
+  }
+  const outerButton = document.createElement('button');
+  outerButton.type = 'button';
+  outerButton.dataset.g = 'outer-action';
+  outerButton.textContent = 'Outer action';
+  outerButton.addEventListener('click', () => say('Outer action done'));
+  outer.append(outerButton);
+
+  // --- Virtualised list: rows are created and destroyed as the area scrolls.
+  const ROWS = 5000;
+  const ROW_HEIGHT = 30;
+  const virtual = document.getElementById('virtual');
+  document.getElementById('virtual-sizer').style.height = `${ROWS * ROW_HEIGHT}px`;
+  function renderRows() {
+    const first = Math.max(0, Math.floor(virtual.scrollTop / ROW_HEIGHT) - 2);
+    const lastRow = Math.min(ROWS - 1, first + Math.ceil(virtual.clientHeight / ROW_HEIGHT) + 4);
+    for (const old of [...virtual.querySelectorAll('.row')]) old.remove();
+    for (let i = first; i <= lastRow; i++) {
+      const div = document.createElement('div');
+      div.className = 'row';
+      div.style.top = `${i * ROW_HEIGHT}px`;
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.dataset.g = `row-${i + 1}`;
+      button.textContent = `Row ${i + 1}`;
+      button.addEventListener('click', () => say(`Opened row ${i + 1}`));
+      div.append(button);
+      virtual.append(div);
+    }
+  }
+  renderRows();
+  virtual.addEventListener('scroll', renderRows);
+
+  G.find('page-bottom').addEventListener('click', () => say('Reached the bottom'));
+</script>
+</body>
+</html>

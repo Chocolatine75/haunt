@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — duplicates</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<h1>Duplicates</h1>
+
+<section>
+  <h2>Five rows, five identical buttons</h2>
+  <table>
+    <thead><tr><th>Invoice</th><th>Amount</th><th></th></tr></thead>
+    <tbody id="rows">
+      <tr data-row="1"><td>INV-001</td><td>120 €</td><td><button data-g="delete-1" type="button">Delete</button></td></tr>
+      <tr data-row="2"><td>INV-002</td><td>80 €</td><td><button data-g="delete-2" type="button">Delete</button></td></tr>
+      <tr data-row="3"><td>INV-003</td><td>455 €</td><td><button data-g="delete-3" type="button">Delete</button></td></tr>
+      <tr data-row="4"><td>INV-004</td><td>12 €</td><td><button data-g="delete-4" type="button">Delete</button></td></tr>
+      <tr data-row="5"><td>INV-005</td><td>990 €</td><td><button data-g="delete-5" type="button">Delete</button></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>Two forms with the same fields</h2>
+  <form id="login" aria-label="Log in">
+    <label>Email <input data-g="login-email" type="email" name="email"></label>
+    <label>Password <input data-g="login-password" type="password" name="password"></label>
+    <button data-g="login-submit" type="submit">Continue</button>
+  </form>
+  <form id="register" aria-label="Create account">
+    <label>Email <input data-g="register-email" type="email" name="email"></label>
+    <label>Password <input data-g="register-password" type="password" name="password"></label>
+    <button data-g="register-submit" type="submit">Continue</button>
+  </form>
+</section>
+
+<section>
+  <h2>Three links with the same text</h2>
+  <article><h3>Release notes</h3><a data-g="more-release" href="#release">Read more</a></article>
+  <article><h3>Security advisory</h3><a data-g="more-security" href="#security">Read more</a></article>
+  <article><h3>Pricing update</h3><a data-g="more-pricing" href="#pricing">Read more</a></article>
+</section>
+<p id="result" role="status"></p>
+
+<script>
+  const G = window.__gauntlet;
+  const say = (text) => { document.getElementById('result').textContent = text; };
+  const remaining = () => [...document.querySelectorAll('#rows tr')].map((tr) => Number(tr.dataset.row));
+  G.state.rows = remaining();
+
+  document.getElementById('rows').addEventListener('click', (e) => {
+    const button = e.target.closest('button');
+    if (!button) return;
+    const tr = button.closest('tr');
+    const row = Number(tr.dataset.row);
+    tr.remove();
+    G.state.rows = remaining();
+    G.record('deleted', `row-${row}`);
+    say(`Deleted INV-00${row}`);
+  });
+
+  for (const id of ['login', 'register']) {
+    document.getElementById(id).addEventListener('submit', (e) => {
+      e.preventDefault();
+      G.record('submit', id, { email: e.target.elements.email.value, hasPassword: e.target.elements.password.value !== '' });
+      say(`Submitted ${id}`);
+    });
+  }
+  for (const id of ['more-release', 'more-security', 'more-pricing']) {
+    G.find(id).addEventListener('click', () => say(`Opened ${id.replace('more-', '')}`));
+  }
+</script>
+</body>
+</html>

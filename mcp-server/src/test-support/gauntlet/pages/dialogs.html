@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — dialogs</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<h1>Dialogs</h1>
+<p><button data-g="alert" type="button">Show notice</button></p>
+<p><button data-g="confirm" type="button">Delete project</button></p>
+<p><button data-g="prompt" type="button">Rename project</button></p>
+<p><button data-g="late" type="button">Save (warns half a second later)</button></p>
+<p><label><input data-g="guard" type="checkbox"> I have unsaved changes</label></p>
+<p><a data-g="leave" href="/dialogs?left=1">Leave this page</a></p>
+<p id="result" role="status"></p>
+
+<script>
+  const G = window.__gauntlet;
+  const say = (text) => { document.getElementById('result').textContent = text; };
+  G.state.left = new URLSearchParams(location.search).has('left');
+
+  G.find('alert').addEventListener('click', () => {
+    alert('Maintenance tonight at 22:00');
+    G.record('dialog', 'alert', 'closed');
+    say('Notice closed');
+  });
+  G.find('confirm').addEventListener('click', () => {
+    const ok = confirm('Delete project "Apollo"? This cannot be undone.');
+    G.record('dialog', 'confirm', ok);
+    say(ok ? 'Project deleted' : 'Deletion cancelled');
+  });
+  G.find('prompt').addEventListener('click', () => {
+    const name = prompt('New project name', 'Apollo');
+    G.record('dialog', 'prompt', name);
+    say(name === null ? 'Rename cancelled' : `Renamed to ${name}`);
+  });
+  G.find('late').addEventListener('click', () => {
+    say('Saving…');
+    setTimeout(() => {
+      alert('Saved, but 2 fields were ignored');
+      G.record('dialog', 'late', 'closed');
+      say('Saved with warnings');
+    }, 500);
+  });
+  window.addEventListener('beforeunload', (e) => {
+    if (G.find('guard').checked) {
+      e.preventDefault();
+      e.returnValue = '';
+    }
+  });
+</script>
+</body>
+</html>
