@@ -28,18 +28,10 @@ interface GauntletEvent {
   detail: unknown;
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: the page's own registry object
-type G = any;
-declare global {
-  interface Window {
-    __gauntlet: G;
-  }
-}
-
 // How many elements carry data-g when the page has settled. Pinned so that an
 // edit to a page that adds or drops an actionable element is a visible change.
 const ACTIONABLE: Record<GauntletPage, number> = {
-  forms: 29,
+  forms: 31,
   shadow: 9,
   frames: 1,
   selects: 5,
@@ -48,14 +40,16 @@ const ACTIONABLE: Record<GauntletPage, number> = {
   dnd: 12,
   upload: 4,
   scroll: 44,
-  tabs: 4,
+  tabs: 5,
   dialogs: 6,
   dupes: 14,
   dynamic: 13,
   editor: 4,
   huge: 2000,
-  states: 10,
+  states: 11,
   spa: 6,
+  escape: 9,
+  login: 5,
 };
 
 describe('gauntlet', { timeout: 30_000 }, () => {
@@ -179,6 +173,85 @@ describe('gauntlet', { timeout: 30_000 }, () => {
       await page.evaluate(() => window.__gauntlet.find('delete-2').click());
       const [click] = (await events()).filter((e) => e.type === 'click');
       expect(click.detail).toMatchObject({ trusted: false });
+    });
+  });
+
+  describe('escape', () => {
+    it('does not contact the other origin while loading', async () => {
+      const before = gauntlet.requests.other.length;
+      await open('escape');
+      await page.waitForTimeout(500);
+      expect(gauntlet.requests.other.length).toBe(before);
+    });
+
+    it('reaches the other origin when nothing stops it', async () => {
+      await open('escape');
+      const before = gauntlet.requests.other.length;
+      await page.locator('[data-g=fetch]').click();
+      await expect.poll(status).toBe('Analytics sent');
+      await page.locator('[data-g=redirect]').click();
+      await page.waitForURL(/secret-in-redirect/);
+      expect(gauntlet.requests.other.slice(before, before + 2)).toEqual([
+        'GET /api/poll',
+        'GET /tabs/child',
+      ]);
+    });
+  });
+
+  describe('login', () => {
+    it('puts a link reading "Log in" before the real submit button', async () => {
+      await open('login');
+      const all = page.getByText('Log in', { exact: true });
+      expect(await all.first().getAttribute('data-g')).toBe('nav-login');
+      expect(await page.getByRole('button', { name: 'Log in' }).count()).toBe(
+        1,
+      );
+    });
+
+    it('signs in with the right credentials and refuses the wrong ones', async () => {
+      await open('login');
+      await page.locator('[data-g=email]').fill('ghost@example.com');
+      await page.locator('[data-g=password]').fill('wrong');
+      await page.locator('[data-g=submit]').click();
+      await page.waitForURL(/error=1/);
+      expect(await page.locator('#error').textContent()).toBe(
+        'Wrong email or password',
+      );
+
+      await page.locator('[data-g=email]').fill('ghost@example.com');
+      await page.locator('[data-g=password]').fill('boo-1234');
+      await page.locator('[data-g=submit]').click();
+      await page.waitForURL(/\/account$/);
+      expect(await page.locator('h1').textContent()).toBe('Your account');
+    });
+  });
+
+  describe('other traps', () => {
+    it('has a button that is enabled and wired to nothing', async () => {
+      await open('states');
+      const before = await page.content();
+      await page.locator('[data-g=dead]').click();
+      expect(await page.content()).toBe(before);
+    });
+
+    it('starts a download from a plain link', async () => {
+      await open('tabs');
+      const [download] = await Promise.all([
+        page.waitForEvent('download'),
+        page.locator('[data-g=download-link]').click(),
+      ]);
+      expect(download.suggestedFilename()).toBe('report.csv');
+    });
+
+    it('drops the connection on /api/dead', async () => {
+      await open('forms');
+      const failed = await page.evaluate(() =>
+        fetch('/api/dead').then(
+          () => false,
+          () => true,
+        ),
+      );
+      expect(failed).toBe(true);
     });
   });
 

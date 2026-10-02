@@ -68,6 +68,14 @@
     <label>Legacy code <input data-g="disabled-input" type="text" name="legacy" value="n/a" disabled></label>
   </section>
 
+  <section>
+    <h2>Secrets that do not look like secrets</h2>
+    <!-- A password field whose label says nothing about passwords. -->
+    <label>Answer <input data-g="secret-answer" type="password" name="answer"></label>
+    <!-- A plain text field that the browser is told holds a password. -->
+    <label>PIN <input data-g="pin" type="text" name="pin" autocomplete="current-password"></label>
+  </section>
+
   <button data-g="submit" type="submit">Create account</button>
   <button data-g="reset" type="reset">Clear</button>
 </form>

@@ -13,6 +13,7 @@ export default defineConfig({
       exclude: [
         'src/**/*.test.ts',
         'src/test-support/**',
+        'src/gates/**',
         'src/mcp/index.ts',
         'src/cli/bin.ts',
         'src/benchmark/bin.ts',

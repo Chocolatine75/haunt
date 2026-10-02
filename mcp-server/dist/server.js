@@ -10701,8 +10701,7 @@ function describeInputError(toolName, error) {
 }
 
 // src/mcp/server.ts
-function createServer() {
-  const manager = new SessionManager();
+function createServer(manager = new SessionManager()) {
   const server = new Server(
     { name: "haunt", version: "0.1.0" },
     { capabilities: { tools: {} } }

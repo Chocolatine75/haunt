@@ -18,6 +18,14 @@ import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+declare global {
+  interface Window {
+    // The page's own record of what happened to it (see runtime.js).
+    // biome-ignore lint/suspicious/noExplicitAny: plain browser-side object
+    __gauntlet: any;
+  }
+}
+
 const HERE = fileURLToPath(new URL('.', import.meta.url));
 
 export const GAUNTLET_PAGES = [
@@ -38,6 +46,8 @@ export const GAUNTLET_PAGES = [
   'huge',
   'states',
   'spa',
+  'escape',
+  'login',
 ] as const;
 
 export type GauntletPage = (typeof GAUNTLET_PAGES)[number];
@@ -125,6 +135,55 @@ async function handle(
       await sleep(500);
     }
     res.end();
+    return;
+  }
+
+  // An open redirect on the app's own origin.
+  if (path === '/redirect') {
+    res.writeHead(302, { Location: url.searchParams.get('to') ?? '/' });
+    res.end();
+    return;
+  }
+  // A request the server drops without answering.
+  if (path === '/api/dead') {
+    req.socket.destroy();
+    return;
+  }
+  if (path === '/api/report.csv') {
+    res.writeHead(200, {
+      'Content-Type': 'text/csv',
+      'Content-Disposition': 'attachment; filename="report.csv"',
+    });
+    res.end('id,total\n1,120\n');
+    return;
+  }
+  // The only credentials the login page accepts.
+  if (path === '/api/login' && req.method === 'POST') {
+    let body = '';
+    for await (const chunk of req) body += chunk;
+    const form = new URLSearchParams(body);
+    const ok =
+      form.get('email') === 'ghost@example.com' &&
+      form.get('password') === 'boo-1234';
+    res.writeHead(
+      302,
+      ok
+        ? {
+            'Set-Cookie': 'gauntlet_session=signed-in; Path=/; HttpOnly',
+            Location: '/account',
+          }
+        : { Location: '/login?error=1' },
+    );
+    res.end();
+    return;
+  }
+  if (path === '/account') {
+    const signedIn = (req.headers.cookie ?? '').includes(
+      'gauntlet_session=signed-in',
+    );
+    html(
+      `<!doctype html><title>Gauntlet — account</title><script src="/_g.js"></script><h1>${signedIn ? 'Your account' : 'Please log in'}</h1>${signedIn ? '<button data-g="sign-out" type="button">Sign out</button>' : '<a data-g="to-login" href="/login">Log in</a>'}`,
+    );
     return;
   }
 

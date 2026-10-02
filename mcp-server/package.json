@@ -16,6 +16,8 @@
     "postbuild": "node scripts/vendor-playwright.mjs",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "gate": "vitest run src/gates",
+    "gate:soak": "node scripts/soak.mjs 20 src/gates",
     "check": "npm run lint && npm run typecheck && npm run build && npm run test:coverage",
     "lint": "biome check src",
     "typecheck": "tsc --noEmit"
