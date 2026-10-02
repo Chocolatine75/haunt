@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — shadow</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<h1>Shadow DOM</h1>
+
+<section><h2>Open root</h2><g-open-form></g-open-form></section>
+<section><h2>Closed root</h2><g-closed-form></g-closed-form></section>
+<section><h2>Three levels deep</h2><g-level-1></g-level-1></section>
+
+<script>
+  const G = window.__gauntlet;
+
+  function formMarkup(prefix) {
+    return `
+      <form>
+        <label>Nickname <input data-g="${prefix}-name" type="text" name="nickname"></label>
+        <label><input data-g="${prefix}-agree" type="checkbox" name="agree"> Agree</label>
+        <select data-g="${prefix}-size" name="size" aria-label="Size">
+          <option value="s">Small</option><option value="m">Medium</option><option value="l">Large</option>
+        </select>
+        <button data-g="${prefix}-save" type="submit">Save</button>
+      </form>
+      <p role="status"></p>`;
+  }
+
+  function defineForm(tag, mode, prefix) {
+    customElements.define(tag, class extends HTMLElement {
+      constructor() {
+        super();
+        const root = this.attachShadow({ mode });
+        root.innerHTML = formMarkup(prefix);
+        G.registerRoot(root);
+        root.querySelector('form').addEventListener('submit', (e) => {
+          e.preventDefault();
+          const data = {};
+          for (const [k, v] of new FormData(e.target)) data[k] = v;
+          G.record('submit', prefix, data);
+          root.querySelector('[role=status]').textContent = 'Saved';
+        });
+      }
+    });
+  }
+  defineForm('g-open-form', 'open', 'open');
+  defineForm('g-closed-form', 'closed', 'closed');
+
+  // open → closed → open, with the only control at the bottom.
+  customElements.define('g-level-3', class extends HTMLElement {
+    constructor() {
+      super();
+      const root = this.attachShadow({ mode: 'open' });
+      root.innerHTML = '<button data-g="deep-button" type="button">Deep action</button><p role="status"></p>';
+      G.registerRoot(root);
+      root.querySelector('button').addEventListener('click', () => {
+        root.querySelector('[role=status]').textContent = 'Reached level 3';
+      });
+    }
+  });
+  customElements.define('g-level-2', class extends HTMLElement {
+    constructor() {
+      super();
+      const root = this.attachShadow({ mode: 'closed' });
+      root.innerHTML = '<div><p>Level 2</p><g-level-3></g-level-3></div>';
+      G.registerRoot(root);
+    }
+  });
+  customElements.define('g-level-1', class extends HTMLElement {
+    constructor() {
+      super();
+      const root = this.attachShadow({ mode: 'open' });
+      root.innerHTML = '<div><p>Level 1</p><g-level-2></g-level-2></div>';
+      G.registerRoot(root);
+    }
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — child tab</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<h1>Report</h1>
+<button data-g="child-confirm" type="button">Confirm report</button>
+<p id="result" role="status"></p>
+<script>
+  const G = window.__gauntlet;
+  const from = new URLSearchParams(location.search).get('from');
+  G.state.from = from;
+  G.find('child-confirm').addEventListener('click', () => {
+    document.getElementById('result').textContent = 'Confirmed';
+    if (window.opener) window.opener.postMessage(`confirmed from ${from}`, '*');
+  });
+</script>
+</body>
+</html>

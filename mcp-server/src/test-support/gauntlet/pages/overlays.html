@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — overlays</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+<style>
+  .backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, .5); display: flex; align-items: center; justify-content: center; }
+  .dialog { background: #fff; padding: 20px; min-width: 260px; }
+  .banner { position: fixed; left: 0; right: 0; bottom: 0; height: 90px; background: #222; color: #fff; padding: 12px; box-sizing: border-box; }
+  .glass { position: fixed; inset: 0; background: transparent; }
+  .sticky { position: sticky; top: 0; height: 80px; background: #eef; border-bottom: 1px solid #99c; }
+  .toast { position: fixed; background: #333; color: #fff; padding: 14px 18px; }
+</style>
+</head>
+<body>
+<!--
+  One case per URL (?case=modal|banner|glass|sticky|toast) so each is tested
+  alone. In every case the element with data-g="target" is the one a user
+  wants and cannot reach while the overlay is there.
+-->
+<h1>Overlays</h1>
+<div id="stage"></div>
+<p id="result" role="status"></p>
+
+<script>
+  const G = window.__gauntlet;
+  const which = new URLSearchParams(location.search).get('case') || 'modal';
+  const stage = document.getElementById('stage');
+  G.state.case = which;
+
+  function target(label) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.g = 'target';
+    button.textContent = label;
+    button.addEventListener('click', () => {
+      document.getElementById('result').textContent = 'Target clicked';
+    });
+    return button;
+  }
+
+  if (which === 'modal') {
+    stage.append(target('Delete account'));
+    const backdrop = document.createElement('div');
+    backdrop.className = 'backdrop';
+    backdrop.dataset.g = 'backdrop';
+    backdrop.innerHTML = '<div class="dialog" role="dialog" aria-modal="true" aria-label="Session expired"><p>Your session expired.</p><button data-g="modal-close" type="button">Stay signed in</button></div>';
+    document.body.append(backdrop);
+    backdrop.querySelector('[data-g=modal-close]').addEventListener('click', () => backdrop.remove());
+  }
+
+  if (which === 'banner') {
+    // The link sits in the footer, exactly where the banner is pinned.
+    const spacer = document.createElement('div');
+    spacer.style.height = 'calc(100vh - 150px)';
+    const footer = document.createElement('footer');
+    footer.append(target('Privacy policy'));
+    stage.append(spacer, footer);
+    const banner = document.createElement('div');
+    banner.className = 'banner';
+    banner.dataset.g = 'banner';
+    banner.setAttribute('role', 'region');
+    banner.setAttribute('aria-label', 'Cookie consent');
+    banner.innerHTML = 'We use cookies. <button data-g="banner-accept" type="button">Accept</button>';
+    document.body.append(banner);
+    banner.querySelector('[data-g=banner-accept]').addEventListener('click', () => banner.remove());
+  }
+
+  if (which === 'glass') {
+    // Nothing visible is in the way; an invisible element takes every click.
+    stage.append(target('Continue'));
+    const glass = document.createElement('div');
+    glass.className = 'glass';
+    glass.dataset.g = 'glass';
+    document.body.append(glass);
+    G.state.removeGlass = () => glass.remove();
+  }
+
+  if (which === 'sticky') {
+    // Scrolling the target to the top of the viewport puts it under the header.
+    const header = document.createElement('div');
+    header.className = 'sticky';
+    header.dataset.g = 'sticky-header';
+    header.textContent = 'Sticky header';
+    const before = document.createElement('div');
+    before.style.height = '1500px';
+    const after = document.createElement('div');
+    after.style.height = '1500px';
+    stage.append(header, before, target('Load more'), after);
+  }
+
+  if (which === 'toast') {
+    // The toast sits on the target for 1.5 s, then leaves on its own.
+    const button = target('Save changes');
+    stage.append(button);
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.dataset.g = 'toast';
+    toast.setAttribute('role', 'status');
+    toast.textContent = 'Draft restored';
+    const box = button.getBoundingClientRect();
+    toast.style.left = `${box.left - 10}px`;
+    toast.style.top = `${box.top - 10}px`;
+    document.body.append(toast);
+    setTimeout(() => {
+      toast.remove();
+      G.record('gone', 'toast');
+    }, 1500);
+  }
+</script>
+</body>
+</html>

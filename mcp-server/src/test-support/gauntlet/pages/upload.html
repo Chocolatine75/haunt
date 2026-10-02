@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — upload</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+<style>
+  #zone { width: 300px; height: 90px; border: 2px dashed #888; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+</style>
+</head>
+<body>
+<h1>Upload</h1>
+
+<section>
+  <h2>Plain file input</h2>
+  <label>Avatar <input data-g="plain" type="file" name="avatar"></label>
+</section>
+
+<section>
+  <h2>Styled button in front of a hidden input</h2>
+  <button data-g="styled-button" type="button">Choose a document</button>
+  <input id="styled-input" class="visually-hidden" type="file" tabindex="-1" aria-hidden="true">
+</section>
+
+<section>
+  <h2>Drop zone</h2>
+  <div id="zone" data-g="zone" role="button" tabindex="0" aria-label="Drop files here or click to browse">Drop files here</div>
+  <input id="zone-input" class="visually-hidden" type="file" multiple tabindex="-1" aria-hidden="true">
+</section>
+
+<section>
+  <h2>Several images only</h2>
+  <label>Photos <input data-g="images" type="file" name="photos" multiple accept=".png,.jpg"></label>
+</section>
+
+<ul id="log" aria-label="Uploaded files"></ul>
+
+<script>
+  const G = window.__gauntlet;
+  G.state.uploads = {};
+  G.state.rejected = {};
+
+  async function take(id, files, accept) {
+    const accepted = [];
+    const rejected = [];
+    for (const f of files) {
+      const ok = !accept || accept.some((ext) => f.name.toLowerCase().endsWith(ext));
+      if (!ok) {
+        rejected.push(f.name);
+        continue;
+      }
+      accepted.push({ name: f.name, size: f.size, text: await f.text() });
+    }
+    G.state.uploads[id] = accepted;
+    G.state.rejected[id] = rejected;
+    G.record('upload', id, { accepted: accepted.map((f) => f.name), rejected });
+    const log = document.getElementById('log');
+    for (const f of accepted) {
+      const li = document.createElement('li');
+      li.textContent = `${id}: ${f.name} (${f.size} bytes)`;
+      log.append(li);
+    }
+    for (const name of rejected) {
+      const li = document.createElement('li');
+      li.textContent = `${id}: ${name} rejected — only .png and .jpg are allowed`;
+      log.append(li);
+    }
+  }
+
+  G.find('plain').addEventListener('change', (e) => take('plain', e.target.files));
+
+  const styledInput = document.getElementById('styled-input');
+  G.find('styled-button').addEventListener('click', () => styledInput.click());
+  styledInput.addEventListener('change', () => take('styled', styledInput.files));
+
+  const zone = G.find('zone');
+  const zoneInput = document.getElementById('zone-input');
+  zone.addEventListener('click', () => zoneInput.click());
+  zoneInput.addEventListener('change', () => take('zone', zoneInput.files));
+  zone.addEventListener('dragover', (e) => e.preventDefault());
+  zone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    take('zone', e.dataTransfer.files);
+  });
+
+  // The accept attribute only filters the picker; the page checks again.
+  G.find('images').addEventListener('change', (e) => take('images', e.target.files, ['.png', '.jpg']));
+</script>
+</body>
+</html>

@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — selects</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<h1>Selects</h1>
+
+<section>
+  <h2>Native</h2>
+  <label>Fruit
+    <select data-g="native-single" name="fruit">
+      <option value="">Choose…</option>
+      <option value="apple">Apple</option>
+      <option value="banana">Banana</option>
+      <option value="cherry">Cherry</option>
+      <option value="durian" disabled>Durian (out of stock)</option>
+    </select>
+  </label>
+  <label>Toppings
+    <select data-g="native-multiple" name="toppings" multiple size="4">
+      <option value="cheese">Cheese</option>
+      <option value="ham">Ham</option>
+      <option value="olives">Olives</option>
+      <option value="peppers">Peppers</option>
+    </select>
+  </label>
+  <label>Country (500 options)
+    <select data-g="native-huge" name="country"></select>
+  </label>
+</section>
+
+<section>
+  <h2>Custom listbox, rendered at the end of the body</h2>
+  <span id="lbl-colour">Colour</span>
+  <button data-g="listbox-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="lbl-colour listbox-value">
+    <span id="listbox-value">None</span>
+  </button>
+</section>
+
+<section>
+  <h2>Combobox with options loaded from the server</h2>
+  <label for="combo">Favourite fruit</label>
+  <input id="combo" data-g="combo" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="combo-list" autocomplete="off">
+  <ul id="combo-list" role="listbox" hidden></ul>
+</section>
+
+<script>
+  const G = window.__gauntlet;
+
+  const huge = G.find('native-huge');
+  for (let i = 1; i <= 500; i++) {
+    const option = document.createElement('option');
+    option.value = `c${i}`;
+    option.textContent = `Country ${String(i).padStart(3, '0')}`;
+    huge.appendChild(option);
+  }
+
+  // Listbox in a "portal": its options are not descendants of the trigger.
+  const COLOURS = ['Red', 'Green', 'Blue', 'Yellow', 'Purple'];
+  const trigger = G.find('listbox-trigger');
+  let popup = null;
+  function closePopup() {
+    if (popup) popup.remove();
+    popup = null;
+    trigger.setAttribute('aria-expanded', 'false');
+  }
+  trigger.addEventListener('click', () => {
+    if (popup) return closePopup();
+    popup = document.createElement('ul');
+    popup.setAttribute('role', 'listbox');
+    popup.setAttribute('aria-label', 'Colour');
+    const box = trigger.getBoundingClientRect();
+    popup.style.cssText = `position:absolute;left:${box.left + scrollX}px;top:${box.bottom + scrollY}px;margin:0;padding:4px;list-style:none;background:#fff;border:1px solid #888`;
+    for (const colour of COLOURS) {
+      const li = document.createElement('li');
+      li.setAttribute('role', 'option');
+      li.setAttribute('data-g', `colour-${colour.toLowerCase()}`);
+      li.setAttribute('aria-selected', String(document.getElementById('listbox-value').textContent === colour));
+      li.textContent = colour;
+      li.style.cssText = 'padding:2px 12px;cursor:pointer';
+      li.addEventListener('click', () => {
+        document.getElementById('listbox-value').textContent = colour;
+        G.state.colour = colour;
+        G.record('pick', 'listbox', colour);
+        closePopup();
+      });
+      popup.appendChild(li);
+    }
+    document.body.appendChild(popup);
+    trigger.setAttribute('aria-expanded', 'true');
+  });
+
+  // Combobox: options arrive ~300 ms after typing stops.
+  const combo = G.find('combo');
+  const list = document.getElementById('combo-list');
+  let request = 0;
+  combo.addEventListener('input', async () => {
+    const mine = ++request;
+    const q = combo.value.trim();
+    if (!q) {
+      list.hidden = true;
+      list.innerHTML = '';
+      combo.setAttribute('aria-expanded', 'false');
+      return;
+    }
+    const options = await (await fetch(`/api/options?q=${encodeURIComponent(q)}`)).json();
+    if (mine !== request) return;
+    list.innerHTML = '';
+    for (const name of options) {
+      const li = document.createElement('li');
+      li.setAttribute('role', 'option');
+      li.setAttribute('data-g', `combo-option-${name.toLowerCase()}`);
+      li.textContent = name;
+      li.style.cursor = 'pointer';
+      li.addEventListener('click', () => {
+        combo.value = name;
+        G.state.fruit = name;
+        G.record('pick', 'combo', name);
+        list.hidden = true;
+        list.innerHTML = '';
+        combo.setAttribute('aria-expanded', 'false');
+      });
+      list.appendChild(li);
+    }
+    list.hidden = options.length === 0;
+    combo.setAttribute('aria-expanded', String(options.length > 0));
+  });
+</script>
+</body>
+</html>

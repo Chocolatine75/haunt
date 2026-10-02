@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — SPA</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<!-- Client-side routing: the URL changes, the document never reloads. The
+     server answers every /spa/* path with this same file. -->
+<h1>Single-page app</h1>
+<nav aria-label="Sections">
+  <a data-g="nav-home" href="/spa/home">Home</a>
+  <a data-g="nav-profile" href="/spa/profile">Profile</a>
+  <a data-g="nav-slow" href="/spa/slow">Slow report</a>
+  <a data-g="nav-live" href="/spa/live">Live feed</a>
+  <a data-g="nav-stream" href="/spa/stream">Streamed log</a>
+</nav>
+<main id="view" aria-live="polite"></main>
+
+<script>
+  const G = window.__gauntlet;
+  const view = document.getElementById('view');
+  // Survives route changes and is lost on a real reload.
+  G.state.bootId = Math.random().toString(36).slice(2);
+  G.state.renders = [];
+  let stopLive = null;
+
+  const routes = {
+    home() {
+      view.innerHTML = '<h2>Home</h2><button data-g="home-action" type="button">Refresh stats</button><p id="stats">0 refreshes</p>';
+      let n = 0;
+      G.find('home-action').addEventListener('click', () => {
+        n++;
+        document.getElementById('stats').textContent = `${n} refreshes`;
+      });
+    },
+    profile() {
+      view.innerHTML = '<h2>Profile</h2><label>Display name <input data-g="profile-name" type="text" name="display"></label><button data-g="profile-save" type="button">Save profile</button><p id="saved"></p>';
+      G.find('profile-save').addEventListener('click', () => {
+        G.record('saved', 'profile', G.find('profile-name').value);
+        document.getElementById('saved').textContent = 'Profile saved';
+      });
+    },
+    // One request of 1.5 s, then the content is replaced.
+    async slow() {
+      view.innerHTML = '<h2>Slow report</h2><p id="slow-status">Loading report…</p>';
+      await fetch('/api/slow');
+      if (location.pathname !== '/spa/slow') return;
+      view.innerHTML = '<h2>Slow report</h2><p id="slow-status">Report ready</p><button data-g="slow-download" type="button">Download report</button>';
+      G.record('ready', 'slow');
+    },
+    // Polls for ever: the network is never idle on this route.
+    live() {
+      view.innerHTML = '<h2>Live feed</h2><p id="ticks">0 updates</p><button data-g="live-pause" type="button">Pause feed</button>';
+      let ticks = 0;
+      const timer = setInterval(async () => {
+        await fetch('/api/poll');
+        ticks++;
+        const el = document.getElementById('ticks');
+        if (el) el.textContent = `${ticks} updates`;
+        G.state.ticks = ticks;
+      }, 200);
+      stopLive = () => clearInterval(timer);
+      G.find('live-pause').addEventListener('click', () => {
+        clearInterval(timer);
+        G.record('paused', 'live', ticks);
+      });
+    },
+    // A response that takes three seconds to finish arriving.
+    async stream() {
+      view.innerHTML = '<h2>Streamed log</h2><pre id="log"></pre><button data-g="stream-clear" type="button">Clear log</button>';
+      G.find('stream-clear').addEventListener('click', () => { document.getElementById('log').textContent = ''; });
+      const response = await fetch('/api/stream');
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const log = document.getElementById('log');
+        if (!log) return;
+        log.textContent += decoder.decode(value);
+      }
+      G.record('complete', 'stream');
+    },
+  };
+
+  function render() {
+    if (stopLive) stopLive();
+    stopLive = null;
+    const name = location.pathname.split('/')[2] || 'home';
+    G.state.route = name;
+    G.state.renders.push(name);
+    (routes[name] || routes.home)();
+  }
+
+  document.querySelector('nav').addEventListener('click', (e) => {
+    const link = e.target.closest('a');
+    if (!link) return;
+    e.preventDefault();
+    history.pushState({}, '', link.getAttribute('href'));
+    render();
+  });
+  window.addEventListener('popstate', render);
+  render();
+</script>
+</body>
+</html>
