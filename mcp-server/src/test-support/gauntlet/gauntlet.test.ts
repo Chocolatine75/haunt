@@ -37,7 +37,7 @@ const ACTIONABLE: Record<GauntletPage, number> = {
   selects: 5,
   overlays: 3,
   hover: 8,
-  dnd: 12,
+  dnd: 10,
   upload: 4,
   scroll: 44,
   tabs: 5,
@@ -544,7 +544,7 @@ describe('gauntlet', { timeout: 30_000 }, () => {
       await open('dnd');
       await page
         .locator('[data-g=card-1]')
-        .dragTo(page.locator('[data-g=column-done]'));
+        .dragTo(page.locator('[data-g=card-3]'));
       expect((await state()).board).toEqual({
         todo: ['card-2'],
         done: ['card-3', 'card-1'],

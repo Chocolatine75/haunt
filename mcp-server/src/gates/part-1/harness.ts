@@ -294,8 +294,9 @@ export function useGauntlet(): GateContext {
   // Fails at once, before launching a browser, while the tools do not exist.
   const requireContract = () => {
     contractChecked ??= context.haunt.client.listTools().then(({ tools }) => {
-      if (!tools.some((t) => t.name === 'haunt_act')) {
-        throw new Error('haunt_act is not implemented');
+      const capture = tools.find((t) => t.name === 'haunt_capture_state');
+      if (!JSON.stringify(capture?.inputSchema ?? {}).includes('"format"')) {
+        throw new Error('the reference snapshot is not implemented');
       }
     });
     return contractChecked;

@@ -132,7 +132,7 @@ describe('G5 nothing regressed', () => {
     );
 
     gate(
-      'G5.1',
+      'G5.1b',
       'R-E1',
       'an origin the page loads itself stays allowed',
       async () => {

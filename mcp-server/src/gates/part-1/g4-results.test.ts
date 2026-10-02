@@ -185,7 +185,7 @@ const EFFECTS: Effect[] = [
     action: async (s) => ({
       type: 'drag',
       from_ref: await s.ref('card-1'),
-      to_ref: await s.ref('column-done'),
+      to_ref: await s.ref('card-3'),
     }),
     expected: { dom_changed: true, none: false },
   },
@@ -495,7 +495,7 @@ describe('G4 results', () => {
       },
     );
 
-    gate('G4.5', 'R-B6', 'taking a snapshot costs no step', async () => {
+    gate('G4.5b', 'R-B6', 'taking a snapshot costs no step', async () => {
       const s = await ctx.open('dupes');
       await s.snapshot();
       await s.capture({ format: 'text' });
