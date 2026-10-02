@@ -9,7 +9,7 @@ import {
   hauntNavigate,
   hauntSpawn,
   zodToJsonSchema
-} from "./chunk-IEQIGTBK.js";
+} from "./chunk-SOTT26FR.js";
 import {
   _enum,
   _null,
@@ -10632,9 +10632,17 @@ var TOOLS = [
   }),
   defineTool({
     name: "haunt_capture_state",
-    description: "Capture the current page state: accessibility tree, optional screenshot, optional DOM. Call this before deciding each action.",
+    description: "Capture the current page state. With a format, returns the page snapshot: every actionable element with a stable reference like [e12], in reading order with the surrounding text, across frames and shadow roots. Call this before deciding each action.",
     input: external_exports.object({
       session_id: external_exports.string(),
+      format: external_exports.enum(["text", "json"]).optional().describe(
+        "text: the snapshot as a model reads it, paged when large. json: the same snapshot as data."
+      ),
+      diff: external_exports.boolean().optional().describe("Also return what changed since the previous snapshot"),
+      within: external_exports.string().optional().describe("Reference of an element: limit the snapshot to its subtree"),
+      actionable_only: external_exports.boolean().optional().describe("Leave out the surrounding text, keep only elements"),
+      page: external_exports.number().optional().describe("Which page of a text snapshot that did not fit in one"),
+      include_attributes: external_exports.array(external_exports.string()).optional().describe("Attributes to report for each element, e.g. data-testid"),
       include_screenshot: external_exports.boolean().optional().describe("Default: true"),
       include_dom: external_exports.boolean().optional().describe(
         "Include raw HTML snapshot (capped at 5000 chars). Default: false"

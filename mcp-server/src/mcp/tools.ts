@@ -118,9 +118,35 @@ export const TOOLS: ToolDefinition[] = [
   defineTool({
     name: 'haunt_capture_state',
     description:
-      'Capture the current page state: accessibility tree, optional screenshot, optional DOM. Call this before deciding each action.',
+      'Capture the current page state. With a format, returns the page snapshot: every actionable element with a stable reference like [e12], in reading order with the surrounding text, across frames and shadow roots. Call this before deciding each action.',
     input: z.object({
       session_id: z.string(),
+      format: z
+        .enum(['text', 'json'])
+        .optional()
+        .describe(
+          'text: the snapshot as a model reads it, paged when large. json: the same snapshot as data.',
+        ),
+      diff: z
+        .boolean()
+        .optional()
+        .describe('Also return what changed since the previous snapshot'),
+      within: z
+        .string()
+        .optional()
+        .describe('Reference of an element: limit the snapshot to its subtree'),
+      actionable_only: z
+        .boolean()
+        .optional()
+        .describe('Leave out the surrounding text, keep only elements'),
+      page: z
+        .number()
+        .optional()
+        .describe('Which page of a text snapshot that did not fit in one'),
+      include_attributes: z
+        .array(z.string())
+        .optional()
+        .describe('Attributes to report for each element, e.g. data-testid'),
       include_screenshot: z.boolean().optional().describe('Default: true'),
       include_dom: z
         .boolean()
