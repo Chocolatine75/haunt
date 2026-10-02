@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // mcp-server/src/cli/headless.ts
 //
 // Standalone, non-interactive entrypoint: everything commands/haunt-test.md does
@@ -17,7 +16,6 @@ import 'dotenv/config';
 import Anthropic from '@anthropic-ai/sdk';
 import { Mistral } from '@mistralai/mistralai';
 import type { Cookie } from 'playwright';
-import { isMainModule } from '../is-main-module.js';
 import { SessionManager } from '../session/manager.js';
 import { hauntCaptureState } from '../tools/capture.js';
 import { hauntEndSession } from '../tools/end-session.js';
@@ -328,7 +326,9 @@ export async function runHeadlessTest(
   return { report, failures };
 }
 
-async function main() {
+// Invoked by bin.ts — the only module that calls it, so importing this file
+// (from tests, or from benchmark/run.ts) never starts a run.
+export async function main() {
   let options: CliOptions;
   try {
     options = parseArgs(process.argv.slice(2));
@@ -393,10 +393,4 @@ async function main() {
     );
     process.exit(2);
   }
-}
-
-// Only auto-run when executed directly (not when imported by tests) — see
-// is-main-module.ts for why this can't be a raw string comparison.
-if (isMainModule(import.meta.url)) {
-  main();
 }

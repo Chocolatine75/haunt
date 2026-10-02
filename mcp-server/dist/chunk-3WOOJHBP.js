@@ -377,6 +377,18 @@ function hauntGenerateReport(input) {
   };
 }
 
+// src/tools/get-cookies.ts
+async function hauntGetCookies(manager, input) {
+  const session = manager.get(input.session_id);
+  await manager.reapStale(SESSION_TTL_MS);
+  const raw = await session.page.context().cookies();
+  const cookies = raw.map((c) => ({
+    ...c,
+    sameSite: c.sameSite ?? "None"
+  }));
+  return { cookies };
+}
+
 // src/tools/navigate.ts
 import { mkdirSync as mkdirSync3 } from "fs";
 var SANDBOX_BLOCK_PREFIX = "Blocked by the haunt test sandbox (request targeted an origin outside the app under test) \u2014 this is not an app bug: ";
@@ -7854,18 +7866,6 @@ async function hauntSpawn(manager, input) {
     persona_goal: personaConfig.scenarios[0]?.goal ?? "Explore the application",
     persona_description: personaConfig.system_prompt
   };
-}
-
-// src/tools/get-cookies.ts
-async function hauntGetCookies(manager, input) {
-  const session = manager.get(input.session_id);
-  await manager.reapStale(SESSION_TTL_MS);
-  const raw = await session.page.context().cookies();
-  const cookies = raw.map((c) => ({
-    ...c,
-    sameSite: c.sameSite ?? "None"
-  }));
-  return { cookies };
 }
 
 // node_modules/zod-to-json-schema/dist/esm/Options.js

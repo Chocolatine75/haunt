@@ -3,8 +3,8 @@ import { defineConfig } from 'tsup';
 export default defineConfig({
   entry: {
     server: 'src/index.ts',
-    cli: 'src/cli/headless.ts',
-    benchmark: 'src/benchmark/run.ts',
+    cli: 'src/cli/bin.ts',
+    benchmark: 'src/benchmark/bin.ts',
   },
   format: ['esm'],
   outDir: 'dist',

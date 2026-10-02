@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    branches: [master, v2]
   pull_request:
 
 jobs:
@@ -36,5 +36,5 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npx playwright install --with-deps chromium
-      - run: npm test
+      - run: npm run test:coverage
       - run: npm run build
