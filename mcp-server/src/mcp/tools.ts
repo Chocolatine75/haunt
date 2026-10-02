@@ -13,7 +13,6 @@ import { actionSchema } from '../engine/act/schema.js';
 import { hauntCaptureState } from '../engine/capture.js';
 import { hauntEndSession } from '../engine/end-session.js';
 import { hauntGetCookies } from '../engine/get-cookies.js';
-import { hauntNavigate } from '../engine/navigate.js';
 import { hauntEstimateCost } from '../engine/report/estimate-cost.js';
 import { hauntGenerateReport } from '../engine/report/generate-report.js';
 import type { SessionManager } from '../engine/session/manager.js';
@@ -103,24 +102,6 @@ export const TOOLS: ToolDefinition[] = [
     run: (manager, input) => hauntGetCookies(manager, input),
   }),
   defineTool({
-    name: 'haunt_navigate',
-    description:
-      'Execute a browser action decided by the orchestrator (as the persona). Actions: "click <target>", "fill <text> in <field>", "goto <url>", "press <key>".',
-    input: z.object({
-      session_id: z.string().describe('Session ID from haunt_spawn'),
-      action: z
-        .string()
-        .describe(
-          'Action to perform, e.g. "click Login", "fill test@example.com in Email", "goto http://localhost:3000/about", "press Enter"',
-        ),
-      issues: z
-        .array(issueSchema)
-        .optional()
-        .describe('Issues the orchestrator observed during this step'),
-    }),
-    run: (manager, input) => hauntNavigate(manager, input),
-  }),
-  defineTool({
     name: 'haunt_act',
     description:
       'Run one or more actions on elements named by their reference from the snapshot (click, fill, type, press, select, check, hover, scroll, drag, upload, goto, tab, dialog, wait_for, read…). Each action reports what it really changed: navigation, new tab, dialog, download, or nothing at all. A sequence stops at the first failure, navigation, dialog or new tab. A failed action says why (covered and by what, disabled, stale reference…); it is information, not necessarily an app bug.',
@@ -150,7 +131,7 @@ export const TOOLS: ToolDefinition[] = [
   defineTool({
     name: 'haunt_capture_state',
     description:
-      'Capture the current page state. With a format, returns the page snapshot: every actionable element with a stable reference like [e12], in reading order with the surrounding text, across frames and shadow roots. Call this before deciding each action.',
+      'Capture the current page as a snapshot: every actionable element with a stable reference like [e12], in reading order with the surrounding text, across frames and shadow roots. Call this before deciding each action; use the references with haunt_act.',
     input: z.object({
       session_id: z.string(),
       format: z
@@ -179,13 +160,10 @@ export const TOOLS: ToolDefinition[] = [
         .array(z.string())
         .optional()
         .describe('Attributes to report for each element, e.g. data-testid'),
-      include_screenshot: z.boolean().optional().describe('Default: true'),
-      include_dom: z
+      include_screenshot: z
         .boolean()
         .optional()
-        .describe(
-          'Include raw HTML snapshot (capped at 5000 chars). Default: false',
-        ),
+        .describe('Also save a screenshot. Default: false'),
     }),
     run: (manager, input) => hauntCaptureState(manager, input),
   }),

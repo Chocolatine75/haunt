@@ -36,8 +36,8 @@ The seven tools:
 | Tool | Does |
 |---|---|
 | `haunt_spawn` | Launches Chromium for a persona, loads the URL, builds the sandbox allowlist |
-| `haunt_capture_state` | URL, title, ARIA snapshot (4k chars), optional DOM (5k chars) and screenshot |
-| `haunt_navigate` | Runs one text action: `click X`, `fill V in F`, `goto URL`, `press K`; records issues |
+| `haunt_capture_state` | The page snapshot: every actionable element with a stable reference, in reading order with the page text; optional screenshot |
+| `haunt_act` | Runs structured actions on references (click, fill, type, select, hover, drag, upload, tab, dialog…), with real input, and reports what each changed |
 | `haunt_get_cookies` | Exports cookies so a login can be reused by other sessions |
 | `haunt_end_session` | Closes the browser, returns issues and blocked requests |
 | `haunt_estimate_cost` | Browser-call estimate printed before a run |
@@ -145,6 +145,30 @@ The specs and plans for all of this are in `docs/v2/`.
   pipeline reads as a pass. Entrypoints are now separate `bin.ts` files that
   nothing imports.
 
+### October 2 — part 1 of the v3 roadmap
+
+Element references and a full action set, built gate-first (see
+[`ROADMAP.md`](ROADMAP.md) and [`v3/part-1-actions.md`](v3/part-1-actions.md)):
+
+- The gauntlet, a hostile 19-page app each page of which keeps its own record
+  of what really happened to it.
+- A gate of 246 tests written before the code, run as expected failures until
+  each group passed, and tested itself by ten deliberate breakages of the
+  engine.
+- `haunt_capture_state` returns a reference snapshot through closed shadow
+  roots and frames of any origin; `haunt_act` replaces `haunt_navigate` and
+  its regex grammar with 21 structured actions, real pointer and keyboard
+  input, 14 failure codes, and results that say what changed once the page
+  has settled.
+- `/haunt-test`, `haunt-ci` and the login helper moved to references. Version
+  0.2.0.
+
+This removed several weaknesses listed below as they stood in September:
+slow failures (a missed click now fails in under two seconds with the
+reason), the regex grammar and its four verbs, errors arriving one step late,
+failed actions filed as app bugs, and the browser `haunt-ci` leaked when its
+decider threw.
+
 ## Decisions worth remembering
 
 - **The host LLM is the brain.** The server executes; it does not decide. Only
@@ -170,25 +194,20 @@ Carried over from the v2 spec:
 - The loop is a fixed number of steps with no follow-up on anything suspicious.
 - On logic bugs, reading the code is faster and more accurate than haunt.
 
-Observed while writing the October tests:
+Still true after part 1:
 
-- **Slow failures.** `click` tries five roles in turn with a 3-second timeout
-  each, so clicking a link costs 3 seconds and a tab 9. A `fill` on a field
-  that does not exist waits Playwright's default 30 seconds.
-- **Errors arrive one step late, and the last ones are lost.** Console and
-  network errors are returned by the *next* `haunt_navigate`.
-  `haunt_end_session` does not return them, so anything raised after the final
-  action never reaches the orchestrator.
-- **The action grammar is a regex.** A value containing ` in ` cannot be typed
-  (`fill sign in now in Email` splits at the first ` in `). There is no
-  scroll, hover, select-option, upload, drag, wait, or back.
-- **`haunt-ci` leaks a browser when the decider throws** mid-session; the
-  session is never ended. The process exit hides it today.
 - **`likelyFile` assumes the Next.js App Router** and is wrong elsewhere.
 - **`--compare` matches issues by page, category and severity**, so two
   different issues on one page can be counted as the same.
 - **Reports are named by date and persona**, so a second run on the same day
   overwrites the first.
+- **The sandbox buffers each response before handing it to the page**, so a
+  streamed response arrives all at once.
+- **`upload` needs a file input it can find** (the element, one inside it, its
+  label's, or the only one nearby). A button that creates its input when
+  clicked is not handled.
+- **A cover in the parent page over an iframe is not detected** for elements
+  inside that iframe.
 - `haunt-ci`'s default Anthropic model id (`claude-opus-5` in
   `cli/headless.ts`) should be checked against current model ids.
 
@@ -199,7 +218,8 @@ Run from `mcp-server/`. `npm run check` runs everything CI runs.
 | Layer | Files | What it proves |
 |---|---|---|
 | Unit | `engine/session/`, `engine/persona/`, `engine/screenshots`, `engine/report/`, `engine/end-session`, `engine/get-cookies`, `cli/providers/`, `benchmark/` | Pure logic with mocks |
-| Tool, real browser | `engine/navigate.test.ts`, `engine/navigate-actions.test.ts`, `engine/capture.test.ts`, `engine/spawn.test.ts`, `engine/spawn-session.test.ts`, `cli/authenticate.test.ts` | Each tool against real pages: the action grammar phrase by phrase, redaction, sandbox blocks, session setup |
+| Tool, real browser | `engine/capture.test.ts`, `engine/spawn.test.ts`, `engine/spawn-session.test.ts`, `cli/authenticate.test.ts` | Tools against real pages: session setup, sandbox blocks, login |
+| Gate | `gates/part-1/` on `test-support/gauntlet/` | The roadmap's acceptance tests: snapshot, every action, every failure, results, regressions, performance, and the gate itself |
 | Protocol | `mcp/server.test.ts` | Tool list, schemas, argument validation, error results, through a real MCP client |
 | End to end | `e2e/mcp-flow.test.ts`, `e2e/headless-flow.test.ts` | A whole session against a real HTTP app, over MCP and through the `haunt-ci` loop with a scripted decider |
 | Distribution | `distribution.test.ts` | The committed `dist/` boots over stdio, matches `src/`, the CLIs exit with the right codes, manifests, command prompt and docs agree |

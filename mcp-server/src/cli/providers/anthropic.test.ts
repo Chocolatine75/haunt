@@ -3,9 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Issue } from '../../engine/types.js';
 import { createAnthropicDecider } from './anthropic.js';
 
-function mockClient(
-  turns: Array<{ action: string; issues?: Issue[] }>,
-): Anthropic {
+function mockClient(turns: unknown[]): Anthropic {
   let call = 0;
   const create = vi.fn(async () => {
     const turn = turns[Math.min(call, turns.length - 1)];
@@ -29,7 +27,7 @@ describe('createAnthropicDecider', () => {
   it('reads the action and issues out of the tool_use block', async () => {
     const client = mockClient([
       {
-        action: 'click Login',
+        actions: [{ type: 'click', ref: 'e1' }],
         issues: [
           {
             severity: 'minor',
@@ -44,12 +42,14 @@ describe('createAnthropicDecider', () => {
     const decide = createAnthropicDecider(client, 'claude-opus-5');
 
     const result = await decide('You are...', 'state');
-    expect(result.action).toBe('click Login');
+    expect(result.actions).toEqual([{ type: 'click', ref: 'e1' }]);
     expect(result.issues).toHaveLength(1);
   });
 
   it('defaults issues to an empty array when omitted', async () => {
-    const client = mockClient([{ action: 'press Enter' }]);
+    const client = mockClient([
+      { actions: [{ type: 'press', keys: 'Enter' }] },
+    ]);
     const decide = createAnthropicDecider(client, 'claude-opus-5');
 
     const result = await decide('sys', 'state');
@@ -73,7 +73,9 @@ describe('createAnthropicDecider', () => {
   });
 
   it('calls the SDK with the model, forced tool_choice, and system prompt', async () => {
-    const client = mockClient([{ action: 'press Enter' }]);
+    const client = mockClient([
+      { actions: [{ type: 'press', keys: 'Enter' }] },
+    ]);
     const decide = createAnthropicDecider(client, 'claude-opus-5');
 
     await decide('You are a confused beginner', 'URL: /signup');

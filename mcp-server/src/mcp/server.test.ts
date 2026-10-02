@@ -12,7 +12,6 @@ const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const EXPECTED_TOOLS = [
   'haunt_spawn',
   'haunt_get_cookies',
-  'haunt_navigate',
   'haunt_capture_state',
   'haunt_end_session',
   'haunt_estimate_cost',
@@ -61,7 +60,7 @@ describe('MCP server', () => {
     }
   });
 
-  it('uses the same issue schema for haunt_navigate and haunt_generate_report', async () => {
+  it('uses the same issue schema for haunt_act and haunt_generate_report', async () => {
     const { tools } = await haunt.client.listTools();
     const schemaOf = (name: string) =>
       tools.find((t) => t.name === name)?.inputSchema.properties as Record<
@@ -69,10 +68,10 @@ describe('MCP server', () => {
         // biome-ignore lint/suspicious/noExplicitAny: walking raw JSON Schema
         any
       >;
-    const navigateIssue = schemaOf('haunt_navigate').issues.items;
+    const actIssue = schemaOf('haunt_act').issues.items;
     const reportIssue = schemaOf('haunt_generate_report').sessions.items
       .properties.issues.items;
-    expect(reportIssue).toEqual(navigateIssue);
+    expect(reportIssue).toEqual(actIssue);
   });
 
   it('returns a tool result as JSON text', async () => {
@@ -93,7 +92,7 @@ describe('MCP server', () => {
   });
 
   it.each([
-    ['haunt_navigate', { session_id: 'nope', action: 'click Login' }],
+    ['haunt_act', { session_id: 'nope', actions: [{ type: 'reload' }] }],
     ['haunt_capture_state', { session_id: 'nope' }],
     ['haunt_get_cookies', { session_id: 'nope' }],
     ['haunt_end_session', { session_id: 'nope' }],
@@ -155,9 +154,9 @@ describe('MCP server', () => {
     });
 
     it('rejects an issue with an unknown severity before it reaches a session', async () => {
-      const result = await haunt.call('haunt_navigate', {
+      const result = await haunt.call('haunt_act', {
         session_id: 'nope',
-        action: 'click Login',
+        actions: [{ type: 'reload' }],
         issues: [
           {
             severity: 'blocker',

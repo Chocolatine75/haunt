@@ -13,7 +13,7 @@ export function createServer(
   manager: SessionManager = new SessionManager(),
 ): Server {
   const server = new Server(
-    { name: 'haunt', version: '0.1.0' },
+    { name: 'haunt', version: '0.2.0' },
     { capabilities: { tools: {} } },
   );
 

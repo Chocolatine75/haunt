@@ -65,6 +65,10 @@ export const PASSING: ReadonlySet<string> = new Set<string>([
   'G6.2',
   'G6.3',
   'G7.1',
+  // The switch away from the old grammar.
+  'G5.3',
+  'G5.4b',
+  'G5.5',
   'G6.1',
   'G6.4',
 ]);

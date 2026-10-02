@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { SessionManager } from '../engine/session/manager.js';
 import type { Issue } from '../engine/types.js';
+import type { Action } from '../gates/part-1/contract.js';
 import {
   type CliOptions,
   parseArgs,
@@ -184,13 +185,13 @@ describe('runHeadlessTest', () => {
   }
 
   function fakeDecider(
-    turns: Array<{ action: string; issues?: Issue[] }>,
+    turns: Array<{ actions: Action[]; issues?: Issue[] }>,
   ): ActionDecider {
     let call = 0;
     return async () => {
       const turn = turns[Math.min(call, turns.length - 1)];
       call++;
-      return { action: turn.action, issues: turn.issues ?? [] };
+      return { actions: turn.actions, issues: turn.issues ?? [] };
     };
   }
 
@@ -200,7 +201,7 @@ describe('runHeadlessTest', () => {
       {
         // Fast, always-successful action — the point of this test is that a
         // reported issue flows through to the report, not that the action fails.
-        action: 'press A',
+        actions: [{ type: 'press', keys: 'A' }],
         issues: [
           {
             severity: 'critical',
@@ -226,7 +227,7 @@ describe('runHeadlessTest', () => {
 
   it('records a per-persona failure without aborting the whole run', async () => {
     const manager = new SessionManager();
-    const decide = fakeDecider([{ action: 'press A' }]);
+    const decide = fakeDecider([{ actions: [{ type: 'press', keys: 'A' }] }]);
 
     const { report, failures } = await runHeadlessTest(decide, manager, {
       ...baseOptions(),
@@ -240,7 +241,7 @@ describe('runHeadlessTest', () => {
 
   it('throws when every persona session fails', async () => {
     const manager = new SessionManager();
-    const decide = fakeDecider([{ action: 'press A' }]);
+    const decide = fakeDecider([{ actions: [{ type: 'press', keys: 'A' }] }]);
 
     await expect(
       runHeadlessTest(decide, manager, {
@@ -255,7 +256,7 @@ describe('runHeadlessTest', () => {
     const stateDescriptions: string[] = [];
     const decide: ActionDecider = async (_persona, state) => {
       stateDescriptions.push(state);
-      return { action: 'press A', issues: [] };
+      return { actions: [{ type: 'press', keys: 'A' }], issues: [] };
     };
 
     await runHeadlessTest(decide, manager, baseOptions());
@@ -268,7 +269,7 @@ describe('runHeadlessTest', () => {
     const stateDescriptions: string[] = [];
     const decide: ActionDecider = async (_persona, state) => {
       stateDescriptions.push(state);
-      return { action: 'press A', issues: [] };
+      return { actions: [{ type: 'press', keys: 'A' }], issues: [] };
     };
 
     await runHeadlessTest(decide, manager, {

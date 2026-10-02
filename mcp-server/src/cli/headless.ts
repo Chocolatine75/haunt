@@ -16,9 +16,9 @@ import 'dotenv/config';
 import Anthropic from '@anthropic-ai/sdk';
 import { Mistral } from '@mistralai/mistralai';
 import type { Cookie } from 'playwright';
+import { hauntAct } from '../engine/act/act.js';
 import { hauntCaptureState } from '../engine/capture.js';
 import { hauntEndSession } from '../engine/end-session.js';
-import { hauntNavigate } from '../engine/navigate.js';
 import type {
   GenerateReportOutput,
   SessionResult,
@@ -26,10 +26,11 @@ import type {
 import { hauntGenerateReport } from '../engine/report/generate-report.js';
 import { SessionManager } from '../engine/session/manager.js';
 import { hauntSpawn } from '../engine/spawn.js';
+import type { ActResult } from '../gates/part-1/contract.js';
 import { authenticate } from './authenticate.js';
 import { createAnthropicDecider } from './providers/anthropic.js';
 import { createMistralDecider } from './providers/mistral.js';
-import type { ActionDecider } from './providers/types.js';
+import { type ActionDecider, MAX_ACTIONS_PER_STEP } from './providers/types.js';
 
 export type Provider = 'anthropic' | 'mistral';
 
@@ -175,35 +176,75 @@ const UNAUTHENTICATED_NOTE =
   'account data, admin controls) without redirecting you to a login page ' +
   'first, that is itself a serious security bug — report it.';
 
-// The decider LLM never sees hauntNavigate's return value directly — only the
-// next step's state description. Without this note a sandbox-blocked request
-// reaches it as an unexplained broken-looking page, and it files an app bug.
+// The decider only ever sees the next step's state description, so whatever
+// its last actions did has to be told there. Without the sandbox note a
+// blocked request reaches it as an unexplained broken-looking page, and it
+// files an app bug.
 const SANDBOX_BLOCK_NOTE =
   'Note: your last action was blocked by the haunt test sandbox because it ' +
   'targeted an origin outside the app under test. This is NOT an app bug — ' +
   'do not report it as an issue. Blocked: ';
 
-function sandboxBlockNote(blocked: string[]): string {
-  return `${SANDBOX_BLOCK_NOTE}${blocked.join('; ')}`;
+const HOW_TO_ACT =
+  'Elements are named by the reference in square brackets, e.g. [e12]. Use ' +
+  'that reference in your actions. A failed action is information about the ' +
+  'page (covered, disabled, gone), not necessarily a bug. An action that ' +
+  'changed nothing at all on a control that should do something is worth ' +
+  'reporting.';
+
+// What the last decision did, in a few lines the next decision can use.
+function describeOutcome(result: ActResult): string {
+  const lines = result.results.map((step, i) => {
+    if (!step.ok)
+      return `${i + 1}. ${step.type}: FAILED — ${step.error?.message}`;
+    const effects: string[] = [];
+    if (step.changes.navigated)
+      effects.push(`went to ${step.changes.url_after}`);
+    if (step.changes.tabs_opened.length > 0) effects.push('opened a new tab');
+    if (step.changes.dialog) {
+      effects.push(
+        `a ${step.changes.dialog.type} dialog opened: "${step.changes.dialog.message}"`,
+      );
+    }
+    if (step.changes.download)
+      effects.push(`downloaded ${step.changes.download.filename}`);
+    if (step.changes.none) effects.push('nothing changed on the page');
+    else if (effects.length === 0) effects.push('the page changed');
+    if (!step.settled)
+      effects.push('the page was still busy when the wait ran out');
+    return `${i + 1}. ${step.type}: ${effects.join(', ')}`;
+  });
+  if (result.requested > result.executed) {
+    lines.push(
+      `(${result.requested - result.executed} further action(s) were not run)`,
+    );
+  }
+  if (result.console_errors.length > 0) {
+    lines.push(
+      `Console errors: ${result.console_errors.slice(0, 5).join(' | ')}`,
+    );
+  }
+  if (result.network_errors.length > 0) {
+    lines.push(
+      `Failed requests: ${result.network_errors.slice(0, 5).join(' | ')}`,
+    );
+  }
+  return `Your last actions:\n${lines.join('\n')}`;
 }
 
 function describeState(
-  url: string,
-  title: string,
-  accessibilityTree: string | undefined,
-  accessibilityTreeError: string | undefined,
+  snapshot: string,
   step: number,
   steps: number,
   authenticated: boolean,
-  sandboxBlocked?: string[],
+  last?: ActResult,
 ): string {
-  const treeSection = accessibilityTree
-    ? accessibilityTree
-    : `(unavailable: ${accessibilityTreeError ?? 'unknown error'})`;
-  const base = `URL: ${url}\nTitle: ${title}\nStep ${step} of ${steps}\n\nAccessibility tree:\n${treeSection}`;
-  const sections = [base];
+  const sections = [`Step ${step} of ${steps}\n\n${snapshot}`, HOW_TO_ACT];
+  if (last) sections.push(describeOutcome(last));
   if (!authenticated) sections.push(UNAUTHENTICATED_NOTE);
-  if (sandboxBlocked?.length) sections.push(sandboxBlockNote(sandboxBlocked));
+  if (last?.sandbox_blocked?.length) {
+    sections.push(`${SANDBOX_BLOCK_NOTE}${last.sandbox_blocked.join('; ')}`);
+  }
   return sections.join('\n\n');
 }
 
@@ -221,43 +262,38 @@ async function runPersonaSession(
     persona: personaName,
     target_url: targetUrl,
     headless,
-    timeout: steps,
+    // One step is one decision, which may carry several actions.
+    timeout: steps * MAX_ACTIONS_PER_STEP,
     cookies,
   });
 
-  // Carries a sandbox block from the step that caused it into the next step's
-  // state description, which is the only channel the decider LLM reads.
-  let sandboxBlocked: string[] | undefined;
+  try {
+    let last: ActResult | undefined;
+    for (let step = 1; step <= steps; step++) {
+      const state = await hauntCaptureState(manager, {
+        session_id: spawnResult.session_id,
+        format: 'text',
+      });
 
-  for (let step = 1; step <= steps; step++) {
-    const state = await hauntCaptureState(manager, {
-      session_id: spawnResult.session_id,
-      include_screenshot: false,
-      include_dom: false,
-    });
+      const { actions, issues } = await decide(
+        spawnResult.persona_description,
+        describeState(state.text, step, steps, authenticated, last),
+      );
 
-    const stateDescription = describeState(
-      state.url,
-      state.title,
-      state.accessibility_tree,
-      state.accessibility_tree_error,
-      step,
-      steps,
-      authenticated,
-      sandboxBlocked,
-    );
-
-    const { action, issues } = await decide(
-      spawnResult.persona_description,
-      stateDescription,
-    );
-
-    const navigateResult = await hauntNavigate(manager, {
-      session_id: spawnResult.session_id,
-      action,
-      issues,
-    });
-    sandboxBlocked = navigateResult.sandbox_blocked;
+      last = await hauntAct(manager, {
+        session_id: spawnResult.session_id,
+        actions,
+        issues,
+      });
+    }
+  } catch (error) {
+    // The browser must not outlive a session that failed half-way.
+    if (manager.has(spawnResult.session_id)) {
+      await hauntEndSession(manager, {
+        session_id: spawnResult.session_id,
+      }).catch(() => {});
+    }
+    throw error;
   }
 
   const endResult = await hauntEndSession(manager, {
