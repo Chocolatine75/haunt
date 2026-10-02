@@ -54,10 +54,826 @@ var SCREENSHOT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1e3;
 var SESSION_TTL_MS = 10 * 60 * 1e3;
 var SESSION_MAX_ACTIVE_DURATION_MS = 15 * 60 * 1e3;
 
+// src/engine/snapshot/page-script.ts
+function installHooks() {
+  const w = window;
+  if (w.__haunt) return;
+  const state = {
+    doc: Math.random().toString(36).slice(2),
+    roots: /* @__PURE__ */ new WeakMap(),
+    ids: /* @__PURE__ */ new WeakMap(),
+    nodes: /* @__PURE__ */ new Map(),
+    next: 1
+  };
+  Object.defineProperty(window, "__haunt", { value: state, enumerable: false });
+  const original = Element.prototype.attachShadow;
+  Element.prototype.attachShadow = function(init) {
+    const root = original.call(this, init);
+    state.roots.set(this, root);
+    return root;
+  };
+}
+function collect(options) {
+  let state = window.__haunt;
+  if (!state) {
+    state = {
+      doc: Math.random().toString(36).slice(2),
+      roots: /* @__PURE__ */ new WeakMap(),
+      ids: /* @__PURE__ */ new WeakMap(),
+      nodes: /* @__PURE__ */ new Map(),
+      next: 1
+    };
+    Object.defineProperty(window, "__haunt", {
+      value: state,
+      enumerable: false
+    });
+  }
+  const st = state;
+  const idOf = (node) => {
+    let id = st.ids.get(node);
+    if (!id) {
+      id = st.next++;
+      st.ids.set(node, id);
+      st.nodes.set(id, new WeakRef(node));
+    }
+    return id;
+  };
+  const shadowOf = (el) => el.shadowRoot ?? st.roots.get(el) ?? null;
+  const INTERACTIVE_ROLES = /* @__PURE__ */ new Set([
+    "button",
+    "link",
+    "checkbox",
+    "radio",
+    "switch",
+    "textbox",
+    "searchbox",
+    "combobox",
+    "slider",
+    "spinbutton",
+    "menuitem",
+    "menuitemcheckbox",
+    "menuitemradio",
+    "option",
+    "tab",
+    "treeitem",
+    "separator",
+    "scrollbar"
+  ]);
+  const INTERACTIVE_CURSORS = /* @__PURE__ */ new Set([
+    "pointer",
+    "grab",
+    "grabbing",
+    "move",
+    "ew-resize",
+    "ns-resize",
+    "col-resize",
+    "row-resize",
+    "nesw-resize",
+    "nwse-resize"
+  ]);
+  const SKIPPED_TAGS = /* @__PURE__ */ new Set([
+    "SCRIPT",
+    "STYLE",
+    "NOSCRIPT",
+    "TEMPLATE",
+    "HEAD",
+    "META",
+    "LINK",
+    "TITLE",
+    "OPTION",
+    "OPTGROUP"
+  ]);
+  const HEADINGS = {
+    H1: 1,
+    H2: 2,
+    H3: 3,
+    H4: 4,
+    H5: 5,
+    H6: 6
+  };
+  const squash = (text) => text.replace(/\s+/g, " ").trim();
+  const styleCache = /* @__PURE__ */ new Map();
+  const styleOf = (el) => {
+    let style = styleCache.get(el);
+    if (!style) {
+      style = getComputedStyle(el);
+      styleCache.set(el, style);
+    }
+    return style;
+  };
+  const parentOf = (node) => {
+    if (node.parentElement) return node.parentElement;
+    const root = node.getRootNode();
+    return root instanceof ShadowRoot ? root.host : null;
+  };
+  const visibleText = (root) => {
+    const parts = [];
+    const walk2 = (node) => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        parts.push(node.nodeValue ?? "");
+        return;
+      }
+      if (!(node instanceof Element)) return;
+      if (SKIPPED_TAGS.has(node.tagName)) return;
+      if (node.getAttribute("aria-hidden") === "true") return;
+      if (node !== root) {
+        const style = styleOf(node);
+        if (style.display === "none" || style.visibility === "hidden") return;
+      }
+      if (node instanceof HTMLImageElement && node.alt) parts.push(node.alt);
+      for (const child of node.childNodes) walk2(child);
+    };
+    walk2(root);
+    return squash(parts.join(" "));
+  };
+  const roleOf = (el) => {
+    const explicit = el.getAttribute("role")?.trim().split(/\s+/)[0];
+    if (explicit) return explicit;
+    const tag = el.tagName;
+    if (tag === "A") return el.hasAttribute("href") ? "link" : "generic";
+    if (tag === "BUTTON" || tag === "SUMMARY") return "button";
+    if (tag === "TEXTAREA") return "textbox";
+    if (tag === "SELECT") {
+      const select = el;
+      return select.multiple || select.size > 1 ? "listbox" : "combobox";
+    }
+    if (tag === "INPUT") {
+      const type2 = el.type;
+      if (type2 === "checkbox") return "checkbox";
+      if (type2 === "radio") return "radio";
+      if (type2 === "range") return "slider";
+      if (type2 === "number") return "spinbutton";
+      if (type2 === "search") return "searchbox";
+      if (["button", "submit", "reset", "image", "file", "color"].includes(type2))
+        return "button";
+      return "textbox";
+    }
+    if (el.isContentEditable) return "textbox";
+    return "generic";
+  };
+  const nameOf = (el, role) => {
+    const labelledBy = el.getAttribute("aria-labelledby");
+    if (labelledBy) {
+      const root = el.getRootNode();
+      const text = labelledBy.split(/\s+/).map((id) => root.getElementById(id)).filter((n) => n !== null).map((n) => visibleText(n) || squash(n.textContent ?? "")).join(" ");
+      if (squash(text)) return squash(text);
+    }
+    const ariaLabel = el.getAttribute("aria-label");
+    if (ariaLabel && squash(ariaLabel)) return squash(ariaLabel);
+    const labels = el.labels;
+    if (labels && labels.length > 0) {
+      const text = [...labels].map((label) => {
+        const clone = label.cloneNode(true);
+        for (const control of clone.querySelectorAll(
+          "input, select, textarea, button"
+        )) {
+          control.remove();
+        }
+        return squash(clone.textContent ?? "");
+      }).join(" ");
+      if (squash(text)) return squash(text);
+    }
+    if (el instanceof HTMLInputElement) {
+      if (["button", "submit", "reset"].includes(el.type) && el.value)
+        return squash(el.value);
+      if (el.type === "image" && el.alt) return squash(el.alt);
+    }
+    if (el instanceof HTMLImageElement && el.alt) return squash(el.alt);
+    const fromContent = ![
+      "textbox",
+      "searchbox",
+      "combobox",
+      "listbox",
+      "spinbutton",
+      "slider"
+    ].includes(role) && !(role === "generic" && isScrollable(el));
+    if (fromContent && !(el instanceof HTMLInputElement) && !(el instanceof HTMLSelectElement)) {
+      const text = visibleText(el);
+      if (text) return text.length > 120 ? `${text.slice(0, 117)}...` : text;
+    }
+    const title = el.getAttribute("title");
+    if (title && squash(title)) return squash(title);
+    const placeholder = el.getAttribute("placeholder");
+    return placeholder ? squash(placeholder) : "";
+  };
+  const scrolls = (v) => v === "auto" || v === "scroll";
+  const isScrollable = (el) => {
+    if (el === document.documentElement || el === document.body) return false;
+    const style = styleOf(el);
+    const vertical = scrolls(style.overflowY);
+    const horizontal = scrolls(style.overflowX);
+    if (!vertical && !horizontal) return false;
+    return vertical && el.scrollHeight - el.clientHeight >= 1 || horizontal && el.scrollWidth - el.clientWidth >= 1;
+  };
+  const isActionable = (el) => {
+    const tag = el.tagName;
+    if (SKIPPED_TAGS.has(tag)) return false;
+    if (el.getAttribute("aria-hidden") === "true") return false;
+    if (tag === "INPUT") return el.type !== "hidden";
+    if (tag === "BUTTON" || tag === "SELECT" || tag === "TEXTAREA" || tag === "SUMMARY")
+      return true;
+    if (tag === "A") return el.hasAttribute("href");
+    const role = el.getAttribute("role")?.trim().split(/\s+/)[0];
+    if (role && INTERACTIVE_ROLES.has(role)) return true;
+    if (el.hasAttribute("contenteditable") && el.getAttribute("contenteditable") !== "false")
+      return true;
+    if (el.hasAttribute("onclick")) return true;
+    if (el.getAttribute("draggable") === "true") return true;
+    const tabindex = el.getAttribute("tabindex");
+    if (tabindex !== null && Number(tabindex) >= 0) return true;
+    if (tag === "IFRAME" || tag === "HTML" || tag === "BODY") return false;
+    const cursor = styleOf(el).cursor;
+    if (INTERACTIVE_CURSORS.has(cursor)) {
+      const parent = parentOf(el);
+      if (!parent || styleOf(parent).cursor !== cursor) return true;
+    }
+    return isScrollable(el);
+  };
+  const CREDENTIAL = /pass(word|code|phrase)?|pwd|secret|\bpin\b|e-?mail/i;
+  const isCredential = (el, name) => {
+    if (!(el instanceof HTMLInputElement)) return false;
+    if (el.type === "password" || el.type === "email") return true;
+    if (/password|one-time-code|cc-number|cc-csc/.test(el.autocomplete || ""))
+      return true;
+    return CREDENTIAL.test(`${name} ${el.name} ${el.id}`);
+  };
+  const topElementAt = (x, y) => {
+    let el = document.elementFromPoint(x, y);
+    for (; ; ) {
+      const root = el ? shadowOf(el) : null;
+      const inner = root?.elementFromPoint(x, y);
+      if (!inner || inner === el) return el;
+      el = inner;
+    }
+  };
+  const contains = (outer, inner) => {
+    for (let node = inner; node; node = parentOf(node)) {
+      if (node === outer) return true;
+    }
+    return false;
+  };
+  const viewport = { width: window.innerWidth, height: window.innerHeight };
+  const clippedOut = (el, rect) => {
+    if (rect.bottom <= 0 || rect.right <= 0 || rect.top >= viewport.height || rect.left >= viewport.width) {
+      return true;
+    }
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    for (let node = parentOf(el); node; node = parentOf(node)) {
+      if (node === document.documentElement || node === document.body) break;
+      const style = styleOf(node);
+      if (style.overflowX === "visible" && style.overflowY === "visible")
+        continue;
+      const box = node.getBoundingClientRect();
+      if (cx < box.left || cx > box.right || cy < box.top || cy > box.bottom)
+        return true;
+    }
+    return false;
+  };
+  const elements = [];
+  const items = [];
+  const shadows = [];
+  const indexByNode = /* @__PURE__ */ new Map();
+  const pendingCovers = [];
+  const describe = (el, shadow) => {
+    const role = roleOf(el);
+    const name = nameOf(el, role);
+    const raw = {
+      local: idOf(el),
+      role,
+      name,
+      tag: el.tagName.toLowerCase(),
+      shadow
+    };
+    const html = el;
+    if (el instanceof HTMLInputElement) {
+      raw.input_type = el.type;
+      if (el.type === "checkbox" || el.type === "radio")
+        raw.checked = el.checked;
+      else if (el.type !== "file") {
+        if (isCredential(el, name)) {
+          if (el.value) raw.value = "(filled)";
+        } else if (el.value !== "") raw.value = el.value;
+      }
+      if (el.placeholder) raw.placeholder = el.placeholder;
+      if (el.readOnly) raw.readonly = true;
+    } else if (el instanceof HTMLTextAreaElement) {
+      if (el.value !== "") raw.value = el.value;
+      if (el.placeholder) raw.placeholder = el.placeholder;
+      if (el.readOnly) raw.readonly = true;
+    } else if (el instanceof HTMLSelectElement) {
+      const chosen = [...el.selectedOptions].map(
+        (o) => squash(o.label || o.text)
+      );
+      if (chosen.length > 0) raw.value = chosen.join(", ");
+    } else if (el.hasAttribute("aria-valuenow")) {
+      raw.value = el.getAttribute("aria-valuenow") ?? void 0;
+    } else if (html.isContentEditable) {
+      const text = squash(html.innerText ?? "");
+      if (text) raw.value = text;
+    }
+    if (el instanceof HTMLAnchorElement && el.hasAttribute("href"))
+      raw.href = el.href;
+    const aria = (attribute) => {
+      const v = el.getAttribute(attribute);
+      return v === "true" ? true : v === "false" ? false : void 0;
+    };
+    if (raw.checked === void 0) raw.checked = aria("aria-checked");
+    raw.selected = aria("aria-selected");
+    raw.expanded = aria("aria-expanded");
+    raw.pressed = aria("aria-pressed");
+    if (el.required || aria("aria-required"))
+      raw.required = true;
+    if (aria("aria-invalid")) raw.invalid = true;
+    if (el.matches(":disabled") || aria("aria-disabled")) raw.disabled = true;
+    const style = styleOf(el);
+    const rect = el.getBoundingClientRect();
+    if (el.getClientRects().length === 0) raw.hidden = "display";
+    else if (style.visibility !== "visible") raw.hidden = "visibility";
+    else if (rect.width === 0 || rect.height === 0) raw.hidden = "zero_size";
+    if (!raw.hidden) {
+      if (clippedOut(el, rect)) raw.offscreen = true;
+      else if (style.pointerEvents === "none")
+        raw.unclickable = "pointer_events";
+      else {
+        const x = Math.min(
+          Math.max(rect.left + rect.width / 2, 0),
+          viewport.width - 1
+        );
+        const y = Math.min(
+          Math.max(rect.top + rect.height / 2, 0),
+          viewport.height - 1
+        );
+        const top = topElementAt(x, y);
+        if (top && top !== el && !contains(el, top) && !contains(top, el)) {
+          const label = top.closest("label");
+          const own = label && label.control === el;
+          if (!own) pendingCovers.push({ target: raw, cover: top, shadow });
+        }
+      }
+    }
+    if (isScrollable(el)) {
+      raw.scroll = {
+        x: el.scrollLeft,
+        y: el.scrollTop,
+        max_x: el.scrollWidth - el.clientWidth,
+        max_y: el.scrollHeight - el.clientHeight
+      };
+    }
+    if (options.attributes.length > 0) {
+      const attributes = {};
+      for (const attribute of options.attributes) {
+        const v = el.getAttribute(attribute);
+        if (v !== null) attributes[attribute] = v;
+      }
+      if (Object.keys(attributes).length > 0) raw.attributes = attributes;
+    }
+    for (const key of Object.keys(raw)) {
+      if (raw[key] === void 0) delete raw[key];
+    }
+    return raw;
+  };
+  const add = (el, shadow) => {
+    const existing = indexByNode.get(el);
+    if (existing !== void 0) return existing;
+    const index = elements.length;
+    indexByNode.set(el, index);
+    elements.push(describe(el, shadow));
+    return index;
+  };
+  const walk = (node, shadow, rendered, insideActionable) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      if (!rendered || insideActionable) return;
+      const text = squash(node.nodeValue ?? "");
+      if (!text) return;
+      const parent = node.parentElement;
+      const heading = parent ? HEADINGS[parent.tagName] : void 0;
+      items.push(heading ? { text, heading } : { text });
+      return;
+    }
+    if (!(node instanceof Element)) return;
+    if (SKIPPED_TAGS.has(node.tagName)) return;
+    let nowRendered = rendered;
+    if (rendered) {
+      const style = styleOf(node);
+      if (style.display === "none" || style.visibility === "hidden")
+        nowRendered = false;
+      if (node.getAttribute("aria-hidden") === "true") nowRendered = false;
+    }
+    const actionable = isActionable(node);
+    let swallow = insideActionable;
+    if (actionable) {
+      const index = add(node, shadow);
+      items.push({ el: index });
+      if (elements[index].role !== "generic") swallow = true;
+    }
+    const root = shadowOf(node);
+    if (root) {
+      const local = idOf(root);
+      shadows.push({ local, mode: root.mode, parents: shadow });
+      for (const child of root.childNodes) {
+        walk(child, [...shadow, local], nowRendered, swallow);
+      }
+    }
+    for (const child of node.childNodes) {
+      walk(child, shadow, nowRendered, swallow);
+    }
+  };
+  let start = document.documentElement;
+  let startShadow = [];
+  if (options.within !== void 0) {
+    const node = st.nodes.get(options.within)?.deref();
+    if (node instanceof Element && node.isConnected) {
+      start = node;
+      const chain = [];
+      for (let root = node.getRootNode(); root instanceof ShadowRoot; root = root.host.getRootNode()) {
+        chain.unshift(idOf(root));
+      }
+      startShadow = chain;
+    }
+  }
+  walk(start, startShadow, true, false);
+  for (const { target, cover } of pendingCovers) {
+    const chain = [];
+    for (let root = cover.getRootNode(); root instanceof ShadowRoot; root = root.host.getRootNode()) {
+      chain.unshift(idOf(root));
+    }
+    const index = add(cover, chain);
+    target.covered_by = elements[index].local;
+    if (!items.some((item) => "el" in item && item.el === index))
+      items.push({ el: index });
+  }
+  const doc = document.documentElement;
+  const result = {
+    doc: st.doc,
+    elements,
+    items,
+    shadows,
+    scroll: {
+      x: Math.round(window.scrollX),
+      y: Math.round(window.scrollY),
+      max_x: Math.max(0, doc.scrollWidth - window.innerWidth),
+      max_y: Math.max(0, doc.scrollHeight - window.innerHeight)
+    }
+  };
+  return JSON.stringify(result);
+}
+
+// src/engine/snapshot/snapshot.ts
+var SNAPSHOT_CHAR_BUDGET = 12e3;
+var MAX_VALUE_CHARS = 200;
+var MAX_TEXT_LINE_CHARS = 400;
+var COLLECT_TIMEOUT_MS = 5e3;
+function newSnapshotState() {
+  return {
+    nextRef: 1,
+    nextContainer: 1,
+    refByKey: /* @__PURE__ */ new Map(),
+    targets: /* @__PURE__ */ new Map(),
+    frameIds: /* @__PURE__ */ new WeakMap(),
+    shadowIds: /* @__PURE__ */ new Map()
+  };
+}
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise.catch(() => void 0),
+    new Promise(
+      (resolve2) => setTimeout(() => resolve2(void 0), ms)
+    )
+  ]);
+}
+function clip(text, max) {
+  return text.length > max ? `${text.slice(0, max - 1)}\u2026` : text;
+}
+var px = (n) => `${Math.round(n).toLocaleString("en-US")} px`;
+function comparable(element) {
+  const {
+    offscreen,
+    covered_by,
+    scroll,
+    is_new,
+    unclickable,
+    attributes,
+    ...rest
+  } = element;
+  return JSON.stringify(rest);
+}
+function elementLine(e, depth) {
+  const parts = [`${"  ".repeat(depth)}- ${e.role}`];
+  if (e.name) parts.push(JSON.stringify(clip(e.name, MAX_VALUE_CHARS)));
+  parts.push(`[${e.ref}]`);
+  if (e.input_type && !["text", "checkbox", "radio", "range", "number", "search"].includes(
+    e.input_type
+  )) {
+    parts.push(`type=${e.input_type}`);
+  }
+  if (e.value !== void 0)
+    parts.push(`value=${JSON.stringify(clip(e.value, MAX_VALUE_CHARS))}`);
+  if (e.placeholder && !e.value && e.placeholder !== e.name) {
+    parts.push(
+      `placeholder=${JSON.stringify(clip(e.placeholder, MAX_VALUE_CHARS))}`
+    );
+  }
+  if (e.checked) parts.push("checked");
+  if (e.selected) parts.push("selected");
+  if (e.expanded !== void 0)
+    parts.push(e.expanded ? "expanded" : "collapsed");
+  if (e.pressed) parts.push("pressed");
+  if (e.required) parts.push("required");
+  if (e.invalid) parts.push("invalid");
+  if (e.readonly) parts.push("readonly");
+  if (e.disabled) parts.push("disabled");
+  if (e.hidden) parts.push(`hidden(${e.hidden})`);
+  if (e.covered_by) parts.push(`covered by ${e.covered_by}`);
+  if (e.unclickable) parts.push("ignores the pointer");
+  if (e.scroll) {
+    const { y, max_y, x, max_x } = e.scroll;
+    if (max_y > 0) parts.push(`scroll ${px(y)} above \xB7 ${px(max_y - y)} below`);
+    if (max_x > 0) parts.push(`scroll ${px(x)} left \xB7 ${px(max_x - x)} right`);
+  }
+  if (e.href) {
+    try {
+      const url = new URL(e.href);
+      if (!e.href.includes("#") || url.hash === "")
+        parts.push(`-> ${url.pathname}${url.search}`);
+    } catch {
+      parts.push(`-> ${e.href}`);
+    }
+  }
+  if (e.is_new) parts.push("new");
+  return parts.join(" ");
+}
+function header(snapshot) {
+  const lines = [`Page: ${snapshot.title}`, `URL: ${snapshot.url}`];
+  const { x, y, max_x, max_y } = snapshot.scroll;
+  if (max_y > 0) lines.push(`Scroll: ${px(y)} above \xB7 ${px(max_y - y)} below`);
+  if (max_x > 0) lines.push(`Scroll: ${px(x)} left \xB7 ${px(max_x - x)} right`);
+  if (snapshot.tabs.length > 1) {
+    lines.push("Tabs:");
+    for (const tab of snapshot.tabs) {
+      lines.push(
+        `  ${tab.index}${tab.active ? " (active)" : ""}: ${tab.title} \u2014 ${tab.url}`
+      );
+    }
+  }
+  if (snapshot.dialog) {
+    lines.push(
+      `Dialog open (${snapshot.dialog.type}): ${JSON.stringify(snapshot.dialog.message)} \u2014 answer it before anything else.`
+    );
+  }
+  lines.push("");
+  return lines;
+}
+function paginate(head, body) {
+  const reserve = head.join("\n").length + 120;
+  const room = Math.max(1e3, SNAPSHOT_CHAR_BUDGET - reserve);
+  const pages = [[]];
+  let used = 0;
+  for (const line of body) {
+    const cost = line.text.length + 1;
+    if (used + cost > room && pages[pages.length - 1].length > 0) {
+      pages.push([]);
+      used = 0;
+    }
+    pages[pages.length - 1].push(line);
+    used += cost;
+  }
+  return pages;
+}
+async function tabsOf(session) {
+  const pages = session.page.context().pages();
+  return Promise.all(
+    pages.map(async (page, index) => ({
+      index,
+      title: await withTimeout(page.title(), 500) ?? "",
+      url: page.url(),
+      active: page === session.page
+    }))
+  );
+}
+function frameIdOf(state, frame) {
+  let id = state.frameIds.get(frame);
+  if (!id) {
+    id = `f${state.nextContainer++}`;
+    state.frameIds.set(frame, id);
+  }
+  return id;
+}
+function framePath(state, page, frame) {
+  const path = [];
+  for (let f = frame; f && f !== page.mainFrame(); f = f.parentFrame()) {
+    path.unshift(frameIdOf(state, f));
+  }
+  return path;
+}
+async function takeSnapshot(session, options = {}) {
+  const state = session.snapshot;
+  const page = session.page;
+  const format = options.format ?? "text";
+  if (state.dialog && state.previous) {
+    const frozen = {
+      ...state.previous.snapshot,
+      dialog: state.dialog,
+      tabs: await tabsOf(session)
+    };
+    if (format === "json") {
+      frozen.elements = state.previous.elements;
+      frozen.containers = state.previous.containers;
+    }
+    return JSON.parse(JSON.stringify(frozen));
+  }
+  const within = options.within ? state.targets.get(options.within) : void 0;
+  const frames = within ? [within.frame] : page.frames();
+  const collectOptions = (frame) => ({
+    attributes: options.include_attributes ?? [],
+    within: within && within.frame === frame ? within.local : void 0
+  });
+  const captures = [];
+  await Promise.all(
+    frames.map(async (frame) => {
+      if (frame.isDetached()) return;
+      const json2 = await withTimeout(
+        frame.evaluate(collect, collectOptions(frame)),
+        COLLECT_TIMEOUT_MS
+      );
+      if (!json2) return;
+      const raw = JSON.parse(json2);
+      captures.push({
+        frame,
+        id: frame === page.mainFrame() ? "" : frameIdOf(state, frame),
+        path: framePath(state, page, frame),
+        raw
+      });
+    })
+  );
+  const order = new Map(page.frames().map((frame, index) => [frame, index]));
+  captures.sort(
+    (a, b) => (order.get(a.frame) ?? 0) - (order.get(b.frame) ?? 0)
+  );
+  const containers = [];
+  const elements = [];
+  const body = [];
+  const textParts = [];
+  const previousRefs = state.previous?.comparable;
+  const refFor = (capture, local) => {
+    const key = `${capture.id}:${capture.raw.doc}:${local}`;
+    let ref = state.refByKey.get(key);
+    if (!ref) {
+      ref = `e${state.nextRef++}`;
+      state.refByKey.set(key, ref);
+      state.targets.set(ref, {
+        frame: capture.frame,
+        doc: capture.raw.doc,
+        local
+      });
+    }
+    return ref;
+  };
+  const shadowIdFor = (capture, local) => {
+    const key = `${capture.id}:${capture.raw.doc}:${local}`;
+    let id = state.shadowIds.get(key);
+    if (!id) {
+      id = `s${state.nextContainer++}`;
+      state.shadowIds.set(key, id);
+    }
+    return id;
+  };
+  for (const capture of captures) {
+    if (capture.id) {
+      containers.push({
+        id: capture.id,
+        kind: "frame",
+        path: capture.path.slice(0, -1),
+        url: capture.frame.url()
+      });
+      body.push({
+        text: `${"  ".repeat(capture.path.length - 1)}Frame ${capture.id}: ${capture.frame.url()}`
+      });
+    }
+    for (const shadow of capture.raw.shadows) {
+      containers.push({
+        id: shadowIdFor(capture, shadow.local),
+        kind: "shadow",
+        mode: shadow.mode,
+        path: [
+          ...capture.path,
+          ...shadow.parents.map((p) => shadowIdFor(capture, p))
+        ]
+      });
+    }
+    const built = capture.raw.elements.map(
+      (raw) => {
+        const { local, shadow, covered_by, ...fields } = raw;
+        const ref = refFor(capture, local);
+        const element = {
+          ref,
+          ...fields,
+          path: [
+            ...capture.path,
+            ...shadow.map((s) => shadowIdFor(capture, s))
+          ]
+        };
+        if (covered_by !== void 0)
+          element.covered_by = refFor(capture, covered_by);
+        if (previousRefs && !previousRefs.has(ref)) element.is_new = true;
+        return element;
+      }
+    );
+    elements.push(...built);
+    let below;
+    for (const item of capture.raw.items) {
+      if ("el" in item) {
+        const element = built[item.el];
+        if (!element.hidden && Boolean(element.offscreen) !== below) {
+          below = Boolean(element.offscreen);
+          if (below || body.some((l) => l.text.startsWith("-- outside"))) {
+            body.push({
+              text: below ? "-- outside the visible area --" : "-- in the visible area --"
+            });
+          }
+        }
+        body.push({
+          text: elementLine(element, element.path.length),
+          ref: element.ref
+        });
+      } else {
+        textParts.push(item.text);
+        if (!options.actionable_only) {
+          const text = clip(item.text, MAX_TEXT_LINE_CHARS).replace(
+            /^- /,
+            "\\- "
+          );
+          const depth = "  ".repeat(capture.path.length);
+          body.push({
+            text: item.heading ? `${depth}${"#".repeat(item.heading)} ${text}` : `${depth}${text}`
+          });
+        }
+      }
+    }
+  }
+  const main = captures.find((c) => c.id === "");
+  const snapshot = {
+    url: page.url(),
+    title: await withTimeout(page.title(), 1e3) ?? "",
+    text: "",
+    scroll: main?.raw.scroll ?? { x: 0, y: 0, max_x: 0, max_y: 0 },
+    tabs: await tabsOf(session)
+  };
+  if (state.dialog) snapshot.dialog = state.dialog;
+  const head = header(snapshot);
+  const pages = paginate(head, body);
+  const pageNumber = Math.min(Math.max(options.page ?? 1, 1), pages.length);
+  const lines = pages[pageNumber - 1];
+  const remaining = pages.slice(pageNumber).reduce((n, p) => n + p.filter((l) => l.ref).length, 0);
+  const rendered = [...head, ...lines.map((l) => l.text)];
+  if (pages.length > 1) {
+    snapshot.truncated = {
+      page: pageNumber,
+      pages: pages.length,
+      elements_remaining: remaining
+    };
+    rendered.push(
+      pageNumber < pages.length ? `\u2026 ${remaining.toLocaleString("en-US")} more elements \u2014 request page ${pageNumber + 1} of ${pages.length}` : `\u2026 end of page ${pageNumber} of ${pages.length}`
+    );
+  }
+  snapshot.text = rendered.join("\n");
+  const now = new Map(elements.map((e) => [e.ref, comparable(e)]));
+  if (options.diff) {
+    const diff = { added: [], removed: [], changed: [] };
+    const before = state.previous?.comparable ?? /* @__PURE__ */ new Map();
+    for (const element of elements) {
+      const was = before.get(element.ref);
+      if (was === void 0) diff.added.push(element);
+      else if (was !== now.get(element.ref)) diff.changed.push(element);
+    }
+    for (const ref of before.keys()) if (!now.has(ref)) diff.removed.push(ref);
+    snapshot.diff = diff;
+  }
+  if (format === "json") {
+    snapshot.elements = elements;
+    snapshot.containers = containers;
+    snapshot.truncated = void 0;
+  }
+  if (!within) {
+    state.previous = {
+      comparable: now,
+      textHash: textParts.join("\n"),
+      snapshot: { ...snapshot, elements: void 0, containers: void 0 },
+      elements,
+      containers
+    };
+  }
+  return JSON.parse(JSON.stringify(snapshot));
+}
+
 // src/engine/capture.ts
 async function hauntCaptureState(manager, input) {
   const session = manager.get(input.session_id);
   await manager.reapStale(SESSION_TTL_MS);
+  if (input.format) {
+    const { session_id, include_screenshot, include_dom, ...options } = input;
+    return takeSnapshot(session, options);
+  }
   const { page } = session;
   const url = page.url();
   const title = await page.title();
@@ -3210,9 +4026,9 @@ function requireDumper() {
   }
   function blockHeader(string, indentPerLevel) {
     const indentIndicator = needIndentIndicator(string) ? String(indentPerLevel) : "";
-    const clip = string[string.length - 1] === "\n";
-    const keep = clip && (string[string.length - 2] === "\n" || string === "\n");
-    const chomp = keep ? "+" : clip ? "" : "-";
+    const clip2 = string[string.length - 1] === "\n";
+    const keep = clip2 && (string[string.length - 2] === "\n" || string === "\n");
+    const chomp = keep ? "+" : clip2 ? "" : "-";
     return indentIndicator + chomp + "\n";
   }
   function dropEndingNewline(string) {
@@ -4604,10 +5420,10 @@ function isValidJWT(jwt, alg) {
   if (!jwtRegex.test(jwt))
     return false;
   try {
-    const [header] = jwt.split(".");
-    if (!header)
+    const [header2] = jwt.split(".");
+    if (!header2)
       return false;
-    const base64 = header.replace(/-/g, "+").replace(/_/g, "/").padEnd(header.length + (4 - header.length % 4) % 4, "=");
+    const base64 = header2.replace(/-/g, "+").replace(/_/g, "/").padEnd(header2.length + (4 - header2.length % 4) % 4, "=");
     const decoded = JSON.parse(atob(base64));
     if (typeof decoded !== "object" || decoded === null)
       return false;
@@ -7797,6 +8613,13 @@ async function hauntSpawn(manager, input) {
     }
     await route.fulfill({ response });
   });
+  await context.addInitScript(installHooks);
+  const snapshotState = newSnapshotState();
+  context.on("page", (opened) => {
+    opened.on("dialog", (dialog) => {
+      snapshotState.dialog = { type: dialog.type(), message: dialog.message() };
+    });
+  });
   const page = await context.newPage();
   const consoleErrors = [];
   const networkErrors = [];
@@ -7845,7 +8668,8 @@ async function hauntSpawn(manager, input) {
     max_active_duration_ms: input.max_active_duration_ms ?? SESSION_MAX_ACTIVE_DURATION_MS,
     console_errors: consoleErrors,
     network_errors: networkErrors,
-    sandbox_blocked_requests: sandboxBlockedRequests
+    sandbox_blocked_requests: sandboxBlockedRequests,
+    snapshot: snapshotState
   };
   manager.set(sessionId, session);
   return {

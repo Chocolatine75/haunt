@@ -1,9 +1,11 @@
 // mcp-server/src/engine/capture.ts
 import { mkdirSync } from 'node:fs';
+import type { Snapshot } from '../gates/part-1/contract.js';
 import { SCREENSHOTS_DIR, SESSION_TTL_MS } from './constants.js';
 import type { SessionManager } from './session/manager.js';
+import { type SnapshotOptions, takeSnapshot } from './snapshot/snapshot.js';
 
-export interface CaptureInput {
+export interface CaptureInput extends SnapshotOptions {
   session_id: string;
   include_screenshot?: boolean;
   include_dom?: boolean;
@@ -18,12 +20,31 @@ export interface CaptureOutput {
   screenshot_path?: string;
 }
 
+export function hauntCaptureState(
+  manager: SessionManager,
+  input: CaptureInput & { format: 'text' | 'json' },
+): Promise<Snapshot>;
+export function hauntCaptureState(
+  manager: SessionManager,
+  input: CaptureInput & { format?: undefined },
+): Promise<CaptureOutput>;
+export function hauntCaptureState(
+  manager: SessionManager,
+  input: CaptureInput,
+): Promise<CaptureOutput | Snapshot>;
 export async function hauntCaptureState(
   manager: SessionManager,
   input: CaptureInput,
-): Promise<CaptureOutput> {
+): Promise<CaptureOutput | Snapshot> {
   const session = manager.get(input.session_id);
   await manager.reapStale(SESSION_TTL_MS);
+
+  // Asking for a format selects the reference-based snapshot. Without one the
+  // previous output is returned, until every caller has moved over.
+  if (input.format) {
+    const { session_id, include_screenshot, include_dom, ...options } = input;
+    return takeSnapshot(session, options);
+  }
   const { page } = session;
 
   const url = page.url();

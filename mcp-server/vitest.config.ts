@@ -14,6 +14,9 @@ export default defineConfig({
         'src/**/*.test.ts',
         'src/test-support/**',
         'src/gates/**',
+        // Runs inside the page, where v8 coverage of this process cannot see
+        // it; exercised by the part 1 gate.
+        'src/engine/snapshot/page-script.ts',
         'src/mcp/index.ts',
         'src/cli/bin.ts',
         'src/benchmark/bin.ts',

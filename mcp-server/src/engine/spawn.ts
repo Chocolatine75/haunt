@@ -11,6 +11,8 @@ import {
 import { loadPersona } from './persona/loader.js';
 import { purgeOldScreenshots } from './screenshots.js';
 import type { SessionManager } from './session/manager.js';
+import { installHooks } from './snapshot/page-script.js';
+import { newSnapshotState } from './snapshot/snapshot.js';
 import type { HauntSession } from './types.js';
 
 export interface SpawnInput {
@@ -157,6 +159,20 @@ export async function hauntSpawn(
     await route.fulfill({ response });
   });
 
+  // Runs in every document before its own scripts: lets the snapshot reach
+  // closed shadow roots and keep element references stable.
+  await context.addInitScript(installHooks);
+
+  // A JavaScript dialog freezes its page until it is answered. It is kept
+  // open and reported in the snapshot rather than dismissed behind the
+  // tester's back, which is what Playwright does when nobody listens.
+  const snapshotState = newSnapshotState();
+  context.on('page', (opened) => {
+    opened.on('dialog', (dialog) => {
+      snapshotState.dialog = { type: dialog.type(), message: dialog.message() };
+    });
+  });
+
   const page = await context.newPage();
 
   // Capture console errors and network failures via Playwright events
@@ -225,6 +241,7 @@ export async function hauntSpawn(
     console_errors: consoleErrors,
     network_errors: networkErrors,
     sandbox_blocked_requests: sandboxBlockedRequests,
+    snapshot: snapshotState,
   };
 
   manager.set(sessionId, session);

@@ -16,4 +16,17 @@ export const PASSING: ReadonlySet<string> = new Set<string>([
   'G5.6',
   // The login helper already gets past the decoy link.
   'G5.4',
+  // The reference snapshot.
+  'G1.1',
+  'G1.2',
+  'G1.3',
+  'G1.4',
+  'G1.5',
+  'G1.6',
+  'G1.7',
+  'G1.8',
+  'G4.5b',
+  'G5.1b',
+  'G6.1',
+  'G6.4',
 ]);
