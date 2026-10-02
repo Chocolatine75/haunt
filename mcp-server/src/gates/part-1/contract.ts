@@ -151,7 +151,7 @@ export type Action =
       type: 'drag';
       from_ref: string;
       to_ref?: string;
-      // Relative to the centre of from_ref.
+      // Pixels from the centre of to_ref, or of from_ref without one.
       offset?: { x: number; y: number };
     }
   | { type: 'upload'; ref: string; files: string[] }

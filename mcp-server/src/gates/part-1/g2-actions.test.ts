@@ -637,6 +637,9 @@ describe('G2 every action on its hard case', () => {
             type: 'drag',
             from_ref: await s.ref(`item-${wanted[position]}`),
             to_ref: await s.ref(`item-${current[position]}`),
+            // The list inserts before an item when the pointer is in its
+            // upper half.
+            offset: { x: 0, y: -10 },
           });
         }
         expect((await s.state()).order).toEqual([
@@ -1056,17 +1059,17 @@ describe('G2 every action on its hard case', () => {
         await s.ok({ type: 'back' });
         expect((await s.snapshot()).title).toBe('Gauntlet — tabs');
 
-        await s.ok({ type: 'goto', url: ctx.gauntlet.url('dupes') });
+        await s.ok({ type: 'goto', url: ctx.gauntlet.url('forms') });
         await s.ok({
           type: 'fill',
-          ref: await s.ref('login-email'),
-          text: 'kept@x.io',
+          ref: await s.ref('text'),
+          text: 'kept across history',
         });
-        await s.ok({ type: 'goto', url: ctx.gauntlet.url('forms') });
+        await s.ok({ type: 'goto', url: ctx.gauntlet.url('dupes') });
         await s.ok({ type: 'back' });
         // Whatever the browser restored is what the snapshot must say.
-        expect((await s.element('login-email')).value ?? '').toBe(
-          await s.dom('login-email', 'el.value'),
+        expect((await s.element('text')).value ?? '').toBe(
+          await s.dom('text', 'el.value'),
         );
       },
     );
