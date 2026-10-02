@@ -1,0 +1,3 @@
+# Biome formats with LF. Without this, a Windows checkout (core.autocrlf)
+# converts every source file to CRLF and `npm run lint` fails on all of them.
+* text=auto eol=lf
