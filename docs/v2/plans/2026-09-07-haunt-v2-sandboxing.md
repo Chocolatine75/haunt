@@ -1,6 +1,5 @@
 # Haunt v2 Sandboxing Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Close three concrete gaps in haunt's browser-session containment: a `goto <url>` action can leave the target app's origin entirely with nothing stopping it; a continuously-active session has no wall-clock ceiling; and (already partially fixed) credential values could leak into written reports.
 
@@ -8,7 +7,7 @@
 
 **Tech Stack:** TypeScript, Playwright (`context.route()`, `route.abort()`/`route.continue()`), Vitest, `node:http` for local multi-origin test fixtures.
 
-**Spec:** [docs/superpowers/specs/2026-09-07-haunt-v2-sandboxing-design.md](../specs/2026-09-07-haunt-v2-sandboxing-design.md) (sub-project 1 of [docs/superpowers/specs/2026-09-07-haunt-v2-harness-program-design.md](../specs/2026-09-07-haunt-v2-harness-program-design.md))
+**Spec:** [docs/v2/specs/2026-09-07-haunt-v2-sandboxing-design.md](../specs/2026-09-07-haunt-v2-sandboxing-design.md) (sub-project 1 of [docs/v2/specs/2026-09-07-haunt-v2-harness-program-design.md](../specs/2026-09-07-haunt-v2-harness-program-design.md))
 
 ## Global Constraints
 
@@ -398,7 +397,7 @@ network_errors and never become an Issue, so a sandbox block can never be
 misread as an app bug.
 
 Part of the v2 harness program's sandboxing sub-project
-(docs/superpowers/specs/2026-09-07-haunt-v2-sandboxing-design.md)."
+(docs/v2/specs/2026-09-07-haunt-v2-sandboxing-design.md)."
 ```
 
 ---
@@ -890,5 +889,5 @@ git add <changed files> mcp-server/dist
 git commit -m "fix: <describe the specific leak found and fixed>
 
 Found during the sandboxing sub-project's credential-handling audit
-(docs/superpowers/specs/2026-09-07-haunt-v2-sandboxing-design.md)."
+(docs/v2/specs/2026-09-07-haunt-v2-sandboxing-design.md)."
 ```
