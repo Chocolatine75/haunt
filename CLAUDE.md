@@ -7,13 +7,26 @@ would break it. Background, decisions and known weaknesses are in
 ## Workflow: every change goes through a pull request
 
 `master` is what users install (`/plugin install haunt` reads it directly).
-The v3 overhaul is built on the long-lived **`v2` branch**: every PR targets
-`v2`, and `v2` is merged into `master` only once the overhaul works as a
-whole (see `docs/ROADMAP.md`), in a single PR the repo owner decides on.
+The v3 overhaul is built on the long-lived **`v2` branch**, and `v2` is merged
+into `master` only once the overhaul works as a whole (see `docs/ROADMAP.md`),
+in a single PR the repo owner decides on.
+
+Work on a roadmap part happens at two levels:
+
+- **One part branch per roadmap part** (`part-1/actions`), with one PR open
+  against `v2` for the whole part. CI runs on Linux, macOS and Windows there.
+- **Sub-PRs against the part branch** (`part-1/gauntlet` → `part-1/actions`),
+  one topic each. CI runs on macOS only, so the loop stays short.
+
+Linux and Windows are therefore only checked on the part's PR. Expect
+failures specific to them to show up there, and fix them through a sub-PR.
+A change that is not part of a roadmap part (a fix, docs, CI) goes straight
+to `v2` in its own PR, with the full CI.
 
 1. **Never commit on `master` or `v2`, and never push to them directly.**
-   Create a branch from `v2` before the first edit:
-   `git checkout -b <type>/<short-topic> origin/v2` with type `feat`, `fix`, `test`,
+   Nor directly on a part branch once its PR is open. Create a branch from
+   the part branch (or from `v2` for work outside a part) before the first
+   edit: `git checkout -b <type>/<short-topic> origin/v2` with type `feat`, `fix`, `test`,
    `docs`, `refactor`, `build` or `chore`.
 2. **One topic per branch.** An unrelated fix found along the way gets its own
    branch and PR, or is written down in the PR description as a follow-up.
@@ -22,13 +35,15 @@ whole (see `docs/ROADMAP.md`), in a single PR the repo owner decides on.
 4. **Before pushing, run `npm run check` in `mcp-server/`** (lint, typecheck,
    tests with coverage, build). Do not open a PR with a failing check, and do
    not say a change works without having run it.
-5. **Open the PR with `gh pr create --base v2`.** Never open a PR against
-   `master` unless asked to. The description says
+5. **Open the PR with `gh pr create --base <part branch>`** for a sub-PR, or
+   `--base v2` for a part's PR and for work outside a part. Never open a PR
+   against `master` unless asked to. The description says
    what changed, why, and how it was verified (commands run and their result).
 6. **Do not merge your own PR without being asked.** The repo owner merges, or
    asks for the merge explicitly. No force-push to a branch that has an open
    PR unless asked.
-7. **CI must be green** on Linux, macOS and Windows before a merge.
+7. **CI must be green before a merge**: macOS for a sub-PR, and Linux, macOS
+   and Windows for anything going into `v2`.
 
 These rules hold even for a one-line change and even when asked to "just push
 it" in passing — say that the repo works by PR and open one.
