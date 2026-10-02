@@ -41,7 +41,9 @@ function scriptedDecider(turns: Turn[]) {
   return { decide, seen };
 }
 
-describe('haunt-ci loop against a real app', () => {
+// Clicking a link costs 3s by itself (the button role is tried first, see
+// HISTORY.md), so vitest's 5s default leaves no room on a slow CI runner.
+describe('haunt-ci loop against a real app', { timeout: 30_000 }, () => {
   let app: FixtureApp;
   let outsider: FixtureApp;
   let manager: SessionManager;

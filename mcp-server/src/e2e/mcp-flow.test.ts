@@ -29,7 +29,9 @@ const VALID_PERSONA = resolve(
   '../persona/__fixtures__/valid-persona.yaml',
 );
 
-describe('phantom-user session over MCP', () => {
+// Clicking a link costs 3s by itself (the button role is tried first, see
+// HISTORY.md), so vitest's 5s default leaves no room on a slow CI runner.
+describe('phantom-user session over MCP', { timeout: 30_000 }, () => {
   let app: FixtureApp;
   let outsider: FixtureApp;
   let haunt: HauntClient;
