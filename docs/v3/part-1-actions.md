@@ -111,8 +111,8 @@ matches or exceeds.
 | `hover` | `ref` | Moves the pointer over the element and holds | — |
 | `scroll` | `direction`, `amount?` (pixels or pages), `ref?` (a container) | Scrolls the page or one container | `scroll` |
 | `scroll_to` | `ref` or `text` | Brings an element or the first match of a text into view | `find_text` |
-| `drag` | `from_ref`, `to_ref` or `offset` | Pointer drag with real intermediate moves | — |
-| `upload` | `ref`, `files` | Sets files on a file input, including a hidden one behind a styled button | `upload_file` |
+| `drag` | `from_ref`, `to_ref` and/or `offset` | Pointer drag with real intermediate moves. The offset is counted from the centre of `to_ref`, or of `from_ref` without one | — |
+| `upload` | `ref`, `files` | Sets files on a file input, or on the one attached to the element (inside it, labelled by it, or the only one next to it), as with a hidden input behind a styled button | `upload_file` |
 | `goto` | `url` | Navigates the active tab | `navigate` |
 | `back` / `forward` / `reload` | — | History navigation and refresh | `go_back` |
 | `wait_for` | `text?` / `ref?` / `gone?` / `url?` / `ms?`, `timeout_ms` | Waits for a condition, or a fixed time | `wait` |
@@ -157,11 +157,14 @@ of the tester's hands).
   was clicked does not count as a change.
 - **R-C3 Fresh snapshot diff.** The result includes the snapshot diff
   (R-A9), so the tester rarely needs a separate capture call.
-- **R-C4 Settling.** The result is produced once the page has settled: no
-  pending navigation, and network and DOM quiet for a short window, with a
-  hard cap of 5 seconds. If the cap is hit the result says the page was still busy and
-  what was pending. A slow page must never look like a finished one, and
-  must never hang the action.
+- **R-C4 Settling.** The result is produced once the page has finished
+  reacting to the action: no request the action started is still in flight,
+  no short timer it started is still pending, a frame has been drawn, and the
+  DOM has been still for a moment. Activity that was already going on before
+  the action (a clock, a polling loop) is not waited for. There is a hard cap
+  of 5 seconds; if it is hit the result says the page was still busy and what
+  was pending. A slow page must never look like a finished one, and must
+  never hang the action.
 - **R-C5 Timing.** Each result reports how long the action and the settling
   took.
 - **R-C6 Existing fields kept.** Console errors, network errors, sandbox

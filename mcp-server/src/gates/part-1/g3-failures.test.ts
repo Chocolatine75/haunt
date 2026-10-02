@@ -576,8 +576,9 @@ describe('G3 failures', () => {
         await s.fail({ type: 'click', ref: await s.ref('submit') });
         await s.fail({ type: 'click', ref: await s.ref('invisible') });
         await s.fail({ type: 'click', ref: 'e999999' });
-        await s.fail({ type: 'goto', url: `${s.gauntlet.baseUrl}/api/dead` });
         await s.ok({ type: 'click', ref: await s.ref('dead') });
+        // Last: a navigation that fails leaves the browser's error page.
+        await s.fail({ type: 'goto', url: `${s.gauntlet.baseUrl}/api/dead` });
 
         const overlay = await ctx.open('overlays', 'case=modal');
         await overlay.fail({ type: 'click', ref: await overlay.ref('target') });
