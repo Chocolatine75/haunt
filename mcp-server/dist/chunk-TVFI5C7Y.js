@@ -1102,7 +1102,19 @@ async function probe(el, centre = false) {
     return result;
   }
   const rect = el.getBoundingClientRect();
-  result.stable = Math.abs(rect.left - before.left) < 0.5 && Math.abs(rect.top - before.top) < 0.5 && Math.abs(rect.width - before.width) < 0.5 && Math.abs(rect.height - before.height) < 0.5;
+  const animating = (() => {
+    for (let n = el; n; n = parentOf(n)) {
+      for (const animation of n.getAnimations?.() ?? []) {
+        const timing = animation.effect?.getComputedTiming();
+        const finite = timing ? Number.isFinite(timing.endTime) : true;
+        if (finite && (animation.pending || animation.playState === "running")) {
+          return true;
+        }
+      }
+    }
+    return false;
+  })();
+  result.stable = !animating && Math.abs(rect.left - before.left) < 0.5 && Math.abs(rect.top - before.top) < 0.5 && Math.abs(rect.width - before.width) < 0.5 && Math.abs(rect.height - before.height) < 0.5;
   if (style.pointerEvents === "none") {
     result.ignores_pointer = true;
     return result;
