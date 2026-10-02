@@ -14,14 +14,17 @@ in a single PR the repo owner decides on.
 Work on a roadmap part happens at two levels:
 
 - **One part branch per roadmap part** (`part-1/actions`), with one PR open
-  against `v2` for the whole part. CI runs on Linux, macOS and Windows there.
+  against `v2` for the whole part.
 - **Sub-PRs against the part branch** (`part-1/gauntlet` → `part-1/actions`),
-  one topic each. CI runs on macOS only, so the loop stays short.
+  one topic each, each linked from the part's PR.
 
-Linux and Windows are therefore only checked on the part's PR. Expect
-failures specific to them to show up there, and fix them through a sub-PR.
 A change that is not part of a roadmap part (a fix, docs, CI) goes straight
-to `v2` in its own PR, with the full CI.
+to `v2` in its own PR.
+
+**CI runs macOS only on every pull request.** Linux, macOS and Windows all
+run on a push to `v2` or `master`, that is, when a PR is merged there. So a
+Linux- or Windows-only failure shows up on `v2` after the merge: check the
+run on `v2` after every merge, and fix a red `v2` before anything else.
 
 1. **Never commit on `master` or `v2`, and never push to them directly.**
    Nor directly on a part branch once its PR is open. Create a branch from
@@ -37,13 +40,21 @@ to `v2` in its own PR, with the full CI.
    not say a change works without having run it.
 5. **Open the PR with `gh pr create --base <part branch>`** for a sub-PR, or
    `--base v2` for a part's PR and for work outside a part. Never open a PR
-   against `master` unless asked to. The description says
-   what changed, why, and how it was verified (commands run and their result).
+   against `master` unless asked to.
 6. **Do not merge your own PR without being asked.** The repo owner merges, or
    asks for the merge explicitly. No force-push to a branch that has an open
    PR unless asked.
-7. **CI must be green before a merge**: macOS for a sub-PR, and Linux, macOS
-   and Windows for anything going into `v2`.
+7. **CI must be green before a merge**, and the full run on `v2` must be
+   green after it.
+
+### Pull request descriptions
+
+Write them the way a developer would in a hurry: a few plain sentences saying
+what changed and why, and one line on how it was checked. No headings, no
+tables, no bold, no bullet lists unless there really are several separate
+things, no emoji, no "generated with" footer. If it takes more than a short
+paragraph or two, the PR is too big or the text is padding. The title is the
+commit-style summary.
 
 These rules hold even for a one-line change and even when asked to "just push
 it" in passing — say that the repo works by PR and open one.

@@ -19,11 +19,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # All three systems when the change is headed for v2 or master (a
-        # part's PR, or a push to those branches). A sub-PR into a part branch
-        # only runs macOS, to keep the loop short; the other two are checked
-        # when the part itself goes to v2.
-        os: ${{ fromJSON((github.event_name == 'push' || github.base_ref == 'v2' || github.base_ref == 'master') && '["ubuntu-latest","macos-latest","windows-latest"]' || '["macos-latest"]') }}
+        # Pull requests run macOS only, to keep the loop short. Linux and
+        # Windows run when the change lands: on a push to v2 or master.
+        os: ${{ fromJSON(github.event_name == 'push' && '["ubuntu-latest","macos-latest","windows-latest"]' || '["macos-latest"]') }}
     defaults:
       run:
         working-directory: mcp-server
