@@ -1,6 +1,6 @@
 import type { Mistral } from '@mistralai/mistralai';
 import { describe, expect, it, vi } from 'vitest';
-import type { Issue } from '../../types.js';
+import type { Issue } from '../../engine/types.js';
 import { createMistralDecider } from './mistral.js';
 
 function mockClient(

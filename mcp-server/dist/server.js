@@ -1,13 +1,15 @@
 import { createRequire } from 'module'; const require = createRequire(import.meta.url);
 import {
   SessionManager,
+  external_exports,
   hauntCaptureState,
   hauntEndSession,
   hauntGenerateReport,
   hauntGetCookies,
   hauntNavigate,
-  hauntSpawn
-} from "./chunk-3WOOJHBP.js";
+  hauntSpawn,
+  zodToJsonSchema
+} from "./chunk-IEQIGTBK.js";
 import {
   _enum,
   _null,
@@ -10555,7 +10557,7 @@ var Server = class extends Protocol {
   }
 };
 
-// src/tools/estimate-cost.ts
+// src/engine/report/estimate-cost.ts
 function hauntEstimateCost(input) {
   const { route_count, steps_per_route } = input;
   const browser_calls = route_count * (steps_per_route * 2 + 3);
@@ -10564,7 +10566,141 @@ function hauntEstimateCost(input) {
   return { browser_calls, session_size, summary_line };
 }
 
-// src/server.ts
+// src/mcp/tools.ts
+var issueSchema = external_exports.object({
+  severity: external_exports.enum(["critical", "major", "minor", "suggestion"]),
+  category: external_exports.enum([
+    "ux",
+    "accessibility",
+    "performance",
+    "security",
+    "content"
+  ]),
+  description: external_exports.string(),
+  page_url: external_exports.string(),
+  recommendation: external_exports.string()
+});
+var cookieSchema = external_exports.object({
+  name: external_exports.string(),
+  value: external_exports.string(),
+  domain: external_exports.string().optional(),
+  path: external_exports.string().optional(),
+  expires: external_exports.number().optional(),
+  httpOnly: external_exports.boolean().optional(),
+  secure: external_exports.boolean().optional(),
+  sameSite: external_exports.enum(["Strict", "Lax", "None"]).optional()
+});
+function defineTool(tool) {
+  return tool;
+}
+var TOOLS = [
+  defineTool({
+    name: "haunt_spawn",
+    description: "Open a browser session for a persona and navigate to the target URL. Returns persona details (name, goal, system prompt) so the orchestrator can roleplay as that persona.",
+    input: external_exports.object({
+      persona: external_exports.string().describe(
+        "Persona name (e.g. confused-beginner) or absolute path to a YAML file"
+      ),
+      target_url: external_exports.string().describe("URL to test (e.g. http://localhost:3000)"),
+      headless: external_exports.boolean().optional().describe("Run browser in headless mode. Default: true"),
+      timeout: external_exports.number().optional().describe("Maximum navigation steps for this session. Default: 30"),
+      cookies: external_exports.array(cookieSchema).optional().describe(
+        "Session cookies to inject before navigation (for authenticated testing)"
+      )
+    }),
+    run: (manager, input) => hauntSpawn(manager, input)
+  }),
+  defineTool({
+    name: "haunt_get_cookies",
+    description: "Extract all cookies from the current browser session. Use after a successful login to capture the session cookies for reuse in authenticated test sessions.",
+    input: external_exports.object({
+      session_id: external_exports.string().describe("Session ID from haunt_spawn")
+    }),
+    run: (manager, input) => hauntGetCookies(manager, input)
+  }),
+  defineTool({
+    name: "haunt_navigate",
+    description: 'Execute a browser action decided by the orchestrator (as the persona). Actions: "click <target>", "fill <text> in <field>", "goto <url>", "press <key>".',
+    input: external_exports.object({
+      session_id: external_exports.string().describe("Session ID from haunt_spawn"),
+      action: external_exports.string().describe(
+        'Action to perform, e.g. "click Login", "fill test@example.com in Email", "goto http://localhost:3000/about", "press Enter"'
+      ),
+      issues: external_exports.array(issueSchema).optional().describe("Issues the orchestrator observed during this step")
+    }),
+    run: (manager, input) => hauntNavigate(manager, input)
+  }),
+  defineTool({
+    name: "haunt_capture_state",
+    description: "Capture the current page state: accessibility tree, optional screenshot, optional DOM. Call this before deciding each action.",
+    input: external_exports.object({
+      session_id: external_exports.string(),
+      include_screenshot: external_exports.boolean().optional().describe("Default: true"),
+      include_dom: external_exports.boolean().optional().describe(
+        "Include raw HTML snapshot (capped at 5000 chars). Default: false"
+      )
+    }),
+    run: (manager, input) => hauntCaptureState(manager, input)
+  }),
+  defineTool({
+    name: "haunt_end_session",
+    description: "Close the browser session and return the structured report of all issues found.",
+    input: external_exports.object({
+      session_id: external_exports.string(),
+      overall_impression: external_exports.string().optional().describe(
+        "The orchestrator's summary of the session from the persona's perspective"
+      )
+    }),
+    run: (manager, input) => hauntEndSession(manager, input)
+  }),
+  defineTool({
+    name: "haunt_estimate_cost",
+    description: 'Compute the browser-call cost estimate for a planned test run (route count \xD7 steps). Call before Phase 2 to print the "proceed?" confirmation.',
+    input: external_exports.object({
+      route_count: external_exports.number().describe("Number of areas/routes in the page plan"),
+      steps_per_route: external_exports.number().describe("Max navigation steps per route (the --steps value)")
+    }),
+    run: (_manager, input) => hauntEstimateCost(input)
+  }),
+  defineTool({
+    name: "haunt_generate_report",
+    description: "Compute issue counts, sort issues by severity, render the markdown report, and write it to .haunt-reports/. Returns the exact terminal summary to print. Call once in Phase 3 after all sessions have ended \u2014 do not hand-write the report file.",
+    input: external_exports.object({
+      target_url: external_exports.string(),
+      personas: external_exports.array(external_exports.string()).describe("Persona names used in this run"),
+      sessions: external_exports.array(
+        external_exports.object({
+          area: external_exports.string().describe("The route/area this session tested, e.g. /signup"),
+          persona: external_exports.string(),
+          overall_impression: external_exports.string(),
+          issues: external_exports.array(issueSchema).describe("This session's EndSessionOutput.issues_found"),
+          sandbox_blocked_requests: external_exports.array(external_exports.string()).optional().describe(
+            "This session's EndSessionOutput.sandbox_blocked_requests"
+          )
+        })
+      ).describe("One entry per ended session"),
+      compare_with: external_exports.string().optional().describe(
+        "Path to a previous report (its .md path, or the .json sidecar directly) to diff against. Annotates each current issue as new vs. still present, and lists issues from that run no longer found."
+      )
+    }),
+    run: (_manager, input) => hauntGenerateReport(input)
+  })
+];
+function toolInputJsonSchema(tool) {
+  const { $schema, ...schema } = zodToJsonSchema(tool.input, {
+    $refStrategy: "none"
+  });
+  return schema;
+}
+function describeInputError(toolName, error) {
+  const problems = error.issues.map((issue) => {
+    const path = issue.path.join(".");
+    return path ? `${path}: ${issue.message}` : issue.message;
+  });
+  return `Invalid arguments for ${toolName}: ${problems.join("; ")}`;
+}
+
+// src/mcp/server.ts
 function createServer() {
   const manager = new SessionManager();
   const server = new Server(
@@ -10572,279 +10708,24 @@ function createServer() {
     { capabilities: { tools: {} } }
   );
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: [
-      {
-        name: "haunt_spawn",
-        description: "Open a browser session for a persona and navigate to the target URL. Returns persona details (name, goal, system prompt) so the orchestrator can roleplay as that persona.",
-        inputSchema: {
-          type: "object",
-          properties: {
-            persona: {
-              type: "string",
-              description: "Persona name (e.g. confused-beginner) or absolute path to a YAML file"
-            },
-            target_url: {
-              type: "string",
-              description: "URL to test (e.g. http://localhost:3000)"
-            },
-            headless: {
-              type: "boolean",
-              description: "Run browser in headless mode. Default: true"
-            },
-            timeout: {
-              type: "number",
-              description: "Maximum navigation steps for this session. Default: 30"
-            },
-            cookies: {
-              type: "array",
-              description: "Session cookies to inject before navigation (for authenticated testing)",
-              items: {
-                type: "object",
-                properties: {
-                  name: { type: "string" },
-                  value: { type: "string" },
-                  domain: { type: "string" },
-                  path: { type: "string" },
-                  expires: { type: "number" },
-                  httpOnly: { type: "boolean" },
-                  secure: { type: "boolean" },
-                  sameSite: { type: "string", enum: ["Strict", "Lax", "None"] }
-                },
-                required: ["name", "value"]
-              }
-            }
-          },
-          required: ["persona", "target_url"]
-        }
-      },
-      {
-        name: "haunt_get_cookies",
-        description: "Extract all cookies from the current browser session. Use after a successful login to capture the session cookies for reuse in authenticated test sessions.",
-        inputSchema: {
-          type: "object",
-          properties: {
-            session_id: {
-              type: "string",
-              description: "Session ID from haunt_spawn"
-            }
-          },
-          required: ["session_id"]
-        }
-      },
-      {
-        name: "haunt_navigate",
-        description: 'Execute a browser action decided by the orchestrator (as the persona). Actions: "click <target>", "fill <text> in <field>", "goto <url>", "press <key>".',
-        inputSchema: {
-          type: "object",
-          properties: {
-            session_id: {
-              type: "string",
-              description: "Session ID from haunt_spawn"
-            },
-            action: {
-              type: "string",
-              description: 'Action to perform, e.g. "click Login", "fill test@example.com in Email", "goto http://localhost:3000/about", "press Enter"'
-            },
-            issues: {
-              type: "array",
-              description: "Issues the orchestrator observed during this step",
-              items: {
-                type: "object",
-                properties: {
-                  severity: {
-                    type: "string",
-                    enum: ["critical", "major", "minor", "suggestion"]
-                  },
-                  category: {
-                    type: "string",
-                    enum: [
-                      "ux",
-                      "accessibility",
-                      "performance",
-                      "security",
-                      "content"
-                    ]
-                  },
-                  description: { type: "string" },
-                  page_url: { type: "string" },
-                  recommendation: { type: "string" }
-                },
-                required: [
-                  "severity",
-                  "category",
-                  "description",
-                  "page_url",
-                  "recommendation"
-                ]
-              }
-            }
-          },
-          required: ["session_id", "action"]
-        }
-      },
-      {
-        name: "haunt_capture_state",
-        description: "Capture the current page state: accessibility tree, optional screenshot, optional DOM. Call this before deciding each action.",
-        inputSchema: {
-          type: "object",
-          properties: {
-            session_id: { type: "string" },
-            include_screenshot: {
-              type: "boolean",
-              description: "Default: true"
-            },
-            include_dom: {
-              type: "boolean",
-              description: "Include raw HTML snapshot (capped at 5000 chars). Default: false"
-            }
-          },
-          required: ["session_id"]
-        }
-      },
-      {
-        name: "haunt_end_session",
-        description: "Close the browser session and return the structured report of all issues found.",
-        inputSchema: {
-          type: "object",
-          properties: {
-            session_id: { type: "string" },
-            overall_impression: {
-              type: "string",
-              description: "The orchestrator's summary of the session from the persona's perspective"
-            }
-          },
-          required: ["session_id"]
-        }
-      },
-      {
-        name: "haunt_estimate_cost",
-        description: 'Compute the browser-call cost estimate for a planned test run (route count \xD7 steps). Call before Phase 2 to print the "proceed?" confirmation.',
-        inputSchema: {
-          type: "object",
-          properties: {
-            route_count: {
-              type: "number",
-              description: "Number of areas/routes in the page plan"
-            },
-            steps_per_route: {
-              type: "number",
-              description: "Max navigation steps per route (the --steps value)"
-            }
-          },
-          required: ["route_count", "steps_per_route"]
-        }
-      },
-      {
-        name: "haunt_generate_report",
-        description: "Compute issue counts, sort issues by severity, render the markdown report, and write it to .haunt-reports/. Returns the exact terminal summary to print. Call once in Phase 3 after all sessions have ended \u2014 do not hand-write the report file.",
-        inputSchema: {
-          type: "object",
-          properties: {
-            target_url: { type: "string" },
-            personas: {
-              type: "array",
-              items: { type: "string" },
-              description: "Persona names used in this run"
-            },
-            sessions: {
-              type: "array",
-              description: "One entry per ended session",
-              items: {
-                type: "object",
-                properties: {
-                  area: {
-                    type: "string",
-                    description: "The route/area this session tested, e.g. /signup"
-                  },
-                  persona: { type: "string" },
-                  overall_impression: { type: "string" },
-                  issues: {
-                    type: "array",
-                    description: "This session's EndSessionOutput.issues_found",
-                    items: {
-                      type: "object",
-                      properties: {
-                        severity: {
-                          type: "string",
-                          enum: ["critical", "major", "minor", "suggestion"]
-                        },
-                        category: {
-                          type: "string",
-                          enum: [
-                            "ux",
-                            "accessibility",
-                            "performance",
-                            "security",
-                            "content"
-                          ]
-                        },
-                        description: { type: "string" },
-                        page_url: { type: "string" },
-                        recommendation: { type: "string" }
-                      },
-                      required: [
-                        "severity",
-                        "category",
-                        "description",
-                        "page_url",
-                        "recommendation"
-                      ]
-                    }
-                  }
-                },
-                required: ["area", "persona", "overall_impression", "issues"]
-              }
-            },
-            compare_with: {
-              type: "string",
-              description: "Path to a previous report (its .md path, or the .json sidecar directly) to diff against. Annotates each current issue as new vs. still present, and lists issues from that run no longer found."
-            }
-          },
-          required: ["target_url", "personas", "sessions"]
-        }
-      }
-    ]
+    tools: TOOLS.map((tool) => ({
+      name: tool.name,
+      description: tool.description,
+      inputSchema: toolInputJsonSchema(tool)
+    }))
   }));
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args = {} } = request.params;
     try {
-      let result;
-      if (name === "haunt_spawn") {
-        result = await hauntSpawn(
-          manager,
-          args
-        );
-      } else if (name === "haunt_navigate") {
-        result = await hauntNavigate(
-          manager,
-          args
-        );
-      } else if (name === "haunt_capture_state") {
-        result = await hauntCaptureState(
-          manager,
-          args
-        );
-      } else if (name === "haunt_end_session") {
-        result = await hauntEndSession(
-          manager,
-          args
-        );
-      } else if (name === "haunt_get_cookies") {
-        result = await hauntGetCookies(
-          manager,
-          args
-        );
-      } else if (name === "haunt_estimate_cost") {
-        result = hauntEstimateCost(
-          args
-        );
-      } else if (name === "haunt_generate_report") {
-        result = hauntGenerateReport(
-          args
-        );
-      } else {
+      const tool = TOOLS.find((t) => t.name === name);
+      if (!tool) {
         throw new Error(`Unknown tool: ${name}`);
       }
+      const parsed = tool.input.safeParse(args);
+      if (!parsed.success) {
+        throw new Error(describeInputError(name, parsed.error));
+      }
+      const result = await tool.run(manager, parsed.data);
       return {
         content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
       };
@@ -10863,7 +10744,7 @@ function createServer() {
   return server;
 }
 
-// src/index.ts
+// src/mcp/index.ts
 async function main() {
   const server = createServer();
   const transport = new StdioServerTransport();

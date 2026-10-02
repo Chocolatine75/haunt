@@ -1,4 +1,4 @@
-// mcp-server/src/tools/generate-report.ts
+// mcp-server/src/engine/report/generate-report.ts
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { REPORTS_DIR } from '../constants.js';
 import type { Issue, IssueSeverity } from '../types.js';

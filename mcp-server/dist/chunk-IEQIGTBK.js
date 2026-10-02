@@ -3,7 +3,7 @@ import {
   __export
 } from "./chunk-ZO3ASFWY.js";
 
-// src/session/manager.ts
+// src/engine/session/manager.ts
 var SessionManager = class {
   sessions = /* @__PURE__ */ new Map();
   set(id, session) {
@@ -44,17 +44,17 @@ var SessionManager = class {
   }
 };
 
-// src/tools/capture.ts
+// src/engine/capture.ts
 import { mkdirSync } from "fs";
 
-// src/constants.ts
+// src/engine/constants.ts
 var REPORTS_DIR = ".haunt-reports";
 var SCREENSHOTS_DIR = ".haunt-reports/screenshots";
 var SCREENSHOT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1e3;
 var SESSION_TTL_MS = 10 * 60 * 1e3;
 var SESSION_MAX_ACTIVE_DURATION_MS = 15 * 60 * 1e3;
 
-// src/tools/capture.ts
+// src/engine/capture.ts
 async function hauntCaptureState(manager, input) {
   const session = manager.get(input.session_id);
   await manager.reapStale(SESSION_TTL_MS);
@@ -91,7 +91,7 @@ async function hauntCaptureState(manager, input) {
   };
 }
 
-// src/tools/end-session.ts
+// src/engine/end-session.ts
 async function hauntEndSession(manager, input) {
   const session = manager.get(input.session_id);
   await session.browser.close();
@@ -113,8 +113,118 @@ async function hauntEndSession(manager, input) {
   return output;
 }
 
-// src/tools/generate-report.ts
-import { existsSync, mkdirSync as mkdirSync2, readFileSync, writeFileSync } from "fs";
+// src/engine/navigate.ts
+import { mkdirSync as mkdirSync2 } from "fs";
+var SANDBOX_BLOCK_PREFIX = "Blocked by the haunt test sandbox (request targeted an origin outside the app under test) \u2014 this is not an app bug: ";
+var CREDENTIAL_FILL_RE = /^((?:fill|type|enter|input)\s+)(.+?)(\s+in(?:to)?\s+.*(?:password|email).*)$/i;
+function redactActionForReporting(action) {
+  const match = action.match(CREDENTIAL_FILL_RE);
+  return match ? `${match[1]}[REDACTED]${match[3]}` : action;
+}
+async function executeAction(page, action) {
+  const trimmed = action.trim();
+  if (/^(goto|navigate to|go to)\s+/i.test(trimmed)) {
+    const url = trimmed.replace(/^(goto|navigate to|go to)\s+/i, "").trim();
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 15e3 });
+    return;
+  }
+  if (/^(press|hit|key)\s+/i.test(trimmed)) {
+    const key = trimmed.replace(/^(press|hit|key)\s+/i, "").trim();
+    await page.keyboard.press(key);
+    return;
+  }
+  const fillMatch = trimmed.match(
+    /^(?:fill|type|enter|input)\s+(.+?)\s+in(?:to)?\s+(.+)/i
+  );
+  if (fillMatch) {
+    const text = fillMatch[1].replace(/^['"]|['"]$/g, "");
+    const field = fillMatch[2].replace(/^['"]|['"]$/g, "");
+    const loc = page.getByLabel(field, { exact: false }).or(page.getByPlaceholder(field, { exact: false })).or(page.getByRole("textbox", { name: field }));
+    await loc.first().fill(text);
+    return;
+  }
+  const clickTarget = trimmed.replace(/^(click|tap|select)\s+/i, "").trim();
+  for (const role of ["button", "link", "menuitem", "tab", "option"]) {
+    try {
+      await page.getByRole(role, { name: clickTarget, exact: false }).first().click({ timeout: 3e3 });
+      return;
+    } catch {
+    }
+  }
+  await page.getByText(clickTarget, { exact: false }).first().click({ timeout: 5e3 });
+}
+async function hauntNavigate(manager, input) {
+  const session = manager.get(input.session_id);
+  await manager.reapStale(SESSION_TTL_MS);
+  if (session.step_count >= session.max_steps) {
+    throw new Error(
+      `Session ${session.id} hit its step limit (${session.max_steps}). Call haunt_end_session instead of navigating further.`
+    );
+  }
+  if (Date.now() - session.start_time > session.max_active_duration_ms) {
+    throw new Error(
+      `Session ${session.id} exceeded its active-duration cap (${session.max_active_duration_ms}ms). Call haunt_end_session instead of navigating further.`
+    );
+  }
+  const { page } = session;
+  if (input.issues?.length) {
+    session.issues.push(...input.issues);
+  }
+  const stepConsoleErrors = session.console_errors.splice(0);
+  const stepNetworkErrors = session.network_errors.splice(0);
+  session.step_count++;
+  let screenshotPath;
+  const blockedCountBefore = session.sandbox_blocked_requests.length;
+  try {
+    await executeAction(page, input.action);
+  } catch (error) {
+    const wasSandboxBlocked = session.sandbox_blocked_requests.length > blockedCountBefore;
+    screenshotPath = `${session.id}-step-${session.step_count}.png`;
+    mkdirSync2(SCREENSHOTS_DIR, { recursive: true });
+    await page.screenshot({ path: `${SCREENSHOTS_DIR}/${screenshotPath}` });
+    if (!wasSandboxBlocked) {
+      const issue = {
+        severity: "major",
+        category: "ux",
+        description: `Action failed: "${redactActionForReporting(input.action)}". ${error instanceof Error ? error.message : String(error)}`,
+        page_url: page.url(),
+        screenshot_path: screenshotPath,
+        recommendation: "Ensure this interaction is reachable and clearly labeled."
+      };
+      session.issues.push(issue);
+    }
+    const rawError = error instanceof Error ? error.message : String(error);
+    return {
+      success: false,
+      page_url: page.url(),
+      page_title: await page.title(),
+      console_errors: stepConsoleErrors,
+      network_errors: stepNetworkErrors,
+      screenshot_path: screenshotPath,
+      error: wasSandboxBlocked ? `${SANDBOX_BLOCK_PREFIX}${rawError}` : rawError,
+      sandbox_blocked: wasSandboxBlocked ? session.sandbox_blocked_requests.slice(blockedCountBefore) : void 0,
+      step: session.step_count,
+      steps_remaining: session.max_steps - session.step_count
+    };
+  }
+  const currentUrl = page.url();
+  session.pages_visited.push(currentUrl);
+  const blockedDuringAction = session.sandbox_blocked_requests.slice(blockedCountBefore);
+  return {
+    success: true,
+    page_url: currentUrl,
+    page_title: await page.title(),
+    console_errors: stepConsoleErrors,
+    network_errors: stepNetworkErrors,
+    screenshot_path: screenshotPath,
+    sandbox_blocked: blockedDuringAction.length > 0 ? blockedDuringAction : void 0,
+    step: session.step_count,
+    steps_remaining: session.max_steps - session.step_count
+  };
+}
+
+// src/engine/report/generate-report.ts
+import { existsSync, mkdirSync as mkdirSync3, readFileSync, writeFileSync } from "fs";
 var SEVERITY_ORDER = [
   "critical",
   "major",
@@ -342,7 +452,7 @@ function hauntGenerateReport(input) {
     );
   }
   const markdown = bodySections.join("\n");
-  mkdirSync2(REPORTS_DIR, { recursive: true });
+  mkdirSync3(REPORTS_DIR, { recursive: true });
   writeFileSync(report_path, markdown, "utf-8");
   writeFileSync(
     sidecarPathFor(report_path),
@@ -377,129 +487,7 @@ function hauntGenerateReport(input) {
   };
 }
 
-// src/tools/get-cookies.ts
-async function hauntGetCookies(manager, input) {
-  const session = manager.get(input.session_id);
-  await manager.reapStale(SESSION_TTL_MS);
-  const raw = await session.page.context().cookies();
-  const cookies = raw.map((c) => ({
-    ...c,
-    sameSite: c.sameSite ?? "None"
-  }));
-  return { cookies };
-}
-
-// src/tools/navigate.ts
-import { mkdirSync as mkdirSync3 } from "fs";
-var SANDBOX_BLOCK_PREFIX = "Blocked by the haunt test sandbox (request targeted an origin outside the app under test) \u2014 this is not an app bug: ";
-var CREDENTIAL_FILL_RE = /^((?:fill|type|enter|input)\s+)(.+?)(\s+in(?:to)?\s+.*(?:password|email).*)$/i;
-function redactActionForReporting(action) {
-  const match = action.match(CREDENTIAL_FILL_RE);
-  return match ? `${match[1]}[REDACTED]${match[3]}` : action;
-}
-async function executeAction(page, action) {
-  const trimmed = action.trim();
-  if (/^(goto|navigate to|go to)\s+/i.test(trimmed)) {
-    const url = trimmed.replace(/^(goto|navigate to|go to)\s+/i, "").trim();
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 15e3 });
-    return;
-  }
-  if (/^(press|hit|key)\s+/i.test(trimmed)) {
-    const key = trimmed.replace(/^(press|hit|key)\s+/i, "").trim();
-    await page.keyboard.press(key);
-    return;
-  }
-  const fillMatch = trimmed.match(
-    /^(?:fill|type|enter|input)\s+(.+?)\s+in(?:to)?\s+(.+)/i
-  );
-  if (fillMatch) {
-    const text = fillMatch[1].replace(/^['"]|['"]$/g, "");
-    const field = fillMatch[2].replace(/^['"]|['"]$/g, "");
-    const loc = page.getByLabel(field, { exact: false }).or(page.getByPlaceholder(field, { exact: false })).or(page.getByRole("textbox", { name: field }));
-    await loc.first().fill(text);
-    return;
-  }
-  const clickTarget = trimmed.replace(/^(click|tap|select)\s+/i, "").trim();
-  for (const role of ["button", "link", "menuitem", "tab", "option"]) {
-    try {
-      await page.getByRole(role, { name: clickTarget, exact: false }).first().click({ timeout: 3e3 });
-      return;
-    } catch {
-    }
-  }
-  await page.getByText(clickTarget, { exact: false }).first().click({ timeout: 5e3 });
-}
-async function hauntNavigate(manager, input) {
-  const session = manager.get(input.session_id);
-  await manager.reapStale(SESSION_TTL_MS);
-  if (session.step_count >= session.max_steps) {
-    throw new Error(
-      `Session ${session.id} hit its step limit (${session.max_steps}). Call haunt_end_session instead of navigating further.`
-    );
-  }
-  if (Date.now() - session.start_time > session.max_active_duration_ms) {
-    throw new Error(
-      `Session ${session.id} exceeded its active-duration cap (${session.max_active_duration_ms}ms). Call haunt_end_session instead of navigating further.`
-    );
-  }
-  const { page } = session;
-  if (input.issues?.length) {
-    session.issues.push(...input.issues);
-  }
-  const stepConsoleErrors = session.console_errors.splice(0);
-  const stepNetworkErrors = session.network_errors.splice(0);
-  session.step_count++;
-  let screenshotPath;
-  const blockedCountBefore = session.sandbox_blocked_requests.length;
-  try {
-    await executeAction(page, input.action);
-  } catch (error) {
-    const wasSandboxBlocked = session.sandbox_blocked_requests.length > blockedCountBefore;
-    screenshotPath = `${session.id}-step-${session.step_count}.png`;
-    mkdirSync3(SCREENSHOTS_DIR, { recursive: true });
-    await page.screenshot({ path: `${SCREENSHOTS_DIR}/${screenshotPath}` });
-    if (!wasSandboxBlocked) {
-      const issue = {
-        severity: "major",
-        category: "ux",
-        description: `Action failed: "${redactActionForReporting(input.action)}". ${error instanceof Error ? error.message : String(error)}`,
-        page_url: page.url(),
-        screenshot_path: screenshotPath,
-        recommendation: "Ensure this interaction is reachable and clearly labeled."
-      };
-      session.issues.push(issue);
-    }
-    const rawError = error instanceof Error ? error.message : String(error);
-    return {
-      success: false,
-      page_url: page.url(),
-      page_title: await page.title(),
-      console_errors: stepConsoleErrors,
-      network_errors: stepNetworkErrors,
-      screenshot_path: screenshotPath,
-      error: wasSandboxBlocked ? `${SANDBOX_BLOCK_PREFIX}${rawError}` : rawError,
-      sandbox_blocked: wasSandboxBlocked ? session.sandbox_blocked_requests.slice(blockedCountBefore) : void 0,
-      step: session.step_count,
-      steps_remaining: session.max_steps - session.step_count
-    };
-  }
-  const currentUrl = page.url();
-  session.pages_visited.push(currentUrl);
-  const blockedDuringAction = session.sandbox_blocked_requests.slice(blockedCountBefore);
-  return {
-    success: true,
-    page_url: currentUrl,
-    page_title: await page.title(),
-    console_errors: stepConsoleErrors,
-    network_errors: stepNetworkErrors,
-    screenshot_path: screenshotPath,
-    sandbox_blocked: blockedDuringAction.length > 0 ? blockedDuringAction : void 0,
-    step: session.step_count,
-    steps_remaining: session.max_steps - session.step_count
-  };
-}
-
-// src/tools/spawn.ts
+// src/engine/spawn.ts
 import { existsSync as existsSync2 } from "fs";
 import { chromium } from "playwright";
 
@@ -554,7 +542,7 @@ function v4(options, buf, offset) {
 }
 var v4_default = v4;
 
-// src/persona/loader.ts
+// src/engine/persona/loader.ts
 import { readFileSync as readFileSync2 } from "fs";
 import { resolve } from "path";
 import { fileURLToPath } from "url";
@@ -7666,7 +7654,7 @@ var coerce = {
 };
 var NEVER = INVALID;
 
-// src/persona/loader.ts
+// src/engine/persona/loader.ts
 var __dirname = fileURLToPath(new URL(".", import.meta.url));
 var BUILTIN_PERSONAS_DIR = process.env.HAUNT_PERSONAS_DIR ?? resolve(__dirname, "../../personas");
 var PersonaSchema = external_exports.object({
@@ -7699,7 +7687,7 @@ function loadPersona(nameOrPath) {
   return PersonaSchema.parse(parsed);
 }
 
-// src/screenshots.ts
+// src/engine/screenshots.ts
 import { readdirSync, statSync, unlinkSync } from "fs";
 import { join } from "path";
 function purgeOldScreenshots(maxAgeMs, dir = SCREENSHOTS_DIR) {
@@ -7725,7 +7713,7 @@ function purgeOldScreenshots(maxAgeMs, dir = SCREENSHOTS_DIR) {
   return removed;
 }
 
-// src/tools/spawn.ts
+// src/engine/spawn.ts
 async function hauntSpawn(manager, input) {
   await manager.reapStale(SESSION_TTL_MS);
   purgeOldScreenshots(SCREENSHOT_MAX_AGE_MS);
@@ -9152,13 +9140,26 @@ var zodToJsonSchema = (schema2, options) => {
   return combined;
 };
 
+// src/engine/get-cookies.ts
+async function hauntGetCookies(manager, input) {
+  const session = manager.get(input.session_id);
+  await manager.reapStale(SESSION_TTL_MS);
+  const raw = await session.page.context().cookies();
+  const cookies = raw.map((c) => ({
+    ...c,
+    sameSite: c.sameSite ?? "None"
+  }));
+  return { cookies };
+}
+
 export {
+  external_exports,
   zodToJsonSchema,
   SessionManager,
   hauntCaptureState,
   hauntEndSession,
-  hauntGenerateReport,
   hauntGetCookies,
   hauntNavigate,
+  hauntGenerateReport,
   hauntSpawn
 };

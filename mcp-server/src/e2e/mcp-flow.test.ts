@@ -5,6 +5,15 @@ import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import type { CaptureOutput } from '../engine/capture.js';
+import type { EndSessionOutput } from '../engine/end-session.js';
+import type { GetCookiesOutput } from '../engine/get-cookies.js';
+import {
+  type NavigateOutput,
+  SANDBOX_BLOCK_PREFIX,
+} from '../engine/navigate.js';
+import type { GenerateReportOutput } from '../engine/report/generate-report.js';
+import type { SpawnOutput } from '../engine/spawn.js';
 import {
   type FixtureApp,
   startFixtureApp,
@@ -13,20 +22,11 @@ import {
   type HauntClient,
   connectInMemory,
 } from '../test-support/mcp-client.js';
-import type { CaptureOutput } from '../tools/capture.js';
-import type { EndSessionOutput } from '../tools/end-session.js';
-import type { GenerateReportOutput } from '../tools/generate-report.js';
-import type { GetCookiesOutput } from '../tools/get-cookies.js';
-import {
-  type NavigateOutput,
-  SANDBOX_BLOCK_PREFIX,
-} from '../tools/navigate.js';
-import type { SpawnOutput } from '../tools/spawn.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const VALID_PERSONA = resolve(
   __dirname,
-  '../persona/__fixtures__/valid-persona.yaml',
+  '../engine/persona/__fixtures__/valid-persona.yaml',
 );
 
 // Clicking a link costs 3s by itself (the button role is tried first, see
@@ -149,7 +149,6 @@ describe('phantom-user session over MCP', { timeout: 30_000 }, () => {
       {
         target_url: app.baseUrl,
         personas: ['e2e-mcp-flow'],
-        date: '1999-01-01',
         sessions: [
           {
             area: '/signup',

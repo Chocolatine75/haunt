@@ -20,7 +20,7 @@ whole (see `docs/ROADMAP.md`), in a single PR the repo owner decides on.
 3. **Commit messages** follow the existing style: `type: what changed`, lower
    case, imperative, with a body that explains why when it is not obvious.
 4. **Before pushing, run `npm run check` in `mcp-server/`** (lint, typecheck,
-   tests with coverage, build). Do not open a PR with a failing check, and do
+   build, tests with coverage). Do not open a PR with a failing check, and do
    not say a change works without having run it.
 5. **Open the PR with `gh pr create --base v2`.** Never open a PR against
    `master` unless asked to. The description says
@@ -68,9 +68,9 @@ All from `mcp-server/`:
 
 | Command | Does |
 |---|---|
-| `npm run check` | Everything CI runs, in order |
+| `npm run check` | Lint, typecheck, rebuild `dist/`, then tests with coverage (the tests check `dist/`, so it is built first) |
 | `npm test` | Tests once (about 40 s; needs Chromium: `npx playwright install chromium`) |
-| `npx vitest run src/tools/navigate.test.ts` | One file |
+| `npx vitest run src/engine/navigate.test.ts` | One file |
 | `npm run test:coverage` | Tests with the coverage thresholds |
 | `npm run lint` / `npx biome check --write src` | Check / fix formatting and lint |
 | `npm run typecheck` | `tsc --noEmit` |
@@ -89,12 +89,16 @@ From the repo root: `node scripts/check-versions.mjs`.
   tsup moves shared modules into chunks and the check silently stops working.
 - **The version string is in five places** (`.claude-plugin/plugin.json`,
   `.claude-plugin/marketplace.json`, `mcp-server/package.json`,
-  `mcp-server/src/server.ts`, `commands/haunt-test.md`). Change all of them
+  `mcp-server/src/mcp/server.ts`, `commands/haunt-test.md`). Change all of them
   together; `scripts/check-versions.mjs` fails otherwise.
 - **`commands/haunt-test.md` is code.** It is the orchestration prompt. A tool
-  renamed or added in `server.ts` must be reflected there, and the reverse.
-- **Tool input schemas are hand-written JSON in `server.ts`**, separate from
-  the TypeScript input types in `src/tools/`. Keep both in step.
+  renamed or added in `src/mcp/tools.ts` must be reflected there, and the reverse.
+- **`src/engine/` must not import from `src/mcp/`.** The engine drives the
+  browser and knows nothing about MCP; `mcp/`, `cli/` and `benchmark/` are
+  three callers of it.
+- **A tool's input is defined once, as a zod schema in `src/mcp/tools.ts`.**
+  The JSON Schema hosts see and the argument validation both come from it.
+  Do not hand-write JSON Schema, and do not cast arguments past the schema.
 - **Credentials must never reach a report, a log or an issue description.**
   `navigate.ts` redacts password and email fills; keep that property when
   touching anything that turns an action into text.

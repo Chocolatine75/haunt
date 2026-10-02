@@ -1,10 +1,10 @@
 import { existsSync, rmSync } from 'node:fs';
 import { type Browser, chromium } from 'playwright';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { SCREENSHOTS_DIR } from '../constants.js';
-import { SessionManager } from '../session/manager.js';
-import type { HauntSession } from '../types.js';
 import { hauntCaptureState } from './capture.js';
+import { SCREENSHOTS_DIR } from './constants.js';
+import { SessionManager } from './session/manager.js';
+import type { HauntSession } from './types.js';
 
 describe('hauntCaptureState (real page)', () => {
   let browser: Browser;

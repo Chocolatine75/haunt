@@ -2,7 +2,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import type { ActionDecider } from '../cli/providers/types.js';
-import { SessionManager } from '../session/manager.js';
+import { SessionManager } from '../engine/session/manager.js';
 import type { ReportJudge } from './judge/types.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));

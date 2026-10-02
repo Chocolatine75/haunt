@@ -19,7 +19,7 @@ discoverable entry in `demo/README.md`'s "Known intentional bugs" list):
   concrete, actionable fix recommendation vs. a vague one.
 - **Format compliance** — deterministic, no LLM involved: does the report
   have the required frontmatter fields and section headers from
-  `tools/generate-report.ts`'s documented contract?
+  `engine/report/generate-report.ts`'s documented contract?
 
 ## Running it
 

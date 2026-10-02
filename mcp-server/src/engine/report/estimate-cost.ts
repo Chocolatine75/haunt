@@ -1,4 +1,4 @@
-// mcp-server/src/tools/estimate-cost.ts
+// mcp-server/src/engine/report/estimate-cost.ts
 export interface EstimateCostInput {
   route_count: number;
   steps_per_route: number;

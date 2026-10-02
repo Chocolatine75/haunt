@@ -1,7 +1,7 @@
-// mcp-server/src/tools/get-cookies.ts
+// mcp-server/src/engine/get-cookies.ts
 import type { Cookie } from 'playwright';
-import { SESSION_TTL_MS } from '../constants.js';
-import type { SessionManager } from '../session/manager.js';
+import { SESSION_TTL_MS } from './constants.js';
+import type { SessionManager } from './session/manager.js';
 
 export interface GetCookiesInput {
   session_id: string;

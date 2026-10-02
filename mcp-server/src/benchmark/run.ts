@@ -25,8 +25,8 @@ import {
   runHeadlessTest,
 } from '../cli/headless.js';
 import type { ActionDecider } from '../cli/providers/types.js';
-import { SessionManager } from '../session/manager.js';
-import type { Issue } from '../types.js';
+import { SessionManager } from '../engine/session/manager.js';
+import type { Issue } from '../engine/types.js';
 import { checkReportFormat } from './format-check.js';
 import { loadGroundTruth } from './ground-truth.js';
 import { createAnthropicJudge } from './judge/anthropic.js';

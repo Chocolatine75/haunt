@@ -1,7 +1,7 @@
-// mcp-server/src/tools/capture.ts
+// mcp-server/src/engine/capture.ts
 import { mkdirSync } from 'node:fs';
-import { SCREENSHOTS_DIR, SESSION_TTL_MS } from '../constants.js';
-import type { SessionManager } from '../session/manager.js';
+import { SCREENSHOTS_DIR, SESSION_TTL_MS } from './constants.js';
+import type { SessionManager } from './session/manager.js';
 
 export interface CaptureInput {
   session_id: string;

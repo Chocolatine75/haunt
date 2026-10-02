@@ -1,6 +1,6 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import { describe, expect, it, vi } from 'vitest';
-import type { Issue } from '../../types.js';
+import type { Issue } from '../../engine/types.js';
 import { createAnthropicDecider } from './anthropic.js';
 
 function mockClient(

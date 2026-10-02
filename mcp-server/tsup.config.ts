@@ -2,7 +2,7 @@ import { defineConfig } from 'tsup';
 
 export default defineConfig({
   entry: {
-    server: 'src/index.ts',
+    server: 'src/mcp/index.ts',
     cli: 'src/cli/bin.ts',
     benchmark: 'src/benchmark/bin.ts',
   },

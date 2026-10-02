@@ -4,16 +4,16 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { type Browser, type Page, chromium } from 'playwright';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { SESSION_MAX_ACTIVE_DURATION_MS } from '../constants.js';
-import { SessionManager } from '../session/manager.js';
-import type { HauntSession } from '../types.js';
+import { SESSION_MAX_ACTIVE_DURATION_MS } from './constants.js';
 import { hauntNavigate } from './navigate.js';
+import { SessionManager } from './session/manager.js';
 import { hauntSpawn } from './spawn.js';
+import type { HauntSession } from './types.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const VALID_PERSONA = resolve(
   __dirname,
-  '../persona/__fixtures__/valid-persona.yaml',
+  './persona/__fixtures__/valid-persona.yaml',
 );
 
 function mockSessionAtStepLimit(): HauntSession {

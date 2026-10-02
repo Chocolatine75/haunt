@@ -1,24 +1,26 @@
-// mcp-server/src/tools/spawn.ts
+// mcp-server/src/engine/spawn.ts
 import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
-import type { Cookie } from 'playwright';
+import type { BrowserContext } from 'playwright';
 import { v4 as uuidv4 } from 'uuid';
 import {
   SCREENSHOT_MAX_AGE_MS,
   SESSION_MAX_ACTIVE_DURATION_MS,
   SESSION_TTL_MS,
-} from '../constants.js';
-import { loadPersona } from '../persona/loader.js';
-import { purgeOldScreenshots } from '../screenshots.js';
-import type { SessionManager } from '../session/manager.js';
-import type { HauntSession } from '../types.js';
+} from './constants.js';
+import { loadPersona } from './persona/loader.js';
+import { purgeOldScreenshots } from './screenshots.js';
+import type { SessionManager } from './session/manager.js';
+import type { HauntSession } from './types.js';
 
 export interface SpawnInput {
   persona: string;
   target_url: string;
   headless?: boolean;
   timeout?: number;
-  cookies?: Cookie[];
+  // What addCookies accepts: only name and value are required, which is what
+  // a host passing cookies by hand can be expected to provide.
+  cookies?: Parameters<BrowserContext['addCookies']>[0];
   // Overrides SESSION_MAX_ACTIVE_DURATION_MS for this session. Not exposed
   // on the haunt_spawn MCP tool schema yet — no current caller needs it.
   max_active_duration_ms?: number;

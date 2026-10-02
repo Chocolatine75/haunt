@@ -7,12 +7,12 @@
 // because the flow is fixed (fill, fill, click) — only the button's visible
 // text varies across apps, so a short list of common labels is tried in turn.
 import type { Cookie } from 'playwright';
-import type { SessionManager } from '../session/manager.js';
-import { hauntCaptureState } from '../tools/capture.js';
-import { hauntEndSession } from '../tools/end-session.js';
-import { hauntGetCookies } from '../tools/get-cookies.js';
-import { hauntNavigate } from '../tools/navigate.js';
-import { hauntSpawn } from '../tools/spawn.js';
+import { hauntCaptureState } from '../engine/capture.js';
+import { hauntEndSession } from '../engine/end-session.js';
+import { hauntGetCookies } from '../engine/get-cookies.js';
+import { hauntNavigate } from '../engine/navigate.js';
+import type { SessionManager } from '../engine/session/manager.js';
+import { hauntSpawn } from '../engine/spawn.js';
 
 export interface AuthenticateOptions {
   loginUrl: string;

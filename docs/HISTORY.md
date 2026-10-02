@@ -20,11 +20,11 @@ personas/*.yaml             3 built-in personas (system prompt, viewport, step b
 .claude-plugin/             plugin + marketplace manifests
 mcp-server/
   start.cjs                 launcher: Node check, Chromium install at the vendored revision
-  src/server.ts             MCP server, 7 tools
-  src/tools/                spawn, navigate, capture, get-cookies, end-session,
-                            estimate-cost, generate-report
-  src/session/manager.ts    in-memory sessions, idle reaping
-  src/persona/loader.ts     YAML + zod
+  src/engine/               drives the browser, knows nothing about MCP:
+                            spawn, navigate, capture, get-cookies, end-session,
+                            session/ (in-memory sessions, idle reaping),
+                            persona/ (YAML + zod), report/ (estimate, generate)
+  src/mcp/                  MCP server; tools.ts defines the 7 tools as zod schemas
   src/cli/                  haunt-ci: the same loop without Claude Code (Anthropic or Mistral)
   src/benchmark/            haunt-benchmark: scores a report against planted bugs
   dist/                     committed bundle + vendored Playwright (zero npm install for users)
@@ -198,9 +198,9 @@ Run from `mcp-server/`. `npm run check` runs everything CI runs.
 
 | Layer | Files | What it proves |
 |---|---|---|
-| Unit | `session/`, `persona/`, `screenshots`, `tools/estimate-cost`, `tools/end-session`, `tools/get-cookies`, `tools/generate-report`, `cli/providers/`, `benchmark/` | Pure logic with mocks |
-| Tool, real browser | `tools/navigate.test.ts`, `tools/navigate-actions.test.ts`, `tools/capture.test.ts`, `tools/spawn.test.ts`, `tools/spawn-session.test.ts`, `cli/authenticate.test.ts` | Each tool against real pages: the action grammar phrase by phrase, redaction, sandbox blocks, session setup |
-| Protocol | `server.test.ts` | Tool list, schemas, error results, through a real MCP client |
+| Unit | `engine/session/`, `engine/persona/`, `engine/screenshots`, `engine/report/`, `engine/end-session`, `engine/get-cookies`, `cli/providers/`, `benchmark/` | Pure logic with mocks |
+| Tool, real browser | `engine/navigate.test.ts`, `engine/navigate-actions.test.ts`, `engine/capture.test.ts`, `engine/spawn.test.ts`, `engine/spawn-session.test.ts`, `cli/authenticate.test.ts` | Each tool against real pages: the action grammar phrase by phrase, redaction, sandbox blocks, session setup |
+| Protocol | `mcp/server.test.ts` | Tool list, schemas, argument validation, error results, through a real MCP client |
 | End to end | `e2e/mcp-flow.test.ts`, `e2e/headless-flow.test.ts` | A whole session against a real HTTP app, over MCP and through the `haunt-ci` loop with a scripted decider |
 | Distribution | `distribution.test.ts` | The committed `dist/` boots over stdio, matches `src/`, the CLIs exit with the right codes, manifests, command prompt and docs agree |
 
