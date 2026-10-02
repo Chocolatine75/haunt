@@ -1,4 +1,4 @@
-import type { Issue } from '../../types.js';
+import type { Issue } from '../../engine/types.js';
 import type { GroundTruthBug } from '../ground-truth.js';
 
 export interface JudgeMatch {

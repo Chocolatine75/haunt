@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import type { IssueCategory } from '../types.js';
+import type { IssueCategory } from '../engine/types.js';
 
 export interface GroundTruthBug {
   id: string;

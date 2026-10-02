@@ -1,9 +1,9 @@
-// mcp-server/src/tools/navigate.ts
+// mcp-server/src/engine/navigate.ts
 import { mkdirSync } from 'node:fs';
 import type { Page } from 'playwright';
-import { SCREENSHOTS_DIR, SESSION_TTL_MS } from '../constants.js';
-import type { SessionManager } from '../session/manager.js';
-import type { Issue } from '../types.js';
+import { SCREENSHOTS_DIR, SESSION_TTL_MS } from './constants.js';
+import type { SessionManager } from './session/manager.js';
+import type { Issue } from './types.js';
 
 export interface NavigateInput {
   session_id: string;

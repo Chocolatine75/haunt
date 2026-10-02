@@ -8,19 +8,19 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { SESSION_MAX_ACTIVE_DURATION_MS } from '../constants.js';
-import { SessionManager } from '../session/manager.js';
 import {
   type FixtureApp,
   startFixtureApp,
 } from '../test-support/fixture-app.js';
+import { SESSION_MAX_ACTIVE_DURATION_MS } from './constants.js';
 import { hauntNavigate } from './navigate.js';
+import { SessionManager } from './session/manager.js';
 import { hauntSpawn } from './spawn.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const VALID_PERSONA = resolve(
   __dirname,
-  '../persona/__fixtures__/valid-persona.yaml',
+  './persona/__fixtures__/valid-persona.yaml',
 );
 const CONFUSED_BEGINNER = resolve(
   __dirname,

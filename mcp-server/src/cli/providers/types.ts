@@ -1,5 +1,5 @@
 // mcp-server/src/cli/providers/types.ts
-import type { Issue } from '../../types.js';
+import type { Issue } from '../../engine/types.js';
 
 export interface ActionDecision {
   action: string;

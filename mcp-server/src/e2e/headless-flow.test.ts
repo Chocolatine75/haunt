@@ -8,17 +8,17 @@ import { fileURLToPath } from 'node:url';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { runHeadlessTest } from '../cli/headless.js';
 import type { ActionDecider } from '../cli/providers/types.js';
-import { SessionManager } from '../session/manager.js';
+import { SessionManager } from '../engine/session/manager.js';
+import type { Issue } from '../engine/types.js';
 import {
   type FixtureApp,
   startFixtureApp,
 } from '../test-support/fixture-app.js';
-import type { Issue } from '../types.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const VALID_PERSONA = resolve(
   __dirname,
-  '../persona/__fixtures__/valid-persona.yaml',
+  '../engine/persona/__fixtures__/valid-persona.yaml',
 );
 const CONFUSED_BEGINNER = resolve(
   __dirname,

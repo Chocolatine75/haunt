@@ -1,6 +1,6 @@
 // mcp-server/src/benchmark/format-check.ts
 //
-// The report format is code-generated (tools/generate-report.ts), not
+// The report format is code-generated (engine/report/generate-report.ts), not
 // LLM-authored — so checking it against the documented contract is a
 // mechanical string check, not a judgment call. No LLM call here.
 

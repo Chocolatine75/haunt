@@ -16,16 +16,16 @@ import 'dotenv/config';
 import Anthropic from '@anthropic-ai/sdk';
 import { Mistral } from '@mistralai/mistralai';
 import type { Cookie } from 'playwright';
-import { SessionManager } from '../session/manager.js';
-import { hauntCaptureState } from '../tools/capture.js';
-import { hauntEndSession } from '../tools/end-session.js';
+import { hauntCaptureState } from '../engine/capture.js';
+import { hauntEndSession } from '../engine/end-session.js';
+import { hauntNavigate } from '../engine/navigate.js';
 import type {
   GenerateReportOutput,
   SessionResult,
-} from '../tools/generate-report.js';
-import { hauntGenerateReport } from '../tools/generate-report.js';
-import { hauntNavigate } from '../tools/navigate.js';
-import { hauntSpawn } from '../tools/spawn.js';
+} from '../engine/report/generate-report.js';
+import { hauntGenerateReport } from '../engine/report/generate-report.js';
+import { SessionManager } from '../engine/session/manager.js';
+import { hauntSpawn } from '../engine/spawn.js';
 import { authenticate } from './authenticate.js';
 import { createAnthropicDecider } from './providers/anthropic.js';
 import { createMistralDecider } from './providers/mistral.js';

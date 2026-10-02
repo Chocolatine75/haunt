@@ -3,9 +3,9 @@
 // send and what each one does, since that grammar is the tool's whole contract.
 import { type Browser, type Page, chromium } from 'playwright';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { SessionManager } from '../session/manager.js';
-import type { HauntSession } from '../types.js';
 import { hauntNavigate } from './navigate.js';
+import { SessionManager } from './session/manager.js';
+import type { HauntSession } from './types.js';
 
 const FORM = `
   <label>Email <input id="email" /></label>

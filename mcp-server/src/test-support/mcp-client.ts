@@ -5,7 +5,7 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
-import { createServer } from '../server.js';
+import { createServer } from '../mcp/server.js';
 
 export interface ToolCallResult<T> {
   isError: boolean;

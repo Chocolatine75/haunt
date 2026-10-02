@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { SessionManager } from '../session/manager.js';
-import type { HauntSession } from '../types.js';
 import { hauntGetCookies } from './get-cookies.js';
+import { SessionManager } from './session/manager.js';
+import type { HauntSession } from './types.js';
 
 function mockSession(cookies: unknown[]): HauntSession {
   return {

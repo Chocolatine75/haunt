@@ -1,4 +1,4 @@
-// mcp-server/src/screenshots.ts
+// mcp-server/src/engine/screenshots.ts
 import { readdirSync, statSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { SCREENSHOTS_DIR } from './constants.js';

@@ -29,10 +29,10 @@ checkVersion('.claude-plugin/marketplace.json', marketplace.plugins[0]?.version)
 const mcpPackage = readJSON('mcp-server/package.json');
 checkVersion('mcp-server/package.json', mcpPackage.version);
 
-const serverTs = read('mcp-server/src/server.ts');
+const serverTs = read('mcp-server/src/mcp/server.ts');
 const serverTsMatch = serverTs.match(/name:\s*'haunt',\s*version:\s*'([^']+)'/);
 checkVersion(
-  'mcp-server/src/server.ts',
+  'mcp-server/src/mcp/server.ts',
   serverTsMatch ? serverTsMatch[1] : undefined,
 );
 

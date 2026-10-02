@@ -6,7 +6,7 @@ import { loadPersona } from './loader.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 // The personas shipped with the plugin, at the repo root.
-const PERSONAS_DIR = resolve(__dirname, '../../../personas');
+const PERSONAS_DIR = resolve(__dirname, '../../../../personas');
 
 const files = readdirSync(PERSONAS_DIR).filter((f) => f.endsWith('.yaml'));
 

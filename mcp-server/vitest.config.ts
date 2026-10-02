@@ -13,10 +13,10 @@ export default defineConfig({
       exclude: [
         'src/**/*.test.ts',
         'src/test-support/**',
-        'src/index.ts',
+        'src/mcp/index.ts',
         'src/cli/bin.ts',
         'src/benchmark/bin.ts',
-        'src/types.ts',
+        'src/engine/types.ts',
       ],
       reporter: ['text', 'html'],
       thresholds: {

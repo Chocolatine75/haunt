@@ -2,13 +2,13 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { SessionManager } from '../session/manager.js';
+import { SessionManager } from './session/manager.js';
 import { hauntSpawn } from './spawn.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const VALID_PERSONA = resolve(
   __dirname,
-  '../persona/__fixtures__/valid-persona.yaml',
+  './persona/__fixtures__/valid-persona.yaml',
 );
 
 describe('hauntSpawn', () => {

@@ -2,13 +2,13 @@ import { type Server, createServer } from 'node:http';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { SessionManager } from '../session/manager.js';
+import { SessionManager } from '../engine/session/manager.js';
 import { authenticate } from './authenticate.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const VALID_PERSONA = resolve(
   __dirname,
-  '../persona/__fixtures__/valid-persona.yaml',
+  '../engine/persona/__fixtures__/valid-persona.yaml',
 );
 
 // Chromium blocks script-initiated navigation TO a data: URL as a security

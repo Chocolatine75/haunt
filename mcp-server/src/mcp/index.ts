@@ -1,4 +1,4 @@
-// mcp-server/src/index.ts
+// mcp-server/src/mcp/index.ts
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { createServer } from './server.js';
 

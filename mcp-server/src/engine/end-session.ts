@@ -1,7 +1,7 @@
-// mcp-server/src/tools/end-session.ts
-import { SESSION_TTL_MS } from '../constants.js';
-import type { SessionManager } from '../session/manager.js';
-import type { Issue } from '../types.js';
+// mcp-server/src/engine/end-session.ts
+import { SESSION_TTL_MS } from './constants.js';
+import type { SessionManager } from './session/manager.js';
+import type { Issue } from './types.js';
 
 export interface EndSessionInput {
   session_id: string;
