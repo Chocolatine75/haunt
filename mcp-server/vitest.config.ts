@@ -4,6 +4,9 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.{test,spec}.ts'],
+    // Time budgets mean nothing while thirty other files share the machine:
+    // they run on their own, from vitest.perf.config.ts.
+    exclude: ['**/node_modules/**', 'src/**/*.perf.test.ts'],
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],
@@ -13,6 +16,11 @@ export default defineConfig({
       exclude: [
         'src/**/*.test.ts',
         'src/test-support/**',
+        'src/gates/**',
+        // Runs inside the page, where v8 coverage of this process cannot see
+        // it; exercised by the part 1 gate.
+        'src/engine/snapshot/page-script.ts',
+        'src/engine/act/page-fns.ts',
         'src/mcp/index.ts',
         'src/cli/bin.ts',
         'src/benchmark/bin.ts',

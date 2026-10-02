@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — frames</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<h1>Frames</h1>
+<button data-g="top-button" type="button">Top-level button</button>
+
+<section><h2>Same origin</h2>
+  <iframe data-frame="same" src="/frame/form?name=same" title="Same-origin form" width="420" height="150"></iframe>
+</section>
+<section><h2>Another origin</h2>
+  <iframe data-frame="cross" src="{{OTHER_ORIGIN}}/frame/form?name=cross" title="Cross-origin form" width="420" height="150"></iframe>
+</section>
+<section><h2>Frame in a frame</h2>
+  <iframe data-frame="outer" src="/frame/outer" title="Outer frame" width="460" height="220"></iframe>
+</section>
+<section id="late"><h2>Loaded late</h2></section>
+
+<script>
+  // Inserted one second after load: a snapshot taken too early misses it.
+  setTimeout(() => {
+    const frame = document.createElement('iframe');
+    frame.dataset.frame = 'late';
+    frame.src = '/frame/form?name=late';
+    frame.title = 'Late form';
+    frame.width = 420;
+    frame.height = 150;
+    document.getElementById('late').appendChild(frame);
+  }, 1000);
+</script>
+</body>
+</html>

@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — drag and drop</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+<style>
+  #sortable { list-style: none; padding: 0; width: 240px; }
+  #sortable li { height: 36px; line-height: 36px; padding: 0 10px; margin: 0 0 4px; background: #eee; cursor: grab; user-select: none; touch-action: none; box-sizing: border-box; }
+  #sortable li.dragging { background: #cde; }
+  .board { display: flex; gap: 16px; }
+  .column { width: 180px; min-height: 140px; padding: 8px; background: #f4f4f4; border: 1px dashed #999; }
+  .card { padding: 6px 8px; margin-bottom: 6px; background: #fff; border: 1px solid #aaa; cursor: grab; }
+  #track { position: relative; width: 300px; height: 12px; background: #ddd; margin: 14px 0; touch-action: none; }
+  #thumb { position: absolute; top: -6px; width: 16px; height: 24px; margin-left: -8px; background: #36c; cursor: grab; }
+  #panel { position: relative; width: 250px; height: 80px; background: #f4f4f4; border: 1px solid #999; }
+  #handle { position: absolute; right: -5px; top: 0; width: 10px; height: 100%; background: #36c; cursor: ew-resize; touch-action: none; }
+</style>
+</head>
+<body>
+<h1>Drag and drop</h1>
+
+<section>
+  <h2>Sortable list (pointer events)</h2>
+  <ul id="sortable">
+    <li data-g="item-alpha">Alpha</li>
+    <li data-g="item-bravo">Bravo</li>
+    <li data-g="item-charlie">Charlie</li>
+    <li data-g="item-delta">Delta</li>
+    <li data-g="item-echo">Echo</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Board (HTML5 drag and drop)</h2>
+  <div class="board">
+    <div class="column" data-column="todo" aria-label="To do">
+      <div class="card" data-g="card-1" draggable="true">Write tests</div>
+      <div class="card" data-g="card-2" draggable="true">Fix login</div>
+    </div>
+    <div class="column" data-column="done" aria-label="Done">
+      <div class="card" data-g="card-3" draggable="true">Set up CI</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Slider</h2>
+  <div id="track">
+    <div id="thumb" data-g="slider-thumb" role="slider" tabindex="0" aria-label="Opacity" aria-valuemin="0" aria-valuemax="100" aria-valuenow="20"></div>
+  </div>
+  <output id="slider-value">20</output>
+</section>
+
+<section>
+  <h2>Resizable panel</h2>
+  <div id="panel"><div id="handle" data-g="resize-handle" role="separator" aria-orientation="vertical" aria-label="Resize panel" tabindex="0"></div></div>
+</section>
+
+<script>
+  const G = window.__gauntlet;
+
+  // --- Sortable: an item follows the pointer and swaps as it crosses others.
+  const sortable = document.getElementById('sortable');
+  const order = () => [...sortable.children].map((li) => li.textContent);
+  G.state.order = order();
+  let dragging = null;
+  sortable.addEventListener('pointerdown', (e) => {
+    const li = e.target.closest('li');
+    if (!li) return;
+    dragging = li;
+    li.classList.add('dragging');
+    li.setPointerCapture(e.pointerId);
+  });
+  sortable.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    for (const other of sortable.children) {
+      if (other === dragging) continue;
+      const box = other.getBoundingClientRect();
+      if (e.clientY > box.top && e.clientY < box.bottom) {
+        const middle = box.top + box.height / 2;
+        sortable.insertBefore(dragging, e.clientY < middle ? other : other.nextSibling);
+        break;
+      }
+    }
+  });
+  sortable.addEventListener('pointerup', () => {
+    if (!dragging) return;
+    dragging.classList.remove('dragging');
+    dragging = null;
+    G.state.order = order();
+    G.record('sorted', 'sortable', order());
+  });
+
+  // --- Board: native drag events, the card id travels in dataTransfer.
+  const board = () => Object.fromEntries([...document.querySelectorAll('.column')].map((c) => [c.dataset.column, [...c.querySelectorAll('.card')].map((x) => x.dataset.g)]));
+  G.state.board = board();
+  for (const card of document.querySelectorAll('.card')) {
+    card.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/plain', card.dataset.g);
+      e.dataTransfer.effectAllowed = 'move';
+    });
+  }
+  for (const column of document.querySelectorAll('.column')) {
+    column.addEventListener('dragover', (e) => e.preventDefault());
+    column.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const card = G.find(e.dataTransfer.getData('text/plain'));
+      if (!card) return;
+      column.appendChild(card);
+      G.state.board = board();
+      G.record('moved', card.dataset.g, column.dataset.column);
+    });
+  }
+
+  // --- Slider: value is the thumb's position along a 300 px track.
+  const track = document.getElementById('track');
+  const thumb = document.getElementById('thumb');
+  const setSlider = (value) => {
+    const v = Math.max(0, Math.min(100, Math.round(value)));
+    thumb.style.left = `${v * 3}px`;
+    thumb.setAttribute('aria-valuenow', String(v));
+    document.getElementById('slider-value').textContent = String(v);
+    G.state.slider = v;
+  };
+  setSlider(20);
+  let sliding = false;
+  thumb.addEventListener('pointerdown', (e) => { sliding = true; thumb.setPointerCapture(e.pointerId); });
+  thumb.addEventListener('pointermove', (e) => {
+    if (sliding) setSlider((e.clientX - track.getBoundingClientRect().left) / 3);
+  });
+  thumb.addEventListener('pointerup', () => { sliding = false; G.record('slid', 'slider', G.state.slider); });
+  thumb.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight') setSlider(G.state.slider + 1);
+    if (e.key === 'ArrowLeft') setSlider(G.state.slider - 1);
+  });
+
+  // --- Resizable panel.
+  const panel = document.getElementById('panel');
+  const handle = document.getElementById('handle');
+  G.state.panelWidth = 250;
+  let resizing = false;
+  handle.addEventListener('pointerdown', (e) => { resizing = true; handle.setPointerCapture(e.pointerId); });
+  handle.addEventListener('pointermove', (e) => {
+    if (!resizing) return;
+    const width = Math.max(100, Math.round(e.clientX - panel.getBoundingClientRect().left));
+    panel.style.width = `${width}px`;
+    G.state.panelWidth = width;
+  });
+  handle.addEventListener('pointerup', () => { resizing = false; G.record('resized', 'panel', G.state.panelWidth); });
+</script>
+</body>
+</html>

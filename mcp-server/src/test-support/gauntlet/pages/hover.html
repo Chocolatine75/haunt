@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — hover</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+<style>
+  .menu, .menu ul { list-style: none; margin: 0; padding: 0; }
+  .menu > li { display: inline-block; position: relative; padding: 8px 14px; background: #eee; }
+  .menu ul { display: none; position: absolute; left: 0; top: 100%; background: #fff; border: 1px solid #999; min-width: 150px; }
+  .menu ul li { position: relative; padding: 8px 14px; white-space: nowrap; }
+  .menu ul ul { left: 100%; top: 0; }
+  .menu li:hover > ul { display: block; }
+  .icon { width: 32px; height: 32px; border: 1px solid #888; background: #fafafa; cursor: pointer; }
+  [role=tooltip] { position: absolute; background: #222; color: #fff; padding: 2px 6px; font-size: 12px; }
+</style>
+</head>
+<body>
+<h1>Hover</h1>
+
+<section>
+  <h2>Menu that only opens on hover</h2>
+  <ul class="menu" role="menubar">
+    <li data-g="menu-products" role="menuitem" aria-haspopup="true" tabindex="0">Products
+      <ul role="menu">
+        <li data-g="menu-hardware" role="menuitem" tabindex="-1">Hardware</li>
+        <li data-g="menu-software" role="menuitem" aria-haspopup="true" tabindex="-1">Software
+          <ul role="menu">
+            <li role="none"><a data-g="menu-download" role="menuitem" href="#download">Download</a></li>
+            <li role="none"><a data-g="menu-changelog" role="menuitem" href="#changelog">Changelog</a></li>
+          </ul>
+        </li>
+      </ul>
+    </li>
+    <li data-g="menu-about" role="menuitem" tabindex="0">About</li>
+  </ul>
+</section>
+
+<section style="margin-top: 160px">
+  <h2>Icon buttons named only by their tooltip</h2>
+  <!-- No text, no aria-label: the name exists only while the pointer is over it. -->
+  <button data-g="icon-archive" class="icon" type="button">&#128230;</button>
+  <button data-g="icon-trash" class="icon" type="button">&#128465;</button>
+</section>
+<p id="result" role="status"></p>
+
+<script>
+  const G = window.__gauntlet;
+  const result = document.getElementById('result');
+
+  for (const id of ['menu-download', 'menu-changelog']) {
+    G.find(id).addEventListener('click', (e) => {
+      e.preventDefault();
+      result.textContent = `Opened ${id.replace('menu-', '')}`;
+    });
+  }
+
+  const TIPS = { 'icon-archive': 'Archive', 'icon-trash': 'Move to trash' };
+  for (const [id, text] of Object.entries(TIPS)) {
+    const button = G.find(id);
+    let tip = null;
+    button.addEventListener('mouseenter', () => {
+      tip = document.createElement('div');
+      tip.id = `tip-${id}`;
+      tip.setAttribute('role', 'tooltip');
+      tip.textContent = text;
+      const box = button.getBoundingClientRect();
+      tip.style.left = `${box.left + scrollX}px`;
+      tip.style.top = `${box.bottom + scrollY + 4}px`;
+      document.body.append(tip);
+      button.setAttribute('aria-describedby', tip.id);
+      G.record('tooltip', id, text);
+    });
+    button.addEventListener('mouseleave', () => {
+      if (tip) tip.remove();
+      tip = null;
+      button.removeAttribute('aria-describedby');
+    });
+    button.addEventListener('click', () => {
+      result.textContent = `${text} done`;
+    });
+  }
+</script>
+</body>
+</html>

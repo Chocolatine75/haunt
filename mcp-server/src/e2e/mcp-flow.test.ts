@@ -8,12 +8,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { CaptureOutput } from '../engine/capture.js';
 import type { EndSessionOutput } from '../engine/end-session.js';
 import type { GetCookiesOutput } from '../engine/get-cookies.js';
-import {
-  type NavigateOutput,
-  SANDBOX_BLOCK_PREFIX,
-} from '../engine/navigate.js';
 import type { GenerateReportOutput } from '../engine/report/generate-report.js';
 import type { SpawnOutput } from '../engine/spawn.js';
+import type { ActResult, Action } from '../gates/part-1/contract.js';
 import {
   type FixtureApp,
   startFixtureApp,
@@ -29,8 +26,6 @@ const VALID_PERSONA = resolve(
   '../engine/persona/__fixtures__/valid-persona.yaml',
 );
 
-// Clicking a link costs 3s by itself (the button role is tried first, see
-// HISTORY.md), so vitest's 5s default leaves no room on a slow CI runner.
 describe('phantom-user session over MCP', { timeout: 30_000 }, () => {
   let app: FixtureApp;
   let outsider: FixtureApp;
@@ -49,14 +44,31 @@ describe('phantom-user session over MCP', { timeout: 30_000 }, () => {
     return result.data;
   }
 
-  async function navigate(
+  // The text snapshot, as the orchestrating model reads it.
+  async function read(session_id: string) {
+    const result = await haunt.call<CaptureOutput>('haunt_capture_state', {
+      session_id,
+    });
+    expect(result.isError, result.text).toBe(false);
+    return result.data;
+  }
+
+  // The reference the snapshot gives for the element with this name.
+  async function ref(session_id: string, name: string): Promise<string> {
+    const { text } = await read(session_id);
+    const match = text.match(new RegExp(`"${name}" \\[(e\\d+)\\]`));
+    if (!match) throw new Error(`no element named "${name}" in:\n${text}`);
+    return match[1];
+  }
+
+  async function act(
     session_id: string,
-    action: string,
+    actions: Action[],
     issues?: unknown[],
   ) {
-    const result = await haunt.call<NavigateOutput>('haunt_navigate', {
+    const result = await haunt.call<ActResult>('haunt_act', {
       session_id,
-      action,
+      actions,
       issues,
     });
     expect(result.isError, result.text).toBe(false);
@@ -90,42 +102,36 @@ describe('phantom-user session over MCP', { timeout: 30_000 }, () => {
     }
   });
 
-  it('runs spawn → capture → navigate → end → report and finds the planted bug', async () => {
+  it('runs spawn → capture → act → end → report and finds the planted bug', async () => {
     const session = await spawn();
     expect(session.persona_name).toBe('Test Persona');
     expect(session.persona_goal).toBe('Explore the app');
 
-    const home = await haunt.call<CaptureOutput>('haunt_capture_state', {
-      session_id: session.session_id,
-      include_screenshot: false,
-      include_dom: true,
-    });
-    expect(home.data.title).toBe('Fixture Home');
-    expect(home.data.accessibility_tree).toContain('Sign up');
-    // Route discovery in /haunt-test reads hrefs from this snapshot.
-    expect(home.data.dom_snapshot).toContain('href="/signup"');
-    expect(home.data.screenshot_path).toBeUndefined();
+    const home = await read(session.session_id);
+    expect(home.title).toBe('Fixture Home');
+    // Route discovery in /haunt-test reads link targets from this snapshot.
+    expect(home.text).toMatch(/- link "Sign up" \[e\d+\] -> \/signup/);
+    expect(home.screenshot_path).toBeUndefined();
 
-    const toSignup = await navigate(session.session_id, 'click Sign up');
-    expect(toSignup.success).toBe(true);
-    expect(toSignup.page_url).toBe(`${app.baseUrl}/signup`);
+    const toSignup = await act(session.session_id, [
+      { type: 'click', ref: await ref(session.session_id, 'Sign up') },
+    ]);
+    expect(toSignup.results[0]).toMatchObject({
+      ok: true,
+      changes: { navigated: true, url_after: `${app.baseUrl}/signup` },
+    });
     expect(toSignup.step).toBe(1);
     expect(toSignup.steps_remaining).toBe(9);
 
     // The confused-beginner move: submit the form without filling anything.
-    const emptySubmit = await navigate(
-      session.session_id,
-      'click Create account',
-    );
-    expect(emptySubmit.success).toBe(true);
-    expect(emptySubmit.page_url).toBe(`${app.baseUrl}/api/signup`);
+    const emptySubmit = await act(session.session_id, [
+      { type: 'click', ref: await ref(session.session_id, 'Create account') },
+    ]);
+    expect(emptySubmit.url).toBe(`${app.baseUrl}/api/signup`);
     expect(app.requests).toContain('POST /api/signup');
-
-    const crashed = await haunt.call<CaptureOutput>('haunt_capture_state', {
-      session_id: session.session_id,
-      include_screenshot: false,
-    });
-    expect(crashed.data.accessibility_tree).toContain('Internal Server Error');
+    expect((await read(session.session_id)).text).toContain(
+      'Internal Server Error',
+    );
 
     const issue = {
       severity: 'critical',
@@ -134,12 +140,15 @@ describe('phantom-user session over MCP', { timeout: 30_000 }, () => {
       page_url: `${app.baseUrl}/signup`,
       recommendation: 'Validate the signup payload server-side',
     };
-    await navigate(session.session_id, `goto ${app.baseUrl}/`, [issue]);
+    await act(
+      session.session_id,
+      [{ type: 'goto', url: `${app.baseUrl}/` }],
+      [issue],
+    );
 
     const ended = await end(session.session_id, 'Signup crashed on me.');
     expect(ended.persona).toBe('Test Persona');
     expect(ended.step_count).toBe(3);
-    expect(ended.pages_visited).toBe(4);
     expect(ended.issues_found).toEqual([issue]);
     expect(ended.sandbox_blocked_requests).toEqual([]);
     expect(ended.overall_impression).toBe('Signup crashed on me.');
@@ -155,6 +164,7 @@ describe('phantom-user session over MCP', { timeout: 30_000 }, () => {
             persona: ended.persona,
             overall_impression: ended.overall_impression,
             issues: ended.issues_found,
+            sandbox_blocked_requests: ended.sandbox_blocked_requests,
           },
         ],
       },
@@ -174,12 +184,28 @@ describe('phantom-user session over MCP', { timeout: 30_000 }, () => {
     expect(written).toContain('## For Claude');
   });
 
-  it('logs in, exports cookies, and reuses them in a fresh session', async () => {
+  it('logs in with one call, exports cookies, and reuses them in a fresh session', async () => {
     const login = await spawn({ target_url: `${app.baseUrl}/signup` });
-    await navigate(login.session_id, 'fill ghost@example.com in Email');
-    await navigate(login.session_id, 'fill hunter2 in Password');
-    const submitted = await navigate(login.session_id, 'click Create account');
-    expect(submitted.page_url).toBe(`${app.baseUrl}/welcome`);
+    const submitted = await act(login.session_id, [
+      {
+        type: 'fill',
+        ref: await ref(login.session_id, 'Email'),
+        text: 'ghost@example.com',
+      },
+      {
+        type: 'fill',
+        ref: await ref(login.session_id, 'Password'),
+        text: 'hunter2',
+      },
+      {
+        type: 'click',
+        ref: await ref(login.session_id, 'Create account'),
+      },
+    ]);
+    expect(submitted.executed).toBe(3);
+    expect(submitted.url).toBe(`${app.baseUrl}/welcome`);
+    // Nothing typed into the credential fields comes back.
+    expect(JSON.stringify(submitted)).not.toContain('hunter2');
 
     const cookies = await haunt.call<GetCookiesOutput>('haunt_get_cookies', {
       session_id: login.session_id,
@@ -197,51 +223,63 @@ describe('phantom-user session over MCP', { timeout: 30_000 }, () => {
       target_url: `${app.baseUrl}/welcome`,
       cookies: cookies.data.cookies,
     });
-    const state = await haunt.call<CaptureOutput>('haunt_capture_state', {
-      session_id: authed.session_id,
-      include_screenshot: false,
-    });
-    expect(state.data.accessibility_tree).toContain('sid=fixture-session');
+    expect((await read(authed.session_id)).text).toContain(
+      'sid=fixture-session',
+    );
     await end(authed.session_id);
   });
 
   it('starts every session with a clean cookie jar', async () => {
     const session = await spawn({ target_url: `${app.baseUrl}/welcome` });
-    const state = await haunt.call<CaptureOutput>('haunt_capture_state', {
-      session_id: session.session_id,
-      include_screenshot: false,
-    });
-    expect(state.data.accessibility_tree).toContain('cookie: none');
+    expect((await read(session.session_id)).text).toContain('cookie: none');
     await end(session.session_id);
   });
 
-  it('hands console and network errors to the next step, once', async () => {
-    // Spawning directly on the page means its load has settled (and its errors
-    // have been captured) before the first step drains them.
-    const session = await spawn({ target_url: `${app.baseUrl}/broken` });
+  it('delivers console and network errors with the action that caused them, once', async () => {
+    const session = await spawn();
 
-    const first = await navigate(session.session_id, `goto ${app.baseUrl}/`);
-    expect(first.console_errors).toContain('boom from fixture');
-    expect(first.network_errors).toEqual([
+    const toBroken = await act(session.session_id, [
+      { type: 'click', ref: await ref(session.session_id, 'Broken page') },
+    ]);
+    expect(toBroken.console_errors).toContain('boom from fixture');
+    expect(toBroken.network_errors).toEqual([
       expect.stringContaining(`GET ${app.baseUrl}/dead`),
     ]);
 
-    const second = await navigate(session.session_id, `goto ${app.baseUrl}/`);
-    expect(second.console_errors).toEqual([]);
-    expect(second.network_errors).toEqual([]);
+    const next = await act(session.session_id, [
+      { type: 'goto', url: `${app.baseUrl}/` },
+    ]);
+    expect(next.console_errors).toEqual([]);
+    expect(next.network_errors).toEqual([]);
     await end(session.session_id);
+  });
+
+  it('reports a failed action as a result, and files no issue for it', async () => {
+    const session = await spawn();
+    const failed = await act(session.session_id, [
+      { type: 'click', ref: 'e999999' },
+    ]);
+    expect(failed.results[0]).toMatchObject({
+      ok: false,
+      error: { code: 'unknown_ref' },
+    });
+    expect(failed.stopped).toBe('failed');
+
+    const ended = await end(session.session_id);
+    expect(ended.issues_found).toEqual([]);
   });
 
   it('blocks navigation to another origin and never files it as an app issue', async () => {
     const session = await spawn();
     const requestsBefore = outsider.requests.length;
 
-    const blocked = await navigate(
-      session.session_id,
-      `goto ${outsider.baseUrl}/welcome?token=secret`,
-    );
-    expect(blocked.success).toBe(false);
-    expect(blocked.error?.startsWith(SANDBOX_BLOCK_PREFIX)).toBe(true);
+    const blocked = await act(session.session_id, [
+      { type: 'goto', url: `${outsider.baseUrl}/welcome?token=secret` },
+    ]);
+    expect(blocked.results[0].error).toMatchObject({
+      code: 'sandbox_blocked',
+      blocked: `GET ${outsider.baseUrl}/welcome`,
+    });
     expect(blocked.sandbox_blocked).toEqual([
       `GET ${outsider.baseUrl}/welcome`,
     ]);
@@ -253,21 +291,18 @@ describe('phantom-user session over MCP', { timeout: 30_000 }, () => {
     expect(ended.sandbox_blocked_requests).toEqual([
       `GET ${outsider.baseUrl}/welcome`,
     ]);
-    if (blocked.screenshot_path) {
-      rmSync(`.haunt-reports/screenshots/${blocked.screenshot_path}`, {
-        force: true,
-      });
-    }
   });
 
   it('enforces the step budget across the protocol', async () => {
     const session = await spawn({ timeout: 1 });
-    const first = await navigate(session.session_id, `goto ${app.baseUrl}/`);
+    const first = await act(session.session_id, [
+      { type: 'goto', url: `${app.baseUrl}/` },
+    ]);
     expect(first.steps_remaining).toBe(0);
 
-    const second = await haunt.call('haunt_navigate', {
+    const second = await haunt.call('haunt_act', {
       session_id: session.session_id,
-      action: `goto ${app.baseUrl}/`,
+      actions: [{ type: 'goto', url: `${app.baseUrl}/` }],
     });
     expect(second.isError).toBe(true);
     expect(second.text).toMatch(/hit its step limit \(1\)/);
@@ -287,18 +322,14 @@ describe('phantom-user session over MCP', { timeout: 30_000 }, () => {
     ]);
     expect(a.session_id).not.toBe(b.session_id);
 
-    const [stateA, stateB] = await Promise.all(
-      [a, b].map((s) =>
-        haunt.call<CaptureOutput>('haunt_capture_state', {
-          session_id: s.session_id,
-          include_screenshot: false,
-        }),
-      ),
-    );
-    expect(stateA.data.title).toBe('Fixture Signup');
-    expect(stateB.data.title).toBe('Fixture Welcome');
+    const [stateA, stateB] = await Promise.all([
+      read(a.session_id),
+      read(b.session_id),
+    ]);
+    expect(stateA.title).toBe('Fixture Signup');
+    expect(stateB.title).toBe('Fixture Welcome');
 
-    await navigate(a.session_id, `goto ${app.baseUrl}/`);
+    await act(a.session_id, [{ type: 'goto', url: `${app.baseUrl}/` }]);
     const [endedA, endedB] = await Promise.all([
       end(a.session_id),
       end(b.session_id),

@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — login</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<!-- The header link reads exactly like the submit button and comes first. -->
+<header>
+  <nav aria-label="Account">
+    <a data-g="nav-login" href="/login">Log in</a>
+    <a data-g="nav-signup" href="/forms">Sign up</a>
+  </nav>
+</header>
+
+<h1>Log in</h1>
+<p id="error" role="alert"></p>
+<form method="post" action="/api/login">
+  <label>Email <input data-g="email" type="email" name="email" autocomplete="username"></label>
+  <label>Password <input data-g="password" type="password" name="password" autocomplete="current-password"></label>
+  <button data-g="submit" type="submit">Log in</button>
+</form>
+
+<script>
+  if (new URLSearchParams(location.search).has('error')) {
+    document.getElementById('error').textContent = 'Wrong email or password';
+  }
+</script>
+</body>
+</html>

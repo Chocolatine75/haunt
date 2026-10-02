@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — huge</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+<style>
+  .record { display: flex; gap: 8px; align-items: center; height: 26px; }
+  .record span { font-size: 12px; }
+</style>
+</head>
+<body>
+<h1>Huge page</h1>
+<!-- 500 records × 4 controls = 2,000 interactive elements, and 500 × 40
+     text spans = 20,000 text nodes. Generated the same way every time. -->
+<div id="records"></div>
+<p id="result" role="status"></p>
+
+<script>
+  const G = window.__gauntlet;
+  const records = document.getElementById('records');
+  const fragment = document.createDocumentFragment();
+  G.state.clicks = 0;
+
+  for (let i = 1; i <= 500; i++) {
+    const row = document.createElement('div');
+    row.className = 'record';
+
+    const link = document.createElement('a');
+    link.href = `#record-${i}`;
+    link.dataset.g = `link-${i}`;
+    link.textContent = `Record ${i}`;
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.dataset.g = `note-${i}`;
+    input.setAttribute('aria-label', `Note for record ${i}`);
+    input.size = 8;
+
+    const check = document.createElement('input');
+    check.type = 'checkbox';
+    check.dataset.g = `select-${i}`;
+    check.setAttribute('aria-label', `Select record ${i}`);
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.g = `archive-${i}`;
+    button.textContent = 'Archive';
+    button.setAttribute('aria-label', `Archive record ${i}`);
+
+    row.append(link, input, check, button);
+    for (let j = 1; j <= 40; j++) {
+      const span = document.createElement('span');
+      span.textContent = `v${i}.${j}`;
+      row.append(span);
+    }
+    fragment.append(row);
+  }
+  records.append(fragment);
+
+  records.addEventListener('click', (e) => {
+    const el = e.target.closest('[data-g]');
+    if (!el) return;
+    G.state.clicks++;
+    if (el.tagName === 'BUTTON') {
+      document.getElementById('result').textContent = `Archived ${el.dataset.g.replace('archive-', 'record ')}`;
+    }
+  });
+</script>
+</body>
+</html>

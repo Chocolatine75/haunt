@@ -96,7 +96,8 @@ All from `mcp-server/`:
 |---|---|
 | `npm run check` | Lint, typecheck, rebuild `dist/`, then tests with coverage (the tests check `dist/`, so it is built first) |
 | `npm test` | Tests once (about 40 s; needs Chromium: `npx playwright install chromium`) |
-| `npx vitest run src/engine/navigate.test.ts` | One file |
+| `npx vitest run src/engine/spawn.test.ts` | One file |
+| `npm run gate` | The roadmap gates only; `npm run gate:soak` runs them 20 times |
 | `npm run test:coverage` | Tests with the coverage thresholds |
 | `npm run lint` / `npx biome check --write src` | Check / fix formatting and lint |
 | `npm run typecheck` | `tsc --noEmit` |
@@ -125,9 +126,16 @@ From the repo root: `node scripts/check-versions.mjs`.
 - **A tool's input is defined once, as a zod schema in `src/mcp/tools.ts`.**
   The JSON Schema hosts see and the argument validation both come from it.
   Do not hand-write JSON Schema, and do not cast arguments past the schema.
-- **Credentials must never reach a report, a log or an issue description.**
-  `navigate.ts` redacts password and email fills; keep that property when
-  touching anything that turns an action into text.
+- **Credentials must never reach a report, a log or a tool result.** The
+  snapshot reports credential fields as `(filled)` and action results never
+  echo what was typed; keep that property when touching anything that turns
+  page state or an action into text.
+- **Code that runs in the page is serialised with `toString()`**
+  (`snapshot/page-script.ts`, `act/page-fns.ts`): each function must be
+  self-contained, with no import and no reference outside its own body.
+- **Clicks, hovers, drags and keystrokes are real input**, never dispatched
+  by script. A scripted click goes through an overlay; a user's does not, and
+  finding that is the point.
 - **A sandbox block is not an app bug.** Blocked requests go to
   `sandbox_blocked_requests`, never to `network_errors` or `issues`.
 - **`malicious-user` sends real attack payloads.** Only run it against

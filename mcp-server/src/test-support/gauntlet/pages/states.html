@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — states</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<h1>States</h1>
+
+<section>
+  <h2>A submit button that enables once the form is valid</h2>
+  <form id="signup">
+    <label>Work email <input data-g="email" type="email" name="email"></label>
+    <label><input data-g="agree" type="checkbox" name="agree"> I agree to the terms</label>
+    <button data-g="submit" type="submit" disabled>Subscribe</button>
+  </form>
+</section>
+
+<section>
+  <h2>Controls that look usable and are not</h2>
+  <!-- Looks fine, is enabled, and nothing is wired to it. -->
+  <p><button data-g="dead" type="button">Refresh</button></p>
+  <p><button data-g="aria-disabled" type="button" aria-disabled="true">Upgrade plan</button></p>
+  <p><button data-g="no-pointer" type="button" style="pointer-events: none">Export data</button></p>
+  <p><button data-g="zero-size" type="button" style="width: 0; height: 0; padding: 0; border: 0; overflow: hidden">Skip to content</button></p>
+  <p><button data-g="invisible" type="button" style="visibility: hidden">Restore backup</button></p>
+  <p><button data-g="not-rendered" type="button" style="display: none">Purge cache</button></p>
+  <p><button data-g="transparent" type="button" style="opacity: 0">Secret action</button></p>
+  <fieldset disabled>
+    <legend>Billing (locked)</legend>
+    <button data-g="in-disabled-fieldset" type="button">Change card</button>
+  </fieldset>
+</section>
+<p id="result" role="status"></p>
+
+<script>
+  const G = window.__gauntlet;
+  const say = (text) => { document.getElementById('result').textContent = text; };
+
+  const email = G.find('email');
+  const agree = G.find('agree');
+  const submit = G.find('submit');
+  const update = () => {
+    submit.disabled = !(/^\S+@\S+\.\S+$/.test(email.value) && agree.checked);
+  };
+  email.addEventListener('input', update);
+  agree.addEventListener('change', update);
+  document.getElementById('signup').addEventListener('submit', (e) => {
+    e.preventDefault();
+    G.record('submit', 'signup', email.value);
+    say('Subscribed');
+  });
+
+  // aria-disabled does not stop the click; the handler has to.
+  G.find('aria-disabled').addEventListener('click', (e) => {
+    if (e.currentTarget.getAttribute('aria-disabled') === 'true') {
+      G.record('ignored', 'aria-disabled');
+      return;
+    }
+    say('Plan upgraded');
+  });
+  for (const id of ['no-pointer', 'zero-size', 'invisible', 'not-rendered', 'transparent', 'in-disabled-fieldset']) {
+    G.find(id).addEventListener('click', () => say(`${id} activated`));
+  }
+</script>
+</body>
+</html>

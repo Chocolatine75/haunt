@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — tabs</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<h1>Tabs</h1>
+<p><a data-g="blank-link" href="/tabs/child?from=link" target="_blank" rel="opener">Open the report in a new tab</a></p>
+<p><button data-g="open-button" type="button">Open the preview window</button></p>
+<p><button data-g="closing-button" type="button">Print (opens a window that closes itself)</button></p>
+<p><a data-g="same-tab-link" href="/tabs/child?from=same">Open the report here</a></p>
+<p><a data-g="download-link" href="/api/report.csv">Download the report (CSV)</a></p>
+<p id="result" role="status"></p>
+
+<script>
+  const G = window.__gauntlet;
+  G.state.childMessages = [];
+  // Children report back, so the opener knows what was done in them.
+  window.addEventListener('message', (e) => {
+    G.state.childMessages.push(e.data);
+    document.getElementById('result').textContent = `Child said: ${e.data}`;
+  });
+  G.find('open-button').addEventListener('click', () => {
+    window.open('/tabs/child?from=button', '_blank');
+  });
+  G.find('closing-button').addEventListener('click', () => {
+    window.open('/tabs/closing', '_blank');
+  });
+</script>
+</body>
+</html>

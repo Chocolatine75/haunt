@@ -3,14 +3,18 @@ import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 import type { BrowserContext } from 'playwright';
 import { v4 as uuidv4 } from 'uuid';
+import { attachRuntime } from './act/runtime.js';
 import {
   SCREENSHOT_MAX_AGE_MS,
   SESSION_MAX_ACTIVE_DURATION_MS,
   SESSION_TTL_MS,
 } from './constants.js';
 import { loadPersona } from './persona/loader.js';
+import { sabotaged } from './sabotage.js';
 import { purgeOldScreenshots } from './screenshots.js';
 import type { SessionManager } from './session/manager.js';
+import { installHooks } from './snapshot/page-script.js';
+import { newSnapshotState } from './snapshot/snapshot.js';
 import type { HauntSession } from './types.js';
 
 export interface SpawnInput {
@@ -106,9 +110,19 @@ export async function hauntSpawn(
       return;
     }
 
+    // Sabotage only (engine/sabotage.ts): requests from any tab but the first
+    // go through unchecked. A new tab's first request has no frame yet.
+    let exempt = false;
+    if (sabotaged('new_tab_unsandboxed')) {
+      try {
+        exempt = runtime.tabs.indexOf(request.frame().page()) > 0;
+      } catch {
+        exempt = true;
+      }
+    }
     if (capturingAllowlist) {
       allowedOrigins.add(origin);
-    } else if (!allowedOrigins.has(origin)) {
+    } else if (!allowedOrigins.has(origin) && !exempt) {
       sandboxBlockedRequests.push(`${request.method()} ${originAndPath}`);
       await route.abort();
       return;
@@ -157,17 +171,22 @@ export async function hauntSpawn(
     await route.fulfill({ response });
   });
 
-  const page = await context.newPage();
+  // Runs in every document before its own scripts: lets the snapshot reach
+  // closed shadow roots and keep element references stable.
+  await context.addInitScript(installHooks);
 
-  // Capture console errors and network failures via Playwright events
+  const snapshotState = newSnapshotState();
+  const runtime = attachRuntime(context, snapshotState);
+
+  // Console errors and network failures, from every tab of the session.
   const consoleErrors: string[] = [];
   const networkErrors: string[] = [];
 
-  page.on('console', (msg) => {
+  context.on('console', (msg) => {
     if (msg.type() === 'error') consoleErrors.push(msg.text());
   });
 
-  page.on('requestfailed', (request) => {
+  context.on('requestfailed', (request) => {
     // route.abort() on a sandbox-blocked request also fires this event.
     // Those are already recorded in sandboxBlockedRequests by the route
     // handler above — recording them here too would leak a sandbox block
@@ -189,6 +208,8 @@ export async function hauntSpawn(
       `${request.method()} ${request.url()} — ${request.failure()?.errorText ?? 'unknown'}`,
     );
   });
+
+  const page = await context.newPage();
 
   try {
     await page.goto(input.target_url, {
@@ -225,6 +246,8 @@ export async function hauntSpawn(
     console_errors: consoleErrors,
     network_errors: networkErrors,
     sandbox_blocked_requests: sandboxBlockedRequests,
+    snapshot: snapshotState,
+    runtime,
   };
 
   manager.set(sessionId, session);

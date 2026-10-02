@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — dynamic</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+<style>
+  #runner { position: relative; height: 44px; }
+  #runner button { position: absolute; left: 0; animation: run 1.5s linear forwards; }
+  @keyframes run { from { left: 0; } to { left: 420px; } }
+</style>
+</head>
+<body>
+<h1>Dynamic</h1>
+
+<section>
+  <h2>A list rebuilt from scratch on every keystroke</h2>
+  <label>Filter <input data-g="filter" type="text" autocomplete="off"></label>
+  <button data-g="churn" type="button">Rebuild continuously for 3 seconds</button>
+  <ul id="list" aria-label="Contacts"></ul>
+</section>
+
+<section>
+  <h2>A button replaced by an identical one</h2>
+  <div id="swap"><button data-g="swap" type="button">Like</button></div>
+</section>
+
+<section>
+  <h2>Content that arrives late</h2>
+  <div id="late" aria-live="polite">Loading…</div>
+</section>
+
+<section>
+  <h2>A button that moves for 1.5 seconds</h2>
+  <div id="runner"><button data-g="runner" type="button">Catch me</button></div>
+</section>
+<p id="result" role="status"></p>
+
+<script>
+  const G = window.__gauntlet;
+  const say = (text) => { document.getElementById('result').textContent = text; };
+
+  // --- Every render destroys all nodes and creates new ones, even when the
+  // visible result is identical. `generation` tells the nodes apart.
+  const NAMES = ['Ada', 'Alan', 'Barbara', 'Dennis', 'Edsger', 'Grace', 'Ken', 'Linus'];
+  const list = document.getElementById('list');
+  const filter = G.find('filter');
+  G.state.generation = 0;
+  function render() {
+    G.state.generation++;
+    const q = filter.value.trim().toLowerCase();
+    list.innerHTML = '';
+    for (const name of NAMES.filter((n) => n.toLowerCase().includes(q))) {
+      const li = document.createElement('li');
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.dataset.g = `contact-${name.toLowerCase()}`;
+      button.dataset.generation = String(G.state.generation);
+      button.textContent = name;
+      button.addEventListener('click', () => {
+        G.record('opened', `contact-${name.toLowerCase()}`, Number(button.dataset.generation));
+        say(`Opened ${name}`);
+      });
+      li.append(button);
+      list.append(li);
+    }
+  }
+  render();
+  filter.addEventListener('input', render);
+  G.find('churn').addEventListener('click', () => {
+    const timer = setInterval(render, 40);
+    G.state.churning = true;
+    setTimeout(() => {
+      clearInterval(timer);
+      G.state.churning = false;
+    }, 3000);
+  });
+
+  // --- Swap: same text, same attributes, different node.
+  G.state.likes = 0;
+  function wireSwap(button) {
+    button.addEventListener('click', () => {
+      G.state.likes++;
+      const next = button.cloneNode(true);
+      button.replaceWith(next);
+      wireSwap(next);
+      say(`Liked ${G.state.likes} time(s)`);
+    });
+  }
+  wireSwap(G.find('swap'));
+
+  // --- Late content.
+  setTimeout(() => {
+    document.getElementById('late').innerHTML = '<button data-g="late-action" type="button">Download invoice</button>';
+    G.find('late-action').addEventListener('click', () => say('Invoice downloaded'));
+    G.record('arrived', 'late-action');
+  }, 2000);
+
+  // --- Runner.
+  const runner = G.find('runner');
+  G.state.runnerStopped = false;
+  runner.addEventListener('animationend', () => { G.state.runnerStopped = true; });
+  runner.addEventListener('click', () => {
+    G.record('caught', 'runner', G.state.runnerStopped);
+    say('Caught');
+  });
+</script>
+</body>
+</html>

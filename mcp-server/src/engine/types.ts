@@ -1,4 +1,6 @@
 import type { Browser, Page } from 'playwright';
+import type { SessionRuntime } from './act/runtime.js';
+import type { SnapshotState } from './snapshot/snapshot.js';
 
 export type IssueSeverity = 'critical' | 'major' | 'minor' | 'suggestion';
 export type IssueCategory =
@@ -57,4 +59,8 @@ export interface HauntSession {
   // the target page's own initial load. Kept separate from network_errors —
   // a sandbox block is not an app failure and must never be reported as one.
   sandbox_blocked_requests: string[];
+  // References issued so far and the previous snapshot, for diffs.
+  snapshot: SnapshotState;
+  // Tabs, requests in flight, downloads and the open dialog.
+  runtime: SessionRuntime;
 }

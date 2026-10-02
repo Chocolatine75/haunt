@@ -1,7 +1,3 @@
-// End-to-end for the haunt-ci loop: runHeadlessTest with a scripted decider in
-// place of the LLM, against a real HTTP app. Covers what the decider is shown
-// at each step and what ends up in the report — the two ends of the loop that
-// a provider-level unit test can't see.
 import { readFileSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -10,6 +6,11 @@ import { runHeadlessTest } from '../cli/headless.js';
 import type { ActionDecider } from '../cli/providers/types.js';
 import { SessionManager } from '../engine/session/manager.js';
 import type { Issue } from '../engine/types.js';
+// End-to-end for the haunt-ci loop: runHeadlessTest with a scripted decider in
+// place of the LLM, against a real HTTP app. Covers what the decider is shown
+// at each step and what ends up in the report — the two ends of the loop that
+// a provider-level unit test can't see.
+import type { Action } from '../gates/part-1/contract.js';
 import {
   type FixtureApp,
   startFixtureApp,
@@ -25,10 +26,22 @@ const CONFUSED_BEGINNER = resolve(
   '../../../personas/confused-beginner.yaml',
 );
 
+// What the decider does at one step, given the state it is shown.
 interface Turn {
-  action: string;
+  actions: (state: string) => Action[];
   issues?: Issue[];
 }
+
+// The reference a state description gives for an element, found by its name.
+function refOf(state: string, name: string): string {
+  const match = state.match(new RegExp(`"${name}" \\[(e\\d+)\\]`));
+  if (!match) throw new Error(`no element named "${name}" in the state`);
+  return match[1];
+}
+const click =
+  (name: string) =>
+  (state: string): Action[] => [{ type: 'click', ref: refOf(state, name) }];
+const goto = (url: string) => (): Action[] => [{ type: 'goto', url }];
 
 // Replays a fixed list of turns and keeps every state description it was shown.
 function scriptedDecider(turns: Turn[]) {
@@ -36,13 +49,14 @@ function scriptedDecider(turns: Turn[]) {
   const decide: ActionDecider = async (_systemPrompt, stateDescription) => {
     const turn = turns[Math.min(seen.length, turns.length - 1)];
     seen.push(stateDescription);
-    return { action: turn.action, issues: turn.issues ?? [] };
+    return {
+      actions: turn.actions(stateDescription),
+      issues: turn.issues ?? [],
+    };
   };
   return { decide, seen };
 }
 
-// Clicking a link costs 3s by itself (the button role is tried first, see
-// HISTORY.md), so vitest's 5s default leaves no room on a slow CI runner.
 describe('haunt-ci loop against a real app', { timeout: 30_000 }, () => {
   let app: FixtureApp;
   let outsider: FixtureApp;
@@ -85,16 +99,16 @@ describe('haunt-ci loop against a real app', { timeout: 30_000 }, () => {
 
   it('shows the decider each page its previous action led to', async () => {
     const { decide, seen } = scriptedDecider([
-      { action: 'click Sign up' },
-      { action: 'click Create account' },
-      { action: `goto ${app.baseUrl}/` },
+      { actions: click('Sign up') },
+      { actions: click('Create account') },
+      { actions: goto(`${app.baseUrl}/`) },
     ]);
 
     await run(decide);
 
     expect(seen).toHaveLength(3);
     expect(seen[0]).toContain(`URL: ${app.baseUrl}/`);
-    expect(seen[0]).toContain('Title: Fixture Home');
+    expect(seen[0]).toContain('Page: Fixture Home');
     expect(seen[0]).toContain('Step 1 of 3');
     expect(seen[0]).toContain('link "Sign up"');
 
@@ -107,6 +121,24 @@ describe('haunt-ci loop against a real app', { timeout: 30_000 }, () => {
     expect(seen[2]).toContain('Internal Server Error');
   });
 
+  it('tells the decider what its last actions did, failures included', async () => {
+    const { decide, seen } = scriptedDecider([
+      { actions: click('Sign up') },
+      { actions: () => [{ type: 'click', ref: 'e999999' }] },
+      { actions: goto(`${app.baseUrl}/`) },
+    ]);
+
+    const { report } = await run(decide);
+
+    expect(seen[0]).not.toContain('Your last actions');
+    expect(seen[1]).toContain(`1. click: went to ${app.baseUrl}/signup`);
+    expect(seen[2]).toContain(
+      '1. click: FAILED — No element has the reference e999999',
+    );
+    // A failed action is information for the decider, not an app issue.
+    expect(report.counts.total).toBe(0);
+  });
+
   it('closes every browser and writes the issues the decider reported', async () => {
     const issue: Issue = {
       severity: 'critical',
@@ -116,9 +148,9 @@ describe('haunt-ci loop against a real app', { timeout: 30_000 }, () => {
       recommendation: 'Validate the payload',
     };
     const { decide } = scriptedDecider([
-      { action: 'click Sign up' },
-      { action: 'click Create account' },
-      { action: `goto ${app.baseUrl}/`, issues: [issue] },
+      { actions: click('Sign up') },
+      { actions: click('Create account') },
+      { actions: goto(`${app.baseUrl}/`), issues: [issue] },
     ]);
 
     const { report, failures } = await run(decide);
@@ -140,7 +172,7 @@ describe('haunt-ci loop against a real app', { timeout: 30_000 }, () => {
       recommendation: `Fix the ${severity} finding`,
     });
     const decide: ActionDecider = async (systemPrompt) => ({
-      action: `goto ${app.baseUrl}/`,
+      actions: [{ type: 'goto', url: `${app.baseUrl}/` }],
       issues: [
         issueFrom(
           systemPrompt.includes('non-technical user') ? 'critical' : 'minor',
@@ -165,8 +197,8 @@ describe('haunt-ci loop against a real app', { timeout: 30_000 }, () => {
 
   it('tells the decider when the sandbox blocked its last action, and reports the block', async () => {
     const { decide, seen } = scriptedDecider([
-      { action: `goto ${outsider.baseUrl}/welcome` },
-      { action: `goto ${app.baseUrl}/` },
+      { actions: goto(`${outsider.baseUrl}/welcome`) },
+      { actions: goto(`${app.baseUrl}/`) },
     ]);
     const requestsBefore = outsider.requests.length;
 
@@ -184,7 +216,7 @@ describe('haunt-ci loop against a real app', { timeout: 30_000 }, () => {
 
   it('browses as the logged-in user when given cookies', async () => {
     const { decide, seen } = scriptedDecider([
-      { action: `goto ${app.baseUrl}/` },
+      { actions: goto(`${app.baseUrl}/`) },
     ]);
 
     await run(decide, {
@@ -213,7 +245,10 @@ describe('haunt-ci loop against a real app', { timeout: 30_000 }, () => {
       if (systemPrompt.includes('non-technical user')) {
         throw new Error('provider returned 529');
       }
-      return { action: `goto ${app.baseUrl}/`, issues: [] };
+      return {
+        actions: [{ type: 'goto', url: `${app.baseUrl}/` }],
+        issues: [],
+      };
     };
 
     const { report, failures } = await run(decide, {

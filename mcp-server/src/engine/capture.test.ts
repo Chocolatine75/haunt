@@ -1,119 +1,94 @@
 import { existsSync, rmSync } from 'node:fs';
-import { type Browser, chromium } from 'playwright';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { afterEach, describe, expect, it } from 'vitest';
 import { hauntCaptureState } from './capture.js';
 import { SCREENSHOTS_DIR } from './constants.js';
 import { SessionManager } from './session/manager.js';
-import type { HauntSession } from './types.js';
+import { hauntSpawn } from './spawn.js';
 
-describe('hauntCaptureState (real page)', () => {
-  let browser: Browser;
+const __dirname = fileURLToPath(new URL('.', import.meta.url));
+const VALID_PERSONA = resolve(
+  __dirname,
+  './persona/__fixtures__/valid-persona.yaml',
+);
 
-  beforeAll(async () => {
-    browser = await chromium.launch();
-  });
+// What hauntCaptureState adds around the snapshot. The snapshot itself is
+// covered, exhaustively, by the part 1 gate (gates/part-1/g1-snapshot).
+describe('hauntCaptureState', () => {
+  let manager: SessionManager;
 
-  afterAll(async () => {
-    await browser.close();
-    rmSync(SCREENSHOTS_DIR, { recursive: true, force: true });
-  });
-
-  async function managerWithSessionOn(html: string) {
-    const page = await browser.newPage();
-    await page.setContent(html);
-    const session = {
-      id: `capture-test-${Date.now()}-${Math.random()}`,
-      page,
-    } as unknown as HauntSession;
-    const manager = new SessionManager();
-    manager.set(session.id, session);
-    return { manager, session };
+  async function sessionOn(html: string) {
+    manager = new SessionManager();
+    const { session_id } = await hauntSpawn(manager, {
+      persona: VALID_PERSONA,
+      target_url: `data:text/html,${encodeURIComponent(html)}`,
+    });
+    return session_id;
   }
 
-  it('returns a populated ARIA accessibility tree', async () => {
-    const { manager, session } = await managerWithSessionOn(
-      '<button>Create account</button><p>Start writing for free</p>',
+  afterEach(async () => {
+    for (const session of manager?.all() ?? []) await session.browser.close();
+  });
+
+  it('returns the text snapshot by default, with references', async () => {
+    const session_id = await sessionOn(
+      '<title>Pricing</title><button>Create account</button><p>Start writing for free</p>',
     );
+
+    const result = await hauntCaptureState(manager, { session_id });
+
+    expect(result.title).toBe('Pricing');
+    expect(result.text).toMatch(/- button "Create account" \[e\d+\]/);
+    expect(result.text).toContain('Start writing for free');
+    expect(result.elements).toBeUndefined();
+    expect(result.screenshot_path).toBeUndefined();
+  });
+
+  it('returns the same snapshot as data when asked for json', async () => {
+    const session_id = await sessionOn('<a href="/pricing">Pricing</a>');
 
     const result = await hauntCaptureState(manager, {
-      session_id: session.id,
-      include_screenshot: false,
+      session_id,
+      format: 'json',
     });
 
-    expect(result.accessibility_tree_error).toBeUndefined();
-    expect(result.accessibility_tree).toContain('Create account');
+    expect(result.elements).toEqual([
+      expect.objectContaining({ role: 'link', name: 'Pricing', tag: 'a' }),
+    ]);
   });
 
-  it('includes dom_snapshot only when requested, capped at 5000 chars', async () => {
-    const { manager, session } = await managerWithSessionOn(
-      `<div>${'x'.repeat(10_000)}</div>`,
+  it('saves a screenshot only when asked to', async () => {
+    const session_id = await sessionOn('<p>hi</p>');
+
+    const result = await hauntCaptureState(manager, {
+      session_id,
+      include_screenshot: true,
+    });
+
+    expect(result.screenshot_path).toMatch(
+      new RegExp(`^${session_id}-capture-\\d+\\.png$`),
     );
-
-    const withoutDom = await hauntCaptureState(manager, {
-      session_id: session.id,
-      include_screenshot: false,
-    });
-    expect(withoutDom.dom_snapshot).toBeUndefined();
-
-    const withDom = await hauntCaptureState(manager, {
-      session_id: session.id,
-      include_screenshot: false,
-      include_dom: true,
-    });
-    expect(withDom.dom_snapshot).toBeDefined();
-    expect(withDom.dom_snapshot?.length).toBeLessThanOrEqual(5_000);
-  });
-
-  it('writes a screenshot file when include_screenshot is not disabled', async () => {
-    const { manager, session } = await managerWithSessionOn('<p>hi</p>');
-
-    const result = await hauntCaptureState(manager, { session_id: session.id });
-
-    expect(result.screenshot_path).toBeDefined();
     expect(existsSync(`${SCREENSHOTS_DIR}/${result.screenshot_path}`)).toBe(
       true,
     );
-  });
-});
-
-describe('hauntCaptureState (accessibility failure handling)', () => {
-  // A minimal stub page: only what hauntCaptureState touches. Lets us force the
-  // ariaSnapshot() branch to fail deterministically, which is hard to do reliably
-  // against a real live Chromium page.
-  function stubPage(ariaSnapshotError: Error) {
-    return {
-      url: () => 'http://example.com/',
-      title: async () => 'Example',
-      screenshot: async () => undefined,
-      locator: () => ({
-        ariaSnapshot: async () => {
-          throw ariaSnapshotError;
-        },
-      }),
-      content: async () => '<html></html>',
-    };
-  }
-
-  afterEach(() => {
-    rmSync(SCREENSHOTS_DIR, { recursive: true, force: true });
+    rmSync(`${SCREENSHOTS_DIR}/${result.screenshot_path}`, { force: true });
   });
 
-  it('surfaces accessibility_tree_error instead of throwing, and still returns the rest', async () => {
-    const session = {
-      id: 'stub-session',
-      page: stubPage(new Error('ariaSnapshot boom')),
-    } as unknown as HauntSession;
-    const manager = new SessionManager();
-    manager.set(session.id, session);
+  it('counts as activity and does not consume a step', async () => {
+    const session_id = await sessionOn('<p>hi</p>');
+    const session = manager.get(session_id);
+    session.last_activity = 0;
 
-    const result = await hauntCaptureState(manager, {
-      session_id: session.id,
-      include_screenshot: false,
-    });
+    await hauntCaptureState(manager, { session_id });
 
-    expect(result.accessibility_tree).toBeUndefined();
-    expect(result.accessibility_tree_error).toBe('ariaSnapshot boom');
-    expect(result.url).toBe('http://example.com/');
-    expect(result.title).toBe('Example');
+    expect(session.last_activity).toBeGreaterThan(0);
+    expect(session.step_count).toBe(0);
+  });
+
+  it('throws for an unknown session', async () => {
+    await expect(
+      hauntCaptureState(new SessionManager(), { session_id: 'nope' }),
+    ).rejects.toThrow('Session not found: nope');
   });
 });

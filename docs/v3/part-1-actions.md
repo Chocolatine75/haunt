@@ -34,10 +34,15 @@ and, in short form, by every action result.
   that element. No name matching, no guessing.
 - **R-A2 What counts as actionable.** Links, buttons, inputs, selects,
   textareas, `contenteditable`, elements with an interactive ARIA role,
-  elements with a click handler or `cursor: pointer`, `tabindex >= 0`,
-  `<summary>`, `<label>`, and scrollable containers. Disabled elements are
+  elements with an `onclick` attribute or `draggable="true"`, elements that
+  set a pointer, grab or resize cursor, `tabindex >= 0`, `<summary>`, and
+  scrollable containers. A listener added from script leaves no trace on the
+  element, so it cannot be a criterion; the cursor usually is one. Labels are
+  not listed (acting on a label is acting on its control), nor are elements
+  hidden from assistive technology with `aria-hidden`. Disabled elements are
   listed and marked `disabled`, so the tester can report "the button is
-  disabled" instead of failing on it.
+  disabled" instead of failing on it. An element that is in the way of an
+  actionable one is listed too, whatever it is, so that it can be named.
 - **R-A3 Every tree.** References cover open shadow roots, closed shadow
   roots, same-origin iframes and cross-origin iframes (within the sandbox
   allowlist), nested to any depth. Each frame and shadow host is shown as a
@@ -48,8 +53,10 @@ and, in short form, by every action result.
   shown, only `(filled)`.
 - **R-A5 Visibility is stated, not hidden.** Each element is marked when it is
   outside the viewport (`offscreen`) or covered by another element
-  (`covered by e14`). It stays listed: acting on it is allowed and fails with
-  the real reason (section D). Part 4 will later decide what the tester is
+  (`covered by e14`), or when it ignores the pointer (`pointer-events: none`).
+  It stays listed: acting on it is allowed and fails with the real reason
+  (section D). An element that is not rendered, invisible or of zero size is
+  listed and marked hidden with the reason. Part 4 will later decide what the tester is
   *shown*; this part decides what is *true*.
 - **R-A6 Scroll position.** The snapshot states how far the page and each
   scrollable container can scroll in each direction, in pixels and as a
@@ -63,7 +70,9 @@ and, in short form, by every action result.
   never reused within the session.
 - **R-A9 What changed.** Elements that appeared since the previous snapshot
   are marked `new`. The snapshot can be requested as a diff against the
-  previous one (added, removed, changed lines only).
+  previous one (added, removed, changed lines only). A change in where an
+  element is (scrolled out, covered) is reported on the element but is not a
+  change of the page for the diff.
 - **R-A10 Bounded size, nothing silently dropped.** The snapshot has a
   character budget. When a page exceeds it, the output is cut at an element
   boundary and says so (`412 more elements below — scroll or request
@@ -74,6 +83,15 @@ and, in short form, by every action result.
 - **R-A12 Text content.** Non-interactive text (headings, paragraphs, error
   messages, table cells) is present in reading order, because that is what a
   tester reads to judge the page.
+- **R-A13 Attributes on request.** The caller can name attributes to report
+  for each element (`data-testid`, for instance). None are reported unless
+  asked for.
+
+The snapshot comes in two formats. `text` is what a model reads, with each
+element's reference written `[e12]`, and is the one the size budget applies
+to (12,000 characters a page). `json` is the same snapshot as data, never
+paged, for callers that process it. The exact shape of both, and of every
+action and result below, is fixed in `mcp-server/src/gates/part-1/contract.ts`.
 
 ## B. The actions
 
@@ -93,8 +111,8 @@ matches or exceeds.
 | `hover` | `ref` | Moves the pointer over the element and holds | — |
 | `scroll` | `direction`, `amount?` (pixels or pages), `ref?` (a container) | Scrolls the page or one container | `scroll` |
 | `scroll_to` | `ref` or `text` | Brings an element or the first match of a text into view | `find_text` |
-| `drag` | `from_ref`, `to_ref` or `offset` | Pointer drag with real intermediate moves | — |
-| `upload` | `ref`, `files` | Sets files on a file input, including a hidden one behind a styled button | `upload_file` |
+| `drag` | `from_ref`, `to_ref` and/or `offset` | Pointer drag with real intermediate moves. The offset is counted from the centre of `to_ref`, or of `from_ref` without one | — |
+| `upload` | `ref`, `files` | Sets files on a file input, or on the one attached to the element (inside it, labelled by it, or the only one next to it), as with a hidden input behind a styled button | `upload_file` |
 | `goto` | `url` | Navigates the active tab | `navigate` |
 | `back` / `forward` / `reload` | — | History navigation and refresh | `go_back` |
 | `wait_for` | `text?` / `ref?` / `gone?` / `url?` / `ms?`, `timeout_ms` | Waits for a condition, or a fixed time | `wait` |
@@ -130,18 +148,23 @@ of the tester's hands).
 ## C. What an action returns
 
 - **R-C1 Outcome.** `ok` or a failure with a code from section D.
-- **R-C2 What changed.** URL before and after; whether a navigation happened;
+- **R-C2 What changed.** URL before and after; whether a navigation happened
+  (a document load or any change of URL, `pushState` and hash included);
   tabs opened or closed; a dialog that appeared, with its message; a download
   that started, with its file name; whether focus moved; whether the DOM
   changed at all. An action that changed nothing says `no observable change`
-  — for a tester that is often the finding.
+  — for a tester that is often the finding. Focus moving to the control that
+  was clicked does not count as a change.
 - **R-C3 Fresh snapshot diff.** The result includes the snapshot diff
   (R-A9), so the tester rarely needs a separate capture call.
-- **R-C4 Settling.** The result is produced once the page has settled: no
-  pending navigation, and network and DOM quiet for a short window, with a
-  hard cap. If the cap is hit the result says the page was still busy and
-  what was pending. A slow page must never look like a finished one, and
-  must never hang the action.
+- **R-C4 Settling.** The result is produced once the page has finished
+  reacting to the action: no request the action started is still in flight,
+  no short timer it started is still pending, a frame has been drawn, and the
+  DOM has been still for a moment. Activity that was already going on before
+  the action (a clock, a polling loop) is not waited for. There is a hard cap
+  of 5 seconds; if it is hit the result says the page was still busy and what
+  was pending. A slow page must never look like a finished one, and must
+  never hang the action.
 - **R-C5 Timing.** Each result reports how long the action and the settling
   took.
 - **R-C6 Existing fields kept.** Console errors, network errors, sandbox
@@ -167,7 +190,7 @@ raw Playwright stack.
 | `timeout` | `wait_for` condition not met | What was observed instead |
 | `navigation_failed` | The URL did not load | Status or network error |
 | `sandbox_blocked` | Outside the allowlist | The blocked URL, without query string |
-| `invalid_action` | Malformed parameters | Which parameter and why |
+| `invalid_action` | Malformed parameters (reported like any other failed step, so a sequence says which action was wrong) | Which parameter |
 
 - **R-D1** Every failure carries one of these codes and its required detail.
 - **R-D2** A failure that can be known immediately (`unknown_ref`,
@@ -188,8 +211,8 @@ raw Playwright stack.
   origin allowlist. A new tab opened by the page is sandboxed like the first.
 - **R-E2 Redaction.** A value typed into a password field, or into a field
   whose name suggests a credential, never appears in a result, an issue, a
-  log or a report. Detection now uses the element (`type=password`,
-  `autocomplete`) as well as its name.
+  log or a report: the snapshot shows `(filled)` in its place. Detection now
+  uses the element (`type=password`, `autocomplete`) as well as its name.
 - **R-E3 Callers updated.** `commands/haunt-test.md`, `haunt-ci`,
   `authenticate.ts` and the benchmark all use references and `haunt_act`.
   The sentence grammar and `haunt_navigate` are removed in the same release,
@@ -210,7 +233,12 @@ raw Playwright stack.
 
 # The gate
 
-Lives in `mcp-server/src/gates/part-1/`. All of it is deterministic: scripted
+Lives in `mcp-server/src/gates/part-1/`, one file per suite, and runs with
+`npm run gate`. Each test is registered with the requirements it proves, and
+`status.ts` lists the tests the implementation passes so far. A test that is
+not listed runs as an expected failure: CI stays green while it fails and
+turns red the moment it passes, which is the cue to list it. The part is
+accepted when every test is listed. All of it is deterministic: scripted
 actions through a real MCP client, a real Chromium, the gauntlet served on
 `127.0.0.1`. No model is called.
 
@@ -247,6 +275,8 @@ right element received a real click" from "something happened".
 | `huge` | 2,000 interactive elements and 20,000 text nodes |
 | `states` | A disabled button that enables after a valid form, `aria-disabled`, `pointer-events: none`, zero-size and `visibility: hidden` elements |
 | `spa` | Client-side routing with `pushState`, a route that never settles (a polling request every 200 ms), a route that streams its content |
+| `escape` | Eight ways of reaching another origin that the page never contacts while loading: links, a form post, `window.open`, `fetch`, a beacon, an image, an open redirect, and a frame doing the same |
+| `login` | A login form behind a header link that reads exactly like its submit button; one valid set of credentials |
 
 ## Gate suites
 
@@ -391,7 +421,7 @@ A gate that cannot fail proves nothing, so the gate is itself tested.
    let a new tab bypass the sandbox. A sabotage that leaves the gate green
    is a hole in the gate and blocks acceptance until a test is added.
 2. **No flakes.** The whole gate passes 20 times in a row on each of Linux,
-   macOS and Windows, without retries.
+   macOS and Windows, without retries (`npm run gate:soak`).
 3. **Coverage.** Every requirement id in this document appears in at least
    one gate test name, checked by a script.
 

@@ -1,15 +1,16 @@
 import { createRequire } from 'module'; const require = createRequire(import.meta.url);
 import {
   SessionManager,
+  actionSchema,
   external_exports,
+  hauntAct,
   hauntCaptureState,
   hauntEndSession,
   hauntGenerateReport,
   hauntGetCookies,
-  hauntNavigate,
   hauntSpawn,
   zodToJsonSchema
-} from "./chunk-IEQIGTBK.js";
+} from "./chunk-TVFI5C7Y.js";
 import {
   _enum,
   _null,
@@ -10619,26 +10620,39 @@ var TOOLS = [
     run: (manager, input) => hauntGetCookies(manager, input)
   }),
   defineTool({
-    name: "haunt_navigate",
-    description: 'Execute a browser action decided by the orchestrator (as the persona). Actions: "click <target>", "fill <text> in <field>", "goto <url>", "press <key>".',
+    name: "haunt_act",
+    description: "Run one or more actions on elements named by their reference from the snapshot (click, fill, type, press, select, check, hover, scroll, drag, upload, goto, tab, dialog, wait_for, read\u2026). Each action reports what it really changed: navigation, new tab, dialog, download, or nothing at all. A sequence stops at the first failure, navigation, dialog or new tab. A failed action says why (covered and by what, disabled, stale reference\u2026); it is information, not necessarily an app bug.",
+    // Each action is checked by the engine, so that a malformed one is
+    // reported as a failed step (with the others in the sequence) rather
+    // than rejecting the whole call.
     input: external_exports.object({
+      session_id: external_exports.string(),
+      actions: external_exports.array(external_exports.record(external_exports.unknown())).min(1),
+      issues: external_exports.array(issueSchema).optional()
+    }),
+    listing: external_exports.object({
       session_id: external_exports.string().describe("Session ID from haunt_spawn"),
-      action: external_exports.string().describe(
-        'Action to perform, e.g. "click Login", "fill test@example.com in Email", "goto http://localhost:3000/about", "press Enter"'
+      actions: external_exports.array(actionSchema).min(1).describe(
+        "Run in order; execution stops when one fails or changes the page under the rest"
       ),
       issues: external_exports.array(issueSchema).optional().describe("Issues the orchestrator observed during this step")
     }),
-    run: (manager, input) => hauntNavigate(manager, input)
+    run: (manager, input) => hauntAct(manager, input)
   }),
   defineTool({
     name: "haunt_capture_state",
-    description: "Capture the current page state: accessibility tree, optional screenshot, optional DOM. Call this before deciding each action.",
+    description: "Capture the current page as a snapshot: every actionable element with a stable reference like [e12], in reading order with the surrounding text, across frames and shadow roots. Call this before deciding each action; use the references with haunt_act.",
     input: external_exports.object({
       session_id: external_exports.string(),
-      include_screenshot: external_exports.boolean().optional().describe("Default: true"),
-      include_dom: external_exports.boolean().optional().describe(
-        "Include raw HTML snapshot (capped at 5000 chars). Default: false"
-      )
+      format: external_exports.enum(["text", "json"]).optional().describe(
+        "text: the snapshot as a model reads it, paged when large. json: the same snapshot as data."
+      ),
+      diff: external_exports.boolean().optional().describe("Also return what changed since the previous snapshot"),
+      within: external_exports.string().optional().describe("Reference of an element: limit the snapshot to its subtree"),
+      actionable_only: external_exports.boolean().optional().describe("Leave out the surrounding text, keep only elements"),
+      page: external_exports.number().optional().describe("Which page of a text snapshot that did not fit in one"),
+      include_attributes: external_exports.array(external_exports.string()).optional().describe("Attributes to report for each element, e.g. data-testid"),
+      include_screenshot: external_exports.boolean().optional().describe("Also save a screenshot. Default: false")
     }),
     run: (manager, input) => hauntCaptureState(manager, input)
   }),
@@ -10687,7 +10701,7 @@ var TOOLS = [
   })
 ];
 function toolInputJsonSchema(tool) {
-  const { $schema, ...schema } = zodToJsonSchema(tool.input, {
+  const { $schema, ...schema } = zodToJsonSchema(tool.listing ?? tool.input, {
     $refStrategy: "none"
   });
   return schema;
@@ -10701,10 +10715,9 @@ function describeInputError(toolName, error) {
 }
 
 // src/mcp/server.ts
-function createServer() {
-  const manager = new SessionManager();
+function createServer(manager = new SessionManager()) {
   const server = new Server(
-    { name: "haunt", version: "0.1.0" },
+    { name: "haunt", version: "0.2.0" },
     { capabilities: { tools: {} } }
   );
   server.setRequestHandler(ListToolsRequestSchema, async () => ({

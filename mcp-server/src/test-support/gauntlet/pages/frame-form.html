@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — frame form</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<form>
+  <label>Comment <input data-g="comment" type="text" name="comment"></label>
+  <button data-g="send" type="submit">Send</button>
+</form>
+<p role="status"></p>
+<script>
+  const G = window.__gauntlet;
+  const name = new URLSearchParams(location.search).get('name') || 'frame';
+  G.state.name = name;
+  document.querySelector('form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    G.record('submit', name, document.querySelector('input').value);
+    document.querySelector('[role=status]').textContent = `Sent from ${name}`;
+  });
+</script>
+</body>
+</html>

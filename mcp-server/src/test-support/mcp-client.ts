@@ -5,6 +5,7 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
+import type { SessionManager } from '../engine/session/manager.js';
 import { createServer } from '../mcp/server.js';
 
 export interface ToolCallResult<T> {
@@ -46,9 +47,11 @@ export async function wrapClient(transport: Transport): Promise<HauntClient> {
 }
 
 // In-process server built from src/ — no child process, no build step.
-export async function connectInMemory(): Promise<HauntClient> {
+export async function connectInMemory(
+  manager?: SessionManager,
+): Promise<HauntClient> {
   const [clientTransport, serverTransport] =
     InMemoryTransport.createLinkedPair();
-  await createServer().connect(serverTransport);
+  await createServer(manager).connect(serverTransport);
   return wrapClient(clientTransport);
 }
