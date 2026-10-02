@@ -1,19 +1,13 @@
 #!/usr/bin/env node
 import { createRequire } from 'module'; const require = createRequire(import.meta.url);
 import {
-  createDecider,
-  parseArgs,
-  resolveProvider,
-  runHeadlessTest
-} from "./chunk-FSLXTAUS.js";
-import "./chunk-5ZKXMC72.js";
-import "./chunk-3E6BL45F.js";
+  main
+} from "./chunk-6M22FQ5V.js";
+import "./chunk-3WOOJHBP.js";
+import "./chunk-MMWLM6BK.js";
 import "./chunk-3IGCGY6U.js";
 import "./chunk-5HT2UXVQ.js";
 import "./chunk-ZO3ASFWY.js";
-export {
-  createDecider,
-  parseArgs,
-  resolveProvider,
-  runHeadlessTest
-};
+
+// src/cli/bin.ts
+main();

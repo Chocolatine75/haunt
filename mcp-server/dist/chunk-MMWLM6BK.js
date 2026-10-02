@@ -977,17 +977,30 @@ function promiseWithResolvers() {
   return { promise, resolve, reject };
 }
 
-// node_modules/@anthropic-ai/sdk/internal/utils/uuid.mjs
-var uuid4 = function() {
-  const { crypto } = globalThis;
-  if (crypto?.randomUUID) {
-    uuid4 = crypto.randomUUID.bind(crypto);
-    return crypto.randomUUID();
+// node_modules/@anthropic-ai/sdk/internal/utils/bytes.mjs
+function concatBytes(buffers) {
+  let length = 0;
+  for (const buffer of buffers) {
+    length += buffer.length;
   }
-  const u8 = new Uint8Array(1);
-  const randomByte = crypto ? () => crypto.getRandomValues(u8)[0] : () => Math.random() * 255 & 255;
-  return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) => (+c ^ randomByte() & 15 >> +c / 4).toString(16));
-};
+  const output = new Uint8Array(length);
+  let index = 0;
+  for (const buffer of buffers) {
+    output.set(buffer, index);
+    index += buffer.length;
+  }
+  return output;
+}
+var encodeUTF8_;
+function encodeUTF8(str) {
+  let encoder2;
+  return (encodeUTF8_ ?? (encoder2 = new globalThis.TextEncoder(), encodeUTF8_ = encoder2.encode.bind(encoder2)))(str);
+}
+var decodeUTF8_;
+function decodeUTF8(bytes) {
+  let decoder;
+  return (decodeUTF8_ ?? (decoder = new globalThis.TextDecoder(), decodeUTF8_ = decoder.decode.bind(decoder)))(bytes);
+}
 
 // node_modules/@anthropic-ai/sdk/internal/utils/values.mjs
 var startsWithSchemeRegexp = /^[a-z][a-z0-9+.-]*:/i;
@@ -1033,6 +1046,136 @@ var safeJSON = (text) => {
 };
 function checkNever(_value) {
 }
+
+// node_modules/@anthropic-ai/sdk/internal/utils/env.mjs
+var readEnv = (env) => {
+  if (typeof globalThis.process !== "undefined") {
+    return globalThis.process.env?.[env]?.trim() || void 0;
+  }
+  if (typeof globalThis.Deno !== "undefined") {
+    return globalThis.Deno.env?.get?.(env)?.trim() || void 0;
+  }
+  return void 0;
+};
+
+// node_modules/@anthropic-ai/sdk/internal/utils/log.mjs
+var defaultLogLevel = "warn";
+var levelNumbers = {
+  off: 0,
+  error: 200,
+  warn: 300,
+  info: 400,
+  debug: 500
+};
+var parseLogLevel = (maybeLevel, sourceName, logger) => {
+  if (!maybeLevel) {
+    return void 0;
+  }
+  if (hasOwn(levelNumbers, maybeLevel)) {
+    return maybeLevel;
+  }
+  logger.warn(`${sourceName} was set to ${JSON.stringify(maybeLevel)}, expected one of ${JSON.stringify(Object.keys(levelNumbers))}`);
+  return void 0;
+};
+function noop() {
+}
+function makeLogFn(fnLevel, logger, logLevel) {
+  if (!logger || levelNumbers[fnLevel] > levelNumbers[logLevel]) {
+    return noop;
+  } else {
+    return logger[fnLevel].bind(logger);
+  }
+}
+var noopLogger = {
+  error: noop,
+  warn: noop,
+  info: noop,
+  debug: noop
+};
+var cachedLoggers = /* @__PURE__ */ new WeakMap();
+function filterLogger(logger, logLevel) {
+  const cachedLogger = cachedLoggers.get(logger);
+  if (cachedLogger && cachedLogger[0] === logLevel) {
+    return cachedLogger[1];
+  }
+  const levelLogger = {
+    error: makeLogFn("error", logger, logLevel),
+    warn: makeLogFn("warn", logger, logLevel),
+    info: makeLogFn("info", logger, logLevel),
+    debug: makeLogFn("debug", logger, logLevel)
+  };
+  cachedLoggers.set(logger, [logLevel, levelLogger]);
+  return levelLogger;
+}
+function loggerFor(client) {
+  const logger = client.logger;
+  const logLevel = client.logLevel ?? "off";
+  if (!logger) {
+    return noopLogger;
+  }
+  return filterLogger(logger, logLevel);
+}
+var lastEnvLevel;
+var cachedDefaultLogger;
+function defaultLogger() {
+  const envLevel = readEnv("ANTHROPIC_LOG");
+  if (!cachedDefaultLogger || envLevel !== lastEnvLevel) {
+    lastEnvLevel = envLevel;
+    cachedDefaultLogger = filterLogger(console, parseLogLevel(envLevel, "process.env['ANTHROPIC_LOG']", filterLogger(console, defaultLogLevel)) ?? defaultLogLevel);
+  }
+  return cachedDefaultLogger;
+}
+var formatRequestDetails = (details) => {
+  if (details.options) {
+    details.options = { ...details.options };
+    delete details.options["headers"];
+  }
+  if (details.headers) {
+    details.headers = Object.fromEntries((details.headers instanceof Headers ? [...details.headers] : Object.entries(details.headers)).map(([name, value]) => [
+      name,
+      name.toLowerCase() === "authorization" || name.toLowerCase() === "api-key" || name.toLowerCase() === "x-api-key" || name.toLowerCase() === "cookie" || name.toLowerCase() === "set-cookie" ? "***" : value
+    ]));
+  }
+  if ("retryOfRequestLogID" in details) {
+    if (details.retryOfRequestLogID) {
+      details.retryOf = details.retryOfRequestLogID;
+    }
+    delete details.retryOfRequestLogID;
+  }
+  return details;
+};
+
+// node_modules/@anthropic-ai/sdk/internal/utils/backoff.mjs
+function isStatus(e, code) {
+  return e instanceof APIError && e.status === code;
+}
+function is4xx(e) {
+  return e instanceof APIError && typeof e.status === "number" && e.status >= 400 && e.status < 500;
+}
+function isFatal4xx(e) {
+  return is4xx(e) && !isStatus(e, 408) && !isStatus(e, 409) && !isStatus(e, 429);
+}
+function backoff(attempt, baseMs, capMs) {
+  return Math.min(baseMs * 2 ** attempt, capMs);
+}
+function jitter(lowMs, highMs) {
+  return lowMs + Math.random() * (highMs - lowMs);
+}
+function applyJitter(ms) {
+  return ms * (1 - Math.random() * 0.25);
+}
+
+// node_modules/@anthropic-ai/sdk/internal/utils/uuid.mjs
+var uuid4 = function() {
+  const { crypto } = globalThis;
+  if (crypto?.randomUUID) {
+    uuid4 = crypto.randomUUID.bind(crypto);
+    return crypto.randomUUID();
+  }
+  const u8 = new Uint8Array(1);
+  const randomByte = crypto ? () => crypto.getRandomValues(u8)[0] : () => Math.random() * 255 & 255;
+  return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) => (+c ^ randomByte() & 15 >> +c / 4).toString(16));
+};
 
 // node_modules/@anthropic-ai/sdk/internal/utils/sleep.mjs
 var sleep = (ms, signal) => new Promise((resolve) => {
@@ -1919,42 +2062,6 @@ var TokenCache = class {
   }
 };
 
-// node_modules/@anthropic-ai/sdk/internal/utils/env.mjs
-var readEnv = (env) => {
-  if (typeof globalThis.process !== "undefined") {
-    return globalThis.process.env?.[env]?.trim() || void 0;
-  }
-  if (typeof globalThis.Deno !== "undefined") {
-    return globalThis.Deno.env?.get?.(env)?.trim() || void 0;
-  }
-  return void 0;
-};
-
-// node_modules/@anthropic-ai/sdk/internal/utils/bytes.mjs
-function concatBytes(buffers) {
-  let length = 0;
-  for (const buffer of buffers) {
-    length += buffer.length;
-  }
-  const output = new Uint8Array(length);
-  let index = 0;
-  for (const buffer of buffers) {
-    output.set(buffer, index);
-    index += buffer.length;
-  }
-  return output;
-}
-var encodeUTF8_;
-function encodeUTF8(str) {
-  let encoder2;
-  return (encodeUTF8_ ?? (encoder2 = new globalThis.TextEncoder(), encodeUTF8_ = encoder2.encode.bind(encoder2)))(str);
-}
-var decodeUTF8_;
-function decodeUTF8(bytes) {
-  let decoder;
-  return (decodeUTF8_ ?? (decoder = new globalThis.TextDecoder(), decodeUTF8_ = decoder.decode.bind(decoder)))(bytes);
-}
-
 // node_modules/@anthropic-ai/sdk/internal/utils/base64.mjs
 var fromBase64 = (str) => {
   if (typeof globalThis.Buffer !== "undefined") {
@@ -1970,93 +2077,6 @@ var fromBase64 = (str) => {
     return buf;
   }
   throw new AnthropicError("Cannot decode base64 string; Expected `Buffer` or `atob` to be defined");
-};
-
-// node_modules/@anthropic-ai/sdk/internal/utils/log.mjs
-var defaultLogLevel = "warn";
-var levelNumbers = {
-  off: 0,
-  error: 200,
-  warn: 300,
-  info: 400,
-  debug: 500
-};
-var parseLogLevel = (maybeLevel, sourceName, logger) => {
-  if (!maybeLevel) {
-    return void 0;
-  }
-  if (hasOwn(levelNumbers, maybeLevel)) {
-    return maybeLevel;
-  }
-  logger.warn(`${sourceName} was set to ${JSON.stringify(maybeLevel)}, expected one of ${JSON.stringify(Object.keys(levelNumbers))}`);
-  return void 0;
-};
-function noop() {
-}
-function makeLogFn(fnLevel, logger, logLevel) {
-  if (!logger || levelNumbers[fnLevel] > levelNumbers[logLevel]) {
-    return noop;
-  } else {
-    return logger[fnLevel].bind(logger);
-  }
-}
-var noopLogger = {
-  error: noop,
-  warn: noop,
-  info: noop,
-  debug: noop
-};
-var cachedLoggers = /* @__PURE__ */ new WeakMap();
-function filterLogger(logger, logLevel) {
-  const cachedLogger = cachedLoggers.get(logger);
-  if (cachedLogger && cachedLogger[0] === logLevel) {
-    return cachedLogger[1];
-  }
-  const levelLogger = {
-    error: makeLogFn("error", logger, logLevel),
-    warn: makeLogFn("warn", logger, logLevel),
-    info: makeLogFn("info", logger, logLevel),
-    debug: makeLogFn("debug", logger, logLevel)
-  };
-  cachedLoggers.set(logger, [logLevel, levelLogger]);
-  return levelLogger;
-}
-function loggerFor(client) {
-  const logger = client.logger;
-  const logLevel = client.logLevel ?? "off";
-  if (!logger) {
-    return noopLogger;
-  }
-  return filterLogger(logger, logLevel);
-}
-var lastEnvLevel;
-var cachedDefaultLogger;
-function defaultLogger() {
-  const envLevel = readEnv("ANTHROPIC_LOG");
-  if (!cachedDefaultLogger || envLevel !== lastEnvLevel) {
-    lastEnvLevel = envLevel;
-    cachedDefaultLogger = filterLogger(console, parseLogLevel(envLevel, "process.env['ANTHROPIC_LOG']", filterLogger(console, defaultLogLevel)) ?? defaultLogLevel);
-  }
-  return cachedDefaultLogger;
-}
-var formatRequestDetails = (details) => {
-  if (details.options) {
-    details.options = { ...details.options };
-    delete details.options["headers"];
-  }
-  if (details.headers) {
-    details.headers = Object.fromEntries((details.headers instanceof Headers ? [...details.headers] : Object.entries(details.headers)).map(([name, value]) => [
-      name,
-      name.toLowerCase() === "authorization" || name.toLowerCase() === "api-key" || name.toLowerCase() === "x-api-key" || name.toLowerCase() === "cookie" || name.toLowerCase() === "set-cookie" ? "***" : value
-    ]));
-  }
-  if ("retryOfRequestLogID" in details) {
-    if (details.retryOfRequestLogID) {
-      details.retryOf = details.retryOfRequestLogID;
-    }
-    delete details.retryOfRequestLogID;
-  }
-  return details;
 };
 
 // node_modules/@anthropic-ai/sdk/core/credentials.mjs
@@ -4372,26 +4392,6 @@ function linkAbort(external, controller) {
   return () => external.removeEventListener("abort", onAbort);
 }
 
-// node_modules/@anthropic-ai/sdk/internal/utils/backoff.mjs
-function isStatus(e, code) {
-  return e instanceof APIError && e.status === code;
-}
-function is4xx(e) {
-  return e instanceof APIError && typeof e.status === "number" && e.status >= 400 && e.status < 500;
-}
-function isFatal4xx(e) {
-  return is4xx(e) && !isStatus(e, 408) && !isStatus(e, 409) && !isStatus(e, 429);
-}
-function backoff(attempt, baseMs, capMs) {
-  return Math.min(baseMs * 2 ** attempt, capMs);
-}
-function jitter(lowMs, highMs) {
-  return lowMs + Math.random() * (highMs - lowMs);
-}
-function applyJitter(ms) {
-  return ms * (1 - Math.random() * 0.25);
-}
-
 // node_modules/@anthropic-ai/sdk/lib/helper-client.mjs
 function copyClientForHelper(client, { authToken, helper }) {
   if (!authToken) {
@@ -5380,7 +5380,7 @@ async function _EnvironmentWorker_handleItem2(work, environmentKey, externalSign
   const ctrl = new AbortController();
   const detachExternal = linkAbort(externalSignal, ctrl);
   const lease = new Lease(ctrl);
-  const agentToolset = await import("./node-ZLERXPRN.js");
+  const agentToolset = await import("./node-4L3UL2FL.js");
   let leaseTtlMs;
   let runner;
   const heartbeatPromise = heartbeatLoop(sessionClient, work, lease, log, this.requestOptions, (ttlMs) => {

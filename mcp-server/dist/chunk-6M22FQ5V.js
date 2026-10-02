@@ -8,10 +8,10 @@ import {
   hauntNavigate,
   hauntSpawn,
   zodToJsonSchema
-} from "./chunk-5ZKXMC72.js";
+} from "./chunk-3WOOJHBP.js";
 import {
   Anthropic
-} from "./chunk-3E6BL45F.js";
+} from "./chunk-MMWLM6BK.js";
 import {
   BuiltInConnectors$inboundSchema,
   BuiltInConnectors$outboundSchema,
@@ -34199,17 +34199,6 @@ var Mistral = class extends ClientSDK {
   }
 };
 
-// src/is-main-module.ts
-import { realpathSync } from "fs";
-import { fileURLToPath } from "url";
-function isMainModule(moduleUrl) {
-  try {
-    return realpathSync(fileURLToPath(moduleUrl)) === realpathSync(process.argv[1]);
-  } catch {
-    return false;
-  }
-}
-
 // src/cli/authenticate.ts
 var SUBMIT_BUTTON_LABELS = ["Log in", "Sign in", "Login", "Submit"];
 var HYDRATION_PAUSE_MS = 2e3;
@@ -34649,16 +34638,12 @@ async function main() {
     process.exit(2);
   }
 }
-if (isMainModule(import.meta.url)) {
-  main();
-}
 
 export {
   Mistral,
-  isMainModule,
   authenticate,
-  parseArgs,
   resolveProvider,
   createDecider,
-  runHeadlessTest
+  runHeadlessTest,
+  main
 };

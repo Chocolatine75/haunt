@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // mcp-server/src/benchmark/run.ts
 //
 // Scores a haunt report against known ground-truth bugs for a target app.
@@ -26,7 +25,6 @@ import {
   runHeadlessTest,
 } from '../cli/headless.js';
 import type { ActionDecider } from '../cli/providers/types.js';
-import { isMainModule } from '../is-main-module.js';
 import { SessionManager } from '../session/manager.js';
 import type { Issue } from '../types.js';
 import { checkReportFormat } from './format-check.js';
@@ -231,7 +229,8 @@ function printScorecard(scorecard: Scorecard): void {
   console.log(lines.join('\n'));
 }
 
-async function main() {
+// Invoked by bin.ts — see cli/bin.ts for why the entrypoint is its own module.
+export async function main() {
   const argv = process.argv.slice(2);
   if (isHelpRequested(argv)) {
     console.log(USAGE);
@@ -311,8 +310,4 @@ async function main() {
     );
     process.exit(2);
   }
-}
-
-if (isMainModule(import.meta.url)) {
-  main();
 }

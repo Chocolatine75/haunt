@@ -4,16 +4,15 @@ import {
   Mistral,
   authenticate,
   createDecider,
-  isMainModule,
   resolveProvider,
   runHeadlessTest
-} from "./chunk-FSLXTAUS.js";
+} from "./chunk-6M22FQ5V.js";
 import {
   SessionManager
-} from "./chunk-5ZKXMC72.js";
+} from "./chunk-3WOOJHBP.js";
 import {
   Anthropic
-} from "./chunk-3E6BL45F.js";
+} from "./chunk-MMWLM6BK.js";
 import "./chunk-3IGCGY6U.js";
 import "./chunk-5HT2UXVQ.js";
 import "./chunk-ZO3ASFWY.js";
@@ -449,11 +448,6 @@ async function main() {
     process.exit(2);
   }
 }
-if (isMainModule(import.meta.url)) {
-  main();
-}
-export {
-  isHelpRequested,
-  parseArgs,
-  runBenchmark
-};
+
+// src/benchmark/bin.ts
+main();
