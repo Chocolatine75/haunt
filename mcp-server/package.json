@@ -14,9 +14,10 @@
   "scripts": {
     "build": "tsup",
     "postbuild": "node scripts/vendor-playwright.mjs",
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage",
-    "gate": "vitest run src/gates",
+    "test": "vitest run && npm run test:perf",
+    "test:perf": "vitest run --config vitest.perf.config.ts",
+    "test:coverage": "vitest run --coverage && npm run test:perf",
+    "gate": "vitest run src/gates && npm run test:perf",
     "gate:soak": "node scripts/soak.mjs 20 src/gates",
     "check": "npm run lint && npm run typecheck && npm run build && npm run test:coverage",
     "lint": "biome check src",

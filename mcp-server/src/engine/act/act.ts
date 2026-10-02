@@ -138,7 +138,7 @@ async function resolve(session: HauntSession, ref: string): Promise<Resolved> {
     return { handle: handle as ElementHandle<Element>, frame: target.frame };
 
   // The node is gone. Say so, and point at what replaced it if something did.
-  const current = await takeSnapshot(session, { format: 'json' });
+  const current = await takeSnapshot(session, { format: 'json' }, true);
   const similar = similarTo(session, ref, current.elements ?? []);
   if (similar && sabotaged('stale_resolved_by_name'))
     return resolve(session, similar);
@@ -1010,7 +1010,11 @@ async function runStep(
   // What the action changed.
   const page = session.page;
   const switched = page !== pageBefore;
-  const after = await takeSnapshot(session, { format: 'json', diff: true });
+  const after = await takeSnapshot(
+    session,
+    { format: 'json', diff: true },
+    true,
+  );
   const dialog =
     runtime.dialog && runtime.dialog !== dialogBefore
       ? session.snapshot.dialog
@@ -1095,10 +1099,26 @@ export async function hauntAct(
   if (input.issues?.length) session.issues.push(...input.issues);
 
   const blockedBefore = session.sandbox_blocked_requests.length;
-  // The state every later step, and the final diff, is measured against.
-  const base = await takeSnapshot(session, { format: 'json' });
+  // The state every later step, and the final diff, is measured against. The
+  // previous snapshot serves if nothing has changed in the page since it was
+  // taken, which spares reading a large page twice per action.
+  const known = session.snapshot.previous;
+  let current = false;
+  if (
+    known &&
+    !session.runtime.dialog &&
+    known.snapshot.url === session.page.url()
+  ) {
+    const ages = await Promise.all(
+      session.page
+        .frames()
+        .map((frame) => withTimeout(frame.evaluate(sinceMutation), 500)),
+    );
+    const sinceRead = Date.now() - known.at;
+    current = ages.every((age) => age !== undefined && age > sinceRead + 5);
+  }
+  if (!current) await takeSnapshot(session, { format: 'json' }, true);
   const before = new Map(session.snapshot.previous?.comparable ?? []);
-  void base;
 
   const results: StepResult[] = [];
   let stopped: StopReason | undefined;

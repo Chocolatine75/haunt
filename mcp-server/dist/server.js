@@ -15,7 +15,7 @@ import {
   similarTo,
   takeSnapshot,
   zodToJsonSchema
-} from "./chunk-WFLRTZAA.js";
+} from "./chunk-FPI7GNJD.js";
 import {
   _enum,
   _null,
@@ -11024,7 +11024,7 @@ async function resolve(session, ref2) {
   const handle = found?.asElement();
   if (handle)
     return { handle, frame: target.frame };
-  const current = await takeSnapshot(session, { format: "json" });
+  const current = await takeSnapshot(session, { format: "json" }, true);
   const similar = similarTo(session, ref2, current.elements ?? []);
   if (similar && sabotaged("stale_resolved_by_name"))
     return resolve(session, similar);
@@ -11723,7 +11723,11 @@ async function runStep(session, input) {
   const settleMs = Date.now() - settleFrom;
   const page = session.page;
   const switched = page !== pageBefore;
-  const after = await takeSnapshot(session, { format: "json", diff: true });
+  const after = await takeSnapshot(
+    session,
+    { format: "json", diff: true },
+    true
+  );
   const dialog = runtime.dialog && runtime.dialog !== dialogBefore ? session.snapshot.dialog : void 0;
   const download = runtime.downloads[downloadsBefore];
   const navigated = !switched && !page.isClosed() && ((runtime.navigations.get(page) ?? 0) !== navigationsBefore || page.url() !== urlBefore);
@@ -11779,9 +11783,17 @@ async function hauntAct(manager, input) {
   }
   if (input.issues?.length) session.issues.push(...input.issues);
   const blockedBefore = session.sandbox_blocked_requests.length;
-  const base = await takeSnapshot(session, { format: "json" });
+  const known = session.snapshot.previous;
+  let current = false;
+  if (known && !session.runtime.dialog && known.snapshot.url === session.page.url()) {
+    const ages = await Promise.all(
+      session.page.frames().map((frame) => withTimeout(frame.evaluate(sinceMutation), 500))
+    );
+    const sinceRead = Date.now() - known.at;
+    current = ages.every((age) => age !== void 0 && age > sinceRead + 5);
+  }
+  if (!current) await takeSnapshot(session, { format: "json" }, true);
   const before = new Map(session.snapshot.previous?.comparable ?? []);
-  void base;
   const results = [];
   let stopped;
   for (let i = 0; i < input.actions.length; i++) {

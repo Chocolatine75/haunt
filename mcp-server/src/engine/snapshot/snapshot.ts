@@ -49,6 +49,10 @@ export interface SnapshotState {
     snapshot: Snapshot;
     elements: SnapshotElement[];
     containers: SnapshotContainer[];
+    // The lines of the text format, kept so it can be rendered later.
+    body: Line[];
+    // When the page was read.
+    at: number;
   };
   // A JavaScript dialog that is open and unanswered.
   dialog?: { type: string; message: string };
@@ -300,11 +304,46 @@ function framePath(state: SnapshotState, page: Page, frame: Frame): string[] {
   return path;
 }
 
+// Writes the text format (one page of it) into the snapshot.
+function render(snapshot: Snapshot, body: Line[], page?: number): void {
+  const flag = currentSabotage();
+  const head = header(snapshot);
+  const pages = paginate(head, body);
+  const pageNumber = Math.min(Math.max(page ?? 1, 1), pages.length);
+  const lines = pages[pageNumber - 1];
+  const remaining = pages
+    .slice(pageNumber)
+    .reduce((n, p) => n + p.filter((l) => l.ref).length, 0);
+  const rendered = [...head, ...lines.map((l) => l.text)];
+  snapshot.truncated = undefined;
+  if (pages.length > 1) {
+    snapshot.truncated = {
+      page: pageNumber,
+      pages: pages.length,
+      elements_remaining: remaining,
+    };
+    rendered.push(
+      pageNumber < pages.length
+        ? `… ${remaining.toLocaleString('en-US')} more elements — request page ${pageNumber + 1} of ${pages.length}`
+        : `… end of page ${pageNumber} of ${pages.length}`,
+    );
+  }
+  snapshot.text = rendered.join('\n');
+  if (flag === 'cut_mid_element') {
+    // Cut by character count, in the middle of the last element line.
+    const last = snapshot.text.lastIndexOf('\n- ');
+    if (last > 0) snapshot.text = snapshot.text.slice(0, last + 6);
+  }
+}
+
 export type SnapshotOptions = Omit<CaptureInput, 'session_id'>;
 
+// `internal` is for the engine's own bookkeeping around an action: the data
+// without the text rendering, and without a defensive copy.
 export async function takeSnapshot(
   session: HauntSession,
   options: SnapshotOptions = {},
+  internal = false,
 ): Promise<Snapshot> {
   const state = session.snapshot;
   const page = session.page;
@@ -318,6 +357,7 @@ export async function takeSnapshot(
       dialog: state.dialog as Snapshot['dialog'],
       tabs: await tabsOf(session),
     };
+    render(frozen, state.previous.body, options.page);
     if (format === 'json') {
       frozen.elements = state.previous.elements;
       frozen.containers = state.previous.containers;
@@ -328,6 +368,7 @@ export async function takeSnapshot(
   const within = options.within ? state.targets.get(options.within) : undefined;
   const frames = within ? [within.frame] : page.frames();
   state.seq++;
+  const readAt = Date.now();
   const flag = currentSabotage();
   const collectOptions = (frame: Frame) => ({
     sabotage:
@@ -500,33 +541,7 @@ export async function takeSnapshot(
   };
   if (state.dialog) snapshot.dialog = state.dialog as Snapshot['dialog'];
 
-  // --- text rendering
-  const head = header(snapshot);
-  const pages = paginate(head, body);
-  const pageNumber = Math.min(Math.max(options.page ?? 1, 1), pages.length);
-  const lines = pages[pageNumber - 1];
-  const remaining = pages
-    .slice(pageNumber)
-    .reduce((n, p) => n + p.filter((l) => l.ref).length, 0);
-  const rendered = [...head, ...lines.map((l) => l.text)];
-  if (pages.length > 1) {
-    snapshot.truncated = {
-      page: pageNumber,
-      pages: pages.length,
-      elements_remaining: remaining,
-    };
-    rendered.push(
-      pageNumber < pages.length
-        ? `… ${remaining.toLocaleString('en-US')} more elements — request page ${pageNumber + 1} of ${pages.length}`
-        : `… end of page ${pageNumber} of ${pages.length}`,
-    );
-  }
-  snapshot.text = rendered.join('\n');
-  if (flag === 'cut_mid_element') {
-    // Cut by character count, in the middle of the last element line.
-    const last = snapshot.text.lastIndexOf('\n- ');
-    if (last > 0) snapshot.text = snapshot.text.slice(0, last + 6);
-  }
+  if (!internal) render(snapshot, body, options.page);
 
   // --- diff against the previous snapshot of this session
   const now = new Map(elements.map((e) => [e.ref, comparable(e)]));
@@ -552,7 +567,9 @@ export async function takeSnapshot(
       snapshot: { ...snapshot, elements: undefined, containers: undefined },
       elements,
       containers,
+      body,
+      at: readAt,
     };
   }
-  return JSON.parse(JSON.stringify(snapshot));
+  return internal ? snapshot : JSON.parse(JSON.stringify(snapshot));
 }

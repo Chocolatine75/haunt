@@ -773,7 +773,32 @@ function framePath(state, page, frame) {
   }
   return path;
 }
-async function takeSnapshot(session, options = {}) {
+function render(snapshot, body, page) {
+  const flag = currentSabotage();
+  const head = header(snapshot);
+  const pages = paginate(head, body);
+  const pageNumber = Math.min(Math.max(page ?? 1, 1), pages.length);
+  const lines = pages[pageNumber - 1];
+  const remaining = pages.slice(pageNumber).reduce((n, p) => n + p.filter((l) => l.ref).length, 0);
+  const rendered = [...head, ...lines.map((l) => l.text)];
+  snapshot.truncated = void 0;
+  if (pages.length > 1) {
+    snapshot.truncated = {
+      page: pageNumber,
+      pages: pages.length,
+      elements_remaining: remaining
+    };
+    rendered.push(
+      pageNumber < pages.length ? `\u2026 ${remaining.toLocaleString("en-US")} more elements \u2014 request page ${pageNumber + 1} of ${pages.length}` : `\u2026 end of page ${pageNumber} of ${pages.length}`
+    );
+  }
+  snapshot.text = rendered.join("\n");
+  if (flag === "cut_mid_element") {
+    const last = snapshot.text.lastIndexOf("\n- ");
+    if (last > 0) snapshot.text = snapshot.text.slice(0, last + 6);
+  }
+}
+async function takeSnapshot(session, options = {}, internal = false) {
   const state = session.snapshot;
   const page = session.page;
   const format = options.format ?? "text";
@@ -783,6 +808,7 @@ async function takeSnapshot(session, options = {}) {
       dialog: state.dialog,
       tabs: await tabsOf(session)
     };
+    render(frozen, state.previous.body, options.page);
     if (format === "json") {
       frozen.elements = state.previous.elements;
       frozen.containers = state.previous.containers;
@@ -792,6 +818,7 @@ async function takeSnapshot(session, options = {}) {
   const within = options.within ? state.targets.get(options.within) : void 0;
   const frames = within ? [within.frame] : page.frames();
   state.seq++;
+  const readAt = Date.now();
   const flag = currentSabotage();
   const collectOptions = (frame) => ({
     sabotage: flag === "closed_shadow_dropped" || flag === "redaction_by_label_only" ? flag : void 0,
@@ -946,27 +973,7 @@ async function takeSnapshot(session, options = {}) {
     tabs: await tabsOf(session)
   };
   if (state.dialog) snapshot.dialog = state.dialog;
-  const head = header(snapshot);
-  const pages = paginate(head, body);
-  const pageNumber = Math.min(Math.max(options.page ?? 1, 1), pages.length);
-  const lines = pages[pageNumber - 1];
-  const remaining = pages.slice(pageNumber).reduce((n, p) => n + p.filter((l) => l.ref).length, 0);
-  const rendered = [...head, ...lines.map((l) => l.text)];
-  if (pages.length > 1) {
-    snapshot.truncated = {
-      page: pageNumber,
-      pages: pages.length,
-      elements_remaining: remaining
-    };
-    rendered.push(
-      pageNumber < pages.length ? `\u2026 ${remaining.toLocaleString("en-US")} more elements \u2014 request page ${pageNumber + 1} of ${pages.length}` : `\u2026 end of page ${pageNumber} of ${pages.length}`
-    );
-  }
-  snapshot.text = rendered.join("\n");
-  if (flag === "cut_mid_element") {
-    const last = snapshot.text.lastIndexOf("\n- ");
-    if (last > 0) snapshot.text = snapshot.text.slice(0, last + 6);
-  }
+  if (!internal) render(snapshot, body, options.page);
   const now = new Map(elements.map((e) => [e.ref, comparable(e)]));
   if (options.diff) {
     snapshot.diff = diffBetween(
@@ -985,10 +992,12 @@ async function takeSnapshot(session, options = {}) {
       textHash: textParts.join("\n"),
       snapshot: { ...snapshot, elements: void 0, containers: void 0 },
       elements,
-      containers
+      containers,
+      body,
+      at: readAt
     };
   }
-  return JSON.parse(JSON.stringify(snapshot));
+  return internal ? snapshot : JSON.parse(JSON.stringify(snapshot));
 }
 
 // src/engine/capture.ts

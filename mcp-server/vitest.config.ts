@@ -4,6 +4,9 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.{test,spec}.ts'],
+    // Time budgets mean nothing while thirty other files share the machine:
+    // they run on their own, from vitest.perf.config.ts.
+    exclude: ['**/node_modules/**', 'src/**/*.perf.test.ts'],
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],
