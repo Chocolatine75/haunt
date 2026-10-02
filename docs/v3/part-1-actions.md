@@ -34,10 +34,15 @@ and, in short form, by every action result.
   that element. No name matching, no guessing.
 - **R-A2 What counts as actionable.** Links, buttons, inputs, selects,
   textareas, `contenteditable`, elements with an interactive ARIA role,
-  elements with a click handler or `cursor: pointer`, `tabindex >= 0`,
-  `<summary>`, `<label>`, and scrollable containers. Disabled elements are
+  elements with an `onclick` attribute or `draggable="true"`, elements that
+  set a pointer, grab or resize cursor, `tabindex >= 0`, `<summary>`, and
+  scrollable containers. A listener added from script leaves no trace on the
+  element, so it cannot be a criterion; the cursor usually is one. Labels are
+  not listed (acting on a label is acting on its control), nor are elements
+  hidden from assistive technology with `aria-hidden`. Disabled elements are
   listed and marked `disabled`, so the tester can report "the button is
-  disabled" instead of failing on it.
+  disabled" instead of failing on it. An element that is in the way of an
+  actionable one is listed too, whatever it is, so that it can be named.
 - **R-A3 Every tree.** References cover open shadow roots, closed shadow
   roots, same-origin iframes and cross-origin iframes (within the sandbox
   allowlist), nested to any depth. Each frame and shadow host is shown as a
@@ -48,8 +53,10 @@ and, in short form, by every action result.
   shown, only `(filled)`.
 - **R-A5 Visibility is stated, not hidden.** Each element is marked when it is
   outside the viewport (`offscreen`) or covered by another element
-  (`covered by e14`). It stays listed: acting on it is allowed and fails with
-  the real reason (section D). Part 4 will later decide what the tester is
+  (`covered by e14`), or when it ignores the pointer (`pointer-events: none`).
+  It stays listed: acting on it is allowed and fails with the real reason
+  (section D). An element that is not rendered, invisible or of zero size is
+  listed and marked hidden with the reason. Part 4 will later decide what the tester is
   *shown*; this part decides what is *true*.
 - **R-A6 Scroll position.** The snapshot states how far the page and each
   scrollable container can scroll in each direction, in pixels and as a
@@ -63,7 +70,9 @@ and, in short form, by every action result.
   never reused within the session.
 - **R-A9 What changed.** Elements that appeared since the previous snapshot
   are marked `new`. The snapshot can be requested as a diff against the
-  previous one (added, removed, changed lines only).
+  previous one (added, removed, changed lines only). A change in where an
+  element is (scrolled out, covered) is reported on the element but is not a
+  change of the page for the diff.
 - **R-A10 Bounded size, nothing silently dropped.** The snapshot has a
   character budget. When a page exceeds it, the output is cut at an element
   boundary and says so (`412 more elements below — scroll or request

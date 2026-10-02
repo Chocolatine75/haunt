@@ -658,7 +658,7 @@ describe('G2 every action on its hard case', () => {
         await s.ok({
           type: 'drag',
           from_ref: await s.ref('card-2'),
-          to_ref: await s.ref('column-done'),
+          to_ref: await s.ref('card-3'),
         });
         expect((await s.state()).board).toEqual({
           todo: ['card-1'],

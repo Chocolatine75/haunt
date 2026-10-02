@@ -286,11 +286,8 @@ describe('G1 snapshot truth', () => {
       'a password is reported as filled, never as its value',
       async () => {
         const s = await ctx.open('forms');
-        await s.ok({
-          type: 'fill',
-          ref: await s.ref('password'),
-          text: 'hunter2-secret',
-        });
+        // Filled behind the tools: this suite is about what the snapshot says.
+        await s.page.locator('[data-g=password]').fill('hunter2-secret');
         expect((await s.element('password')).value).toBe('(filled)');
         const text = (await s.capture({ format: 'text' })).text;
         expect(text).not.toContain('hunter2-secret');
@@ -404,14 +401,14 @@ describe('G1 snapshot truth', () => {
     gate(
       'G1.4',
       'R-A5',
-      'a pointer-events: none button is covered by whatever is behind it, a transparent one is not hidden',
+      'a pointer-events: none button is marked as ignoring the pointer, a transparent one is not hidden',
       async () => {
         const s = await ctx.open('states');
         expect((await s.element('transparent')).hidden).toBeUndefined();
         // Listed and laid out, but a click there goes to something else.
         const noPointer = await s.element('no-pointer');
         expect(noPointer.hidden).toBeUndefined();
-        expect(noPointer.covered_by ?? noPointer.disabled).toBeTruthy();
+        expect(noPointer.unclickable).toBe('pointer_events');
       },
     );
   });

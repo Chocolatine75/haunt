@@ -65,6 +65,8 @@ export interface SnapshotElement {
   // Ref of the element that would receive a click aimed at this one.
   covered_by?: string;
   hidden?: HiddenReason;
+  // Laid out and visible, but a click there goes to whatever is behind it.
+  unclickable?: 'pointer_events';
   // Present on scrollable containers.
   scroll?: ScrollState;
   // Appeared since the previous snapshot.
@@ -85,7 +87,8 @@ export interface SnapshotDiff {
   added: SnapshotElement[];
   // Refs that no longer exist.
   removed: string[];
-  // Elements whose reported fields changed, in their new state.
+  // Elements whose reported fields changed, in their new state. Fields that
+  // only say where an element is (offscreen, covered_by, scroll) do not count.
   changed: SnapshotElement[];
 }
 
