@@ -1,0 +1,54 @@
+<!doctype html>
+<html{{#clean}} lang="en"{{/clean}}>
+<head>
+<meta charset="utf-8">
+<title>{{#clean}}Gauntlet — sig-a11y{{/clean}}</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<!--
+  Twelve accessibility rules broken, one defect each, plus the same defect
+  again where an audit is easy to get wrong: a button without a name inside
+  a shadow root, an image without alt inside the frame. The two missing here
+  as elements are on the document itself: no lang, an empty title.
+  Elements the ground truth names carry data-g even when a user cannot act
+  on them.
+-->
+<h1>Accessibility</h1>
+
+<p><img data-g="logo" src="/sig/asset/logo.png?variant=clean"{{#clean}} alt="Acme"{{/clean}} width="32" height="32"></p>
+
+<p>
+  <button data-g="icon-button" type="button"{{#clean}} aria-label="Close"{{/clean}}><svg aria-hidden="true" focusable="false" width="16" height="16"><path d="M2 2l12 12M14 2L2 14" stroke="currentColor"/></svg></button>
+  <a data-g="icon-link" href="/sig-a11y?variant={{VARIANT}}"{{#clean}} aria-label="Home"{{/clean}}><svg aria-hidden="true" focusable="false" width="16" height="16"><path d="M2 8l6-6 6 6v6H2z" stroke="currentColor" fill="none"/></svg></a>
+</p>
+<sig-toolbar></sig-toolbar>
+
+<p><input data-g="search" type="text" name="q"{{#clean}} aria-label="Search"{{/clean}}></p>
+<p><select data-g="country" name="country"{{#clean}} aria-label="Country"{{/clean}}><option>France</option><option>Japan</option></select></p>
+
+<p data-g="fine-print" style="background: #fff; color: {{#buggy}}#bbb{{/buggy}}{{#clean}}#444{{/clean}}">Prices exclude tax.</p>
+
+<p><span data-g="terms" role="checkbox" tabindex="0"{{#clean}} aria-checked="false"{{/clean}}>Accept the terms</span></p>
+
+<p><button data-g="mute" type="button" aria-pressed="{{#buggy}}yes{{/buggy}}{{#clean}}false{{/clean}}">Mute</button></p>
+
+{{#buggy}}<div>{{/buggy}}{{#clean}}<ul>{{/clean}}
+  <li data-g="orphan">Free shipping over 50</li>
+{{#buggy}}</div>{{/buggy}}{{#clean}}</ul>{{/clean}}
+
+<iframe data-g="note-frame" data-frame="note" src="/frame/sig-note?variant={{VARIANT}}"{{#clean}} title="Delivery note"{{/clean}} width="420" height="80"></iframe>
+
+<script>
+  const BUGGY = '{{VARIANT}}' === 'buggy';
+  customElements.define('sig-toolbar', class extends HTMLElement {
+    connectedCallback() {
+      const root = this.attachShadow({ mode: 'open' });
+      root.innerHTML = `<button data-g="shadow-button" type="button"${BUGGY ? '' : ' aria-label="Pin"'}><svg aria-hidden="true" focusable="false" width="16" height="16"><circle cx="8" cy="8" r="5"/></svg></button>`;
+      window.__gauntlet.registerRoot(root);
+    }
+  });
+</script>
+</body>
+</html>

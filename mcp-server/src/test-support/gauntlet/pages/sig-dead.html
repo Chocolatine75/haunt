@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — sig-dead</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+<style>
+  [role="tab"][aria-selected="true"] { font-weight: bold; }
+  #log { height: 90px; overflow: auto; border: 1px solid #ccc; }
+</style>
+</head>
+<body>
+<!--
+  Three controls that do nothing when clicked, each next to ones that work.
+  Two of the working ones change no text at all: one only moves the focus,
+  one only scrolls a list. The document itself never scrolls, so that the
+  dead link cannot have the side effect of jumping to the top.
+-->
+<h1>Dead controls</h1>
+
+<p>
+  <button data-g="save" type="button">Save</button>
+  <button data-g="refresh" type="button">Refresh</button>
+</p>
+<p>
+  <a data-g="guide" href="/sig/doc/guide">Guide</a>
+  <a data-g="help" href="#">Help</a>
+</p>
+<p id="help-panel" hidden>Press ? for the list of shortcuts.</p>
+
+<div role="tablist" aria-label="Settings">
+  <button data-g="tab-general" type="button" role="tab" id="t-general" aria-controls="p-general" aria-selected="true">General</button>
+  <button data-g="tab-team" type="button" role="tab" id="t-team" aria-controls="p-team" aria-selected="false">Team</button>
+  <button data-g="tab-billing" type="button" role="tab" id="t-billing" aria-controls="p-billing" aria-selected="false">Billing</button>
+</div>
+<div role="tabpanel" id="p-general" aria-labelledby="t-general">Language and time zone.</div>
+<div role="tabpanel" id="p-team" aria-labelledby="t-team" hidden>Members and roles.</div>
+<div role="tabpanel" id="p-billing" aria-labelledby="t-billing" hidden>Invoices and cards.</div>
+
+<p>
+  <label>Search <input data-g="search" type="search" name="q"></label>
+  <!-- Its only effect is to put the focus in the field. -->
+  <button data-g="focus-search" type="button">Jump to search</button>
+</p>
+<p>
+  <!-- Its only effect is to scroll the list. -->
+  <button data-g="to-latest" type="button">Latest activity</button>
+</p>
+<div id="log" role="log" aria-label="Activity" tabindex="0"></div>
+<p id="result" role="status"></p>
+
+<script>
+  const G = window.__gauntlet;
+  const BUGGY = '{{VARIANT}}' === 'buggy';
+  const say = (text) => { document.getElementById('result').textContent = text; };
+
+  const log = document.getElementById('log');
+  for (let i = 1; i <= 40; i++) {
+    const line = document.createElement('div');
+    line.textContent = `Event ${i}`;
+    log.append(line);
+  }
+
+  G.find('save').addEventListener('click', () => say('Saved'));
+  G.find('focus-search').addEventListener('click', () => G.find('search').focus());
+  G.find('to-latest').addEventListener('click', () => { log.scrollTop = log.scrollHeight; });
+
+  const tabs = ['general', 'team', 'billing'];
+  const select = (name) => {
+    for (const tab of tabs) {
+      G.find(`tab-${tab}`).setAttribute('aria-selected', String(tab === name));
+      document.getElementById(`p-${tab}`).hidden = tab !== name;
+    }
+  };
+  for (const tab of tabs) {
+    // The billing tab was never wired.
+    if (BUGGY && tab === 'billing') continue;
+    G.find(`tab-${tab}`).addEventListener('click', () => select(tab));
+  }
+
+  if (!BUGGY) {
+    G.find('refresh').addEventListener('click', () => say('Refreshed'));
+    G.find('help').addEventListener('click', (e) => {
+      e.preventDefault();
+      document.getElementById('help-panel').hidden = false;
+    });
+  }
+</script>
+</body>
+</html>

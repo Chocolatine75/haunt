@@ -21,6 +21,7 @@ export default defineConfig({
         // it; exercised by the part 1 gate.
         'src/engine/snapshot/page-script.ts',
         'src/engine/act/page-fns.ts',
+        'src/engine/signals/audit-page.ts',
         'src/mcp/index.ts',
         'src/cli/bin.ts',
         'src/benchmark/bin.ts',

@@ -1,8 +1,9 @@
 // mcp-server/src/engine/spawn.ts
 import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
-import type { BrowserContext } from 'playwright';
+import type { BrowserContext, Request } from 'playwright';
 import { v4 as uuidv4 } from 'uuid';
+import type { Signal, SignalThresholds } from '../gates/part-2/contract.js';
 import { attachRuntime } from './act/runtime.js';
 import {
   SCREENSHOT_MAX_AGE_MS,
@@ -13,8 +14,10 @@ import { loadPersona } from './persona/loader.js';
 import { sabotaged } from './sabotage.js';
 import { purgeOldScreenshots } from './screenshots.js';
 import type { SessionManager } from './session/manager.js';
+import { auditIfNew } from './signals/audit.js';
+import { REPORT_BINDING, SignalCollector } from './signals/collector.js';
 import { installHooks } from './snapshot/page-script.js';
-import { newSnapshotState } from './snapshot/snapshot.js';
+import { newSnapshotState, takeSnapshot } from './snapshot/snapshot.js';
 import type { HauntSession } from './types.js';
 
 export interface SpawnInput {
@@ -28,6 +31,8 @@ export interface SpawnInput {
   // Overrides SESSION_MAX_ACTIVE_DURATION_MS for this session. Not exposed
   // on the haunt_spawn MCP tool schema yet — no current caller needs it.
   max_active_duration_ms?: number;
+  // Above which a response is slow, a task long, a request hung (R-S4).
+  signal_thresholds?: Partial<SignalThresholds>;
 }
 
 export interface SpawnOutput {
@@ -35,6 +40,8 @@ export interface SpawnOutput {
   persona_name: string;
   persona_goal: string;
   persona_description: string;
+  // What went wrong while the page loaded (step 0).
+  signals: Signal[];
 }
 
 export async function hauntSpawn(
@@ -99,6 +106,8 @@ export async function hauntSpawn(
   const allowedOrigins = new Set<string>();
   const sandboxBlockedRequests: string[] = [];
   let capturingAllowlist = true;
+  // Requests refused below, for whoever hears of their failure later.
+  const refused = new WeakSet<Request>();
 
   // WebSockets do not go through context.route, so they get the same rule
   // here: the app's own origins connect, anything else is closed and
@@ -138,6 +147,7 @@ export async function hauntSpawn(
       sandboxBlockedRequests.push(
         `${request.method()} ${request.url()} (unparseable URL)`,
       );
+      refused.add(request);
       await route.abort();
       return;
     }
@@ -156,6 +166,7 @@ export async function hauntSpawn(
       allowedOrigins.add(origin);
     } else if (!allowedOrigins.has(origin) && !exempt) {
       sandboxBlockedRequests.push(`${request.method()} ${originAndPath}`);
+      refused.add(request);
       await route.abort();
       return;
     }
@@ -185,6 +196,7 @@ export async function hauntSpawn(
           sandboxBlockedRequests.push(
             `${request.method()} ${originAndPath} -> ${location} (unparseable redirect target)`,
           );
+          refused.add(request);
           await route.abort();
           return;
         }
@@ -194,6 +206,7 @@ export async function hauntSpawn(
           sandboxBlockedRequests.push(
             `${request.method()} ${originAndPath} -> ${target.origin}${target.pathname} (cross-origin redirect)`,
           );
+          refused.add(request);
           await route.abort();
           return;
         }
@@ -209,6 +222,22 @@ export async function hauntSpawn(
 
   const snapshotState = newSnapshotState();
   const runtime = attachRuntime(context, snapshotState);
+
+  // Signals: the network's side from the context's events, the page's side
+  // from the hooks above, through a binding every document can call.
+  const collector = new SignalCollector({
+    thresholds: input.signal_thresholds,
+    authenticated: Boolean(input.cookies && input.cookies.length > 0),
+    sandbox: {
+      blocked: (request) => refused.has(request),
+      allowed: (origin) => capturingAllowlist || allowedOrigins.has(origin),
+      blockedCount: () => sandboxBlockedRequests.length,
+    },
+  });
+  collector.attach(context);
+  await context.exposeBinding(REPORT_BINDING, (source, report: unknown) => {
+    collector.fromPage(source, report);
+  });
 
   // Console errors and network failures, from every tab of the session.
   const consoleErrors: string[] = [];
@@ -280,14 +309,22 @@ export async function hauntSpawn(
     sandbox_blocked_requests: sandboxBlockedRequests,
     snapshot: snapshotState,
     runtime,
+    collector,
+    signals: collector.signals,
   };
 
   manager.set(sessionId, session);
+
+  // The first page's audit (R-S15) names its elements by reference, so the
+  // page is read first; both are step 0, delivered here.
+  await takeSnapshot(session, { format: 'json' }, true).catch(() => {});
+  await auditIfNew(session, 0);
 
   return {
     session_id: sessionId,
     persona_name: personaConfig.name,
     persona_goal: personaConfig.scenarios[0]?.goal ?? 'Explore the application',
     persona_description: personaConfig.system_prompt,
+    signals: collector.deliver(0),
   };
 }

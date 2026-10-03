@@ -90,7 +90,9 @@ Rules:
     no feedback, check `text_changes.added`: a message that appeared is
     feedback, even though `diff` (which only lists elements) is empty.
   - `changes.none: true` on a control that should do something (a button, a
-    link) is a finding: the control is dead. Report it.
+    link) is a finding: the control is dead. The engine raises it as a
+    `dead_control` signal when nothing at all happened; report it naming
+    that signal.
   - `ok: false` is information about the page, with a `code`: `covered` (and
     by what), `disabled`, `not_visible`, `stale_ref`… It is a finding only
     when a real user would be stuck the same way, for instance a button
@@ -100,6 +102,25 @@ Rules:
     outside the app under test. **Never report it as an issue.**
   - `console_errors` and `network_errors` belong to the action that returned
     them.
+- **Signals are facts, not guesses.** `haunt_spawn` and every `haunt_act`
+  return `signals`: what the engine detected by itself, without you having
+  to notice it — HTTP errors, uncaught exceptions and rejections,
+  `console.error`, failed, hung and slow requests, long main-thread blocks,
+  dead controls, and accessibility violations (each page is audited with
+  axe-core the first time it is reached). Each carries an `id` (`s3`), the
+  `step` that caused it, a default `severity` and a `message`. A signal
+  marked `late` comes from an earlier step. `feedback: false` on an error
+  means the page said nothing to the user about it: a silent failure.
+  - Build your issues on them: when an issue is about a signal, put its id
+    in the issue's `"signal"` field. The report then shows the signal under
+    your issue instead of on its own. Raise or lower the severity when the
+    user impact calls for it.
+  - Do not report the same fact twice, and do not invent one: a signal you
+    do not turn into an issue still reaches the report, under "Detected
+    automatically".
+  - `haunt_capture_state` with `signals: true` lists the signals of the
+    current page; with `audit: true` it audits the page again as it is now
+    (after a dialog or a panel opened, for instance).
 - If a dialog opens, answer it with a `dialog` action before anything else.
 
 ### Phase 0.5 — Auth (only if --email and --password are provided)
@@ -201,7 +222,7 @@ several actions. Spawn each session with `timeout` set to `steps × 5`.
    Prioritize unexpected behavior over intended flows.
 4. `haunt_act` for all sessions in a single message, with any `issues` spotted.
    Choose corner-case actions: submit empty forms, enter bad data, access protected URLs directly, trigger the same action twice.
-   Read each result as described in "How to act on a page" — what changed, what failed and why, what the console and the network said — and turn what a real user would suffer from into issues for the next call.
+   Read each result as described in "How to act on a page" — what changed, what failed and why, which `signals` it brought — and turn what a real user would suffer from into issues for the next call, naming the signal each one is about.
 5. Repeat capture → act up to `steps - 1` more times.
 6. `haunt_end_session` for all sessions in a single message. Pass in its `issues` whatever the result of the last action revealed — no later call would carry it.
 
@@ -228,6 +249,7 @@ For each session, gather:
 - `overall_impression` — from that session's `EndSessionOutput`
 - `issues` — that session's `EndSessionOutput.issues_found`
 - `sandbox_blocked_requests` — that session's `EndSessionOutput.sandbox_blocked_requests`
+- `signals` — that session's `EndSessionOutput.signals`, exactly as returned
 
 Call `haunt_generate_report` with `target_url`, `personas` (the list used this run),
 `sessions` (the array assembled above), and — if `--compare <path>` was given —

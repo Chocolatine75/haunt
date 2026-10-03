@@ -8,6 +8,7 @@
 import { fileURLToPath } from 'node:url';
 import type { Frame, Page } from 'playwright';
 import { afterAll, afterEach, beforeAll, expect, it } from 'vitest';
+import { currentSabotage } from '../../engine/sabotage.js';
 import { SessionManager } from '../../engine/session/manager.js';
 import {
   type Gauntlet,
@@ -18,6 +19,8 @@ import {
   type HauntClient,
   connectInMemory,
 } from '../../test-support/mcp-client.js';
+import type { Signal } from '../part-2/contract.js';
+import { unplanted } from '../part-2/planted.js';
 import type {
   ActResult,
   Action,
@@ -56,6 +59,37 @@ export function gate(
 ): void {
   const run = PASSING.has(id) ? it : it.fails;
   run(`${id} [${requirements}] ${name}`, fn, timeoutMs);
+}
+
+// Signals some part 1 tests cause on purpose: by reaching into the page
+// behind the tools' back, or by asking for a response as slow as R-S4's
+// threshold. What the page does is not in question there.
+const CAUSED_BY_TEST: Record<string, string[]> = {
+  'console errors and failed requests are delivered with the action that caused them':
+    ['console_error', 'request_failed'],
+  // Six chunks 500 ms apart: three seconds, the slow-response threshold.
+  'a three-second streamed response is waited for': ['slow_response'],
+};
+
+// Sessions opened while the engine was deliberately broken (G7.1): what they
+// raise says nothing about the pages.
+const sabotagedSessions = new Set<string>();
+
+// Part 2 (S2.3): the part 1 gate, run with signals collected, raises none
+// on a page that plants none. Checked on every session a gate test opens on
+// one of part 1's pages, when it ends or when the test does. Does nothing
+// while the engine collects no signals.
+function expectNoneUnplanted(signals: Signal[] | undefined): void {
+  const test = expect.getState().currentTestName ?? '';
+  const caused = Object.entries(CAUSED_BY_TEST).find(([name]) =>
+    test.endsWith(name),
+  )?.[1];
+  const onPart1 = (signals ?? []).filter(
+    (signal) =>
+      !new URL(signal.url).pathname.startsWith('/sig') &&
+      !caused?.includes(signal.kind),
+  );
+  expect(unplanted(onPart1), 'signals a part 1 page did not plant').toEqual([]);
 }
 
 export class Session {
@@ -161,6 +195,9 @@ export class Session {
       sandbox_blocked_requests: string[];
     }>('haunt_end_session', { session_id: this.id });
     if (result.isError) throw new Error(result.text);
+    if (!sabotagedSessions.has(this.id)) {
+      expectNoneUnplanted((result.data as { signals?: Signal[] }).signals);
+    }
     return result.data;
   }
 
@@ -256,6 +293,9 @@ export interface GateContext {
   ): Promise<Session>;
   openUrl(url: string, spawn?: Record<string, unknown>): Promise<Session>;
   haunt: HauntClient;
+  // Closes the open sessions without looking at what they produced: for a
+  // test that broke the engine on purpose.
+  discard(): Promise<void>;
 }
 
 // Call once at the top of a gate file's describe block.
@@ -279,11 +319,23 @@ export function useGauntlet(): GateContext {
     }) as HauntClient['call'];
   });
 
-  afterEach(async () => {
+  const closeAll = async (): Promise<Signal[]> => {
+    const signals: Signal[] = [];
     for (const session of manager.all()) {
+      if (!sabotagedSessions.has(session.id)) {
+        signals.push(...((session as { signals?: Signal[] }).signals ?? []));
+      }
       await session.browser.close().catch(() => {});
       manager.delete(session.id);
     }
+    return signals;
+  };
+  context.discard = async () => {
+    await closeAll();
+  };
+
+  afterEach(async () => {
+    expectNoneUnplanted(await closeAll());
   });
 
   afterAll(async () => {
@@ -314,6 +366,7 @@ export function useGauntlet(): GateContext {
       },
     );
     if (result.isError) throw new Error(result.text);
+    if (currentSabotage()) sabotagedSessions.add(result.data.session_id);
     return new Session(
       context.haunt,
       manager,

@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — sig-http</title>
+<link rel="stylesheet" href="/_g.css">
+<link rel="stylesheet" href="/sig/asset/theme.css?variant={{VARIANT}}">
+<script src="/_g.js"></script>
+</head>
+<body>
+<!--
+  Responses with an error status, one per way a page can receive one: a
+  stylesheet and an image while loading, data fetched on a click, a form
+  post, a document reached by a link. Every failure is handled and says so
+  on the page, so the only fact to report is the response itself.
+-->
+<h1>HTTP errors</h1>
+<p><img src="/sig/asset/logo.png?variant={{VARIANT}}" alt="Acme" width="32" height="32"></p>
+
+<section>
+  <h2>Data</h2>
+  <button data-g="load-orders" type="button">Load orders</button>
+  <button data-g="load-profile" type="button">Load profile</button>
+  <!-- The same request twenty times. -->
+  <button data-g="refresh-prices" type="button">Refresh prices</button>
+  <button data-g="whoami" type="button">Who am I</button>
+</section>
+
+<section>
+  <h2>Newsletter</h2>
+  <form id="subscribe">
+    <label>Email <input data-g="email" type="email" name="email" value="ada@example.com"></label>
+    <button data-g="subscribe" type="submit">Subscribe</button>
+  </form>
+</section>
+
+<p><a data-g="report-link" href="/sig/doc/report?variant={{VARIANT}}">Monthly report</a></p>
+<p id="result" role="status"></p>
+
+<script>
+  const G = window.__gauntlet;
+  const api = (path) => `${path}?variant={{VARIANT}}`;
+  const say = (text) => { document.getElementById('result').textContent = text; };
+
+  G.find('load-orders').addEventListener('click', async () => {
+    const res = await fetch(api('/sig/api/orders'));
+    say(res.ok ? 'Orders loaded' : 'Could not load orders');
+  });
+  G.find('load-profile').addEventListener('click', async () => {
+    const res = await fetch(api('/sig/api/profile'));
+    say(res.ok ? 'Profile loaded' : 'Profile not found');
+  });
+  G.find('refresh-prices').addEventListener('click', async () => {
+    let failed = 0;
+    for (let i = 0; i < 20; i++) {
+      const res = await fetch(api('/sig/api/prices'));
+      if (!res.ok) failed++;
+    }
+    say(failed ? 'Prices unavailable' : 'Prices refreshed');
+  });
+  G.find('whoami').addEventListener('click', async () => {
+    const res = await fetch(api('/sig/api/me'));
+    say(res.ok ? 'Signed in' : 'Not signed in');
+  });
+  document.getElementById('subscribe').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const res = await fetch(api('/sig/api/subscribe'), {
+      method: 'POST',
+      body: new URLSearchParams(new FormData(e.target)),
+    });
+    say(res.ok ? 'Subscribed' : (await res.json()).error);
+  });
+</script>
+</body>
+</html>

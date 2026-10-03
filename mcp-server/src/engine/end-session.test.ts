@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { hauntEndSession } from './end-session.js';
 import { SessionManager } from './session/manager.js';
+import { SignalCollector } from './signals/collector.js';
 import type { HauntSession } from './types.js';
 
 function mockSession(overrides: Partial<HauntSession> = {}): HauntSession {
@@ -14,6 +15,17 @@ function mockSession(overrides: Partial<HauntSession> = {}): HauntSession {
     start_time: Date.now() - 5_000,
     last_activity: Date.now(),
     step_count: 4,
+    // A session whose page is gone: nothing is left to wait for.
+    page: { isClosed: () => true },
+    runtime: {},
+    collector: new SignalCollector({
+      authenticated: false,
+      sandbox: {
+        blocked: () => false,
+        allowed: () => true,
+        blockedCount: () => 0,
+      },
+    }),
     ...overrides,
   } as unknown as HauntSession;
 }

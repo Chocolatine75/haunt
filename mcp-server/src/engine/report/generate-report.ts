@@ -3,12 +3,26 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { REPORTS_DIR } from '../constants.js';
 import type { Issue, IssueSeverity } from '../types.js';
 
+// What the report needs of a signal (gates/part-2/contract.ts has the whole
+// shape); the rest of its fields go to the sidecar as they came.
+export interface ReportSignal {
+  id: string;
+  kind: string;
+  url: string;
+  step: number;
+  message: string;
+  severity: 'major' | 'minor';
+  count: number;
+}
+
 export interface SessionResult {
   area: string;
   persona: string;
   overall_impression: string;
   issues: Issue[];
   sandbox_blocked_requests?: string[];
+  // Every signal of the session (haunt_end_session's), part 2.
+  signals?: ReportSignal[];
 }
 
 export interface GenerateReportInput {
@@ -39,11 +53,22 @@ export interface ComparisonResult {
   new_count: number;
 }
 
+// Signals no issue names, by default severity.
+export interface SignalCounts {
+  total: number;
+  major: number;
+  minor: number;
+}
+
+// The heading of the signals no issue names (R-S21).
+export const SIGNALS_HEADING = 'Detected automatically';
+
 export interface GenerateReportOutput {
   report_path: string;
   markdown: string;
   summary: string;
   counts: IssueCounts;
+  signal_counts: SignalCounts;
   top_fix: string;
   comparison?: ComparisonResult;
   comparison_error?: string;
@@ -136,10 +161,17 @@ function compareIssues(
   };
 }
 
+// One line per signal: what it says, where, and when.
+function renderSignal(signal: ReportSignal): string {
+  const times = signal.count > 1 ? `, ${signal.count} times` : '';
+  return `- [${signal.severity.toUpperCase()}] ${signal.message} — \`${signal.url}\` (step ${signal.step}${times})`;
+}
+
 function renderIssueBlock(
   issue: Issue,
   index: number,
   previousKeys: Set<string> | undefined,
+  signals: ReportSignal[] = [],
 ): string {
   const statusTag = previousKeys
     ? previousKeys.has(issueKey(issue))
@@ -156,6 +188,9 @@ function renderIssueBlock(
     lines.push(
       `- **Likely file:** \`${file}\` *(AI estimate — verify before editing)*`,
     );
+  }
+  for (const signal of signals) {
+    lines.push(`- **Detected:** ${renderSignal(signal).slice(2)}`);
   }
   return lines.join('\n');
 }
@@ -190,6 +225,7 @@ function renderSummary(
   sessions: SessionResult[],
   sortedIssues: Issue[],
   counts: IssueCounts,
+  signalCounts: SignalCounts,
   topFix: string,
   reportPath: string,
   comparison: ComparisonResult | undefined,
@@ -200,6 +236,12 @@ function renderSummary(
     `${sessions.length} areas tested · ${counts.total} issues`,
     '',
   ];
+  if (signalCounts.total > 0) {
+    lines.push(
+      `${signalCounts.total} more detected automatically (${signalCounts.major} major)`,
+      '',
+    );
+  }
 
   if (counts.critical > 0) lines.push(`[!!!] ${counts.critical} critical`);
   if (counts.major > 0) lines.push(` [!!] ${counts.major} major`);
@@ -246,6 +288,27 @@ export function hauntGenerateReport(
   const counts = countBySeverity(allIssues);
   const top_fix = sorted[0]?.recommendation ?? '';
 
+  // An issue that names a signal of its session absorbs it: the signal is
+  // shown under the issue and not again among those detected automatically.
+  const named = new Map<Issue, ReportSignal[]>();
+  const unnamed: ReportSignal[] = [];
+  for (const session of input.sessions) {
+    const taken = new Set<string>();
+    for (const issue of session.issues) {
+      const signal = session.signals?.find((s) => s.id === issue.signal);
+      if (!signal) continue;
+      named.set(issue, [signal]);
+      taken.add(signal.id);
+    }
+    unnamed.push(...(session.signals ?? []).filter((s) => !taken.has(s.id)));
+  }
+  const allSignals = input.sessions.flatMap((s) => s.signals ?? []);
+  const signal_counts: SignalCounts = {
+    total: unnamed.length,
+    major: unnamed.filter((s) => s.severity === 'major').length,
+    minor: unnamed.filter((s) => s.severity === 'minor').length,
+  };
+
   const personaSlug = input.personas
     .join('-')
     .toLowerCase()
@@ -279,13 +342,19 @@ export function hauntGenerateReport(
     `  critical: ${counts.critical}`,
     `  major: ${counts.major}`,
     `  minor: ${counts.minor}`,
+    'signals:',
+    `  total: ${signal_counts.total}`,
+    `  major: ${signal_counts.major}`,
+    `  minor: ${signal_counts.minor}`,
     `top_fix: "${top_fix.replace(/"/g, "'")}"`,
     '---',
   ].join('\n');
 
   const issuesSection = sorted.length
     ? sorted
-        .map((issue, i) => renderIssueBlock(issue, i, previousKeys))
+        .map((issue, i) =>
+          renderIssueBlock(issue, i, previousKeys, named.get(issue)),
+        )
         .join('\n\n')
     : '_No issues found._';
 
@@ -306,11 +375,25 @@ export function hauntGenerateReport(
     '## Issues',
     '',
     issuesSection,
-    '',
-    '## Session Impressions',
-    '',
-    impressionsSection,
   ];
+
+  if (unnamed.length > 0) {
+    bodySections.push(
+      '',
+      `## ${SIGNALS_HEADING}`,
+      '',
+      'Found by the engine itself, not by a tester: server errors, exceptions, failed and slow requests, dead controls, accessibility violations.',
+      '',
+      [...unnamed]
+        .sort((a, b) =>
+          a.severity === b.severity ? 0 : a.severity === 'major' ? -1 : 1,
+        )
+        .map(renderSignal)
+        .join('\n'),
+    );
+  }
+
+  bodySections.push('', '## Session Impressions', '', impressionsSection);
 
   if (counts.total > 0) {
     bodySections.push('', '## Top Fix', '', top_fix);
@@ -339,6 +422,9 @@ export function hauntGenerateReport(
     'The following issues were found by Haunt. Fix them in order of severity.',
     '',
     forClaudeSection,
+    ...(unnamed.length > 0
+      ? ['', `Then fix what is listed under "${SIGNALS_HEADING}".`]
+      : []),
     '',
     `After fixing, run \`/haunt:haunt-test ${input.target_url}\` again to verify.`,
   );
@@ -365,7 +451,11 @@ export function hauntGenerateReport(
         target_url: input.target_url,
         date,
         personas: input.personas,
-        issues: sorted,
+        issues: sorted.map((issue) =>
+          named.has(issue) ? { ...issue, signals: named.get(issue) } : issue,
+        ),
+        signals: allSignals,
+        signal_counts,
       },
       null,
       2,
@@ -377,6 +467,7 @@ export function hauntGenerateReport(
     input.sessions,
     sorted,
     counts,
+    signal_counts,
     top_fix,
     report_path,
     comparison,
@@ -387,6 +478,7 @@ export function hauntGenerateReport(
     markdown,
     summary,
     counts,
+    signal_counts,
     top_fix,
     comparison,
     comparison_error,
