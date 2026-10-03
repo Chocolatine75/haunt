@@ -293,6 +293,11 @@ export async function tour(
   // When the slowest defect clicked so far will have shown.
   let shown = 0;
   for (const [i, trigger] of truth.triggers.entries()) {
+    // Leaving the page cancels what is still on the wire: a defect clicked
+    // earlier that has not shown yet would never show.
+    if (trigger.navigates && shown > Date.now()) {
+      await session.wait(shown - Date.now() + 300);
+    }
     const result = await session.click(trigger.trigger);
     expect(result.results[0]?.ok, `${trigger.trigger} was not clicked`).toBe(
       true,

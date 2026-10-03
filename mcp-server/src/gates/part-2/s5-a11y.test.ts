@@ -96,6 +96,9 @@ describe('S5 accessibility', () => {
     gate('S5.1', 'R-S15', 'sig-a11y clean: none', async () => {
       const session = await ctx.sig('sig-a11y', 'clean');
       expect(session.atSpawn).toEqual([]);
+      // Nothing at load proves nothing until the page is known to have been
+      // audited: an engine without the audit is silent too.
+      expect(await session.capture({ audit: true })).toEqual([]);
       // And the page under it is the same page: same controls.
       const refs = await refsByGauntletId(session);
       for (const id of REFERENCED) expect(refs.has(id), id).toBe(true);

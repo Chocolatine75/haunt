@@ -17,7 +17,8 @@ export const PLANTED: Record<GauntletPage, string[]> = {
   frames: [],
   selects: [],
   overlays: [],
-  hover: [],
+  // "A menu entry with no handler" (G4.1).
+  hover: ['dead_control'],
   // The resize handle is a focusable separator without a value.
   dnd: ['a11y:aria-required-attr'],
   upload: [],
