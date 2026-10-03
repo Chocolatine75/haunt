@@ -173,6 +173,21 @@
         ]
       },
       {
+        "trigger": "throw-after-settle",
+        "wait_ms": 2500,
+        "signals": [
+          {
+            "signal": {
+              "kind": "js_exception",
+              "severity": "major",
+              "source_path": "/sig-exceptions",
+              "feedback": true
+            },
+            "contains": { "message": "Chart export failed" }
+          }
+        ]
+      },
+      {
         "trigger": "reject",
         "signals": [
           {
@@ -281,6 +296,21 @@
               "path": "/sig/api/summary"
             },
             "at_least": { "duration_ms": 2000 }
+          }
+        ]
+      },
+      {
+        "trigger": "outlast",
+        "wait_ms": 6600,
+        "signals": [
+          {
+            "signal": {
+              "kind": "slow_response",
+              "severity": "minor",
+              "method": "GET",
+              "path": "/sig/api/archive"
+            },
+            "at_least": { "duration_ms": 6500 }
           }
         ]
       },

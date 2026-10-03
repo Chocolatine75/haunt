@@ -22,6 +22,8 @@
 <p><button data-g="throw-now" type="button">Show cart total</button></p>
 <!-- Says "Rendering…" at once and fails 800 ms later. -->
 <p><button data-g="throw-later" type="button">Render chart</button></p>
+<!-- Fails 2.5 s later: after any wait for the page to settle is over. -->
+<p><button data-g="throw-after-settle" type="button">Export chart</button></p>
 <p><button data-g="reject" type="button">Save draft</button></p>
 <!-- Logs the error and lets it escape: one failure, seen twice. -->
 <p><button data-g="reject-logged" type="button">Sync</button></p>
@@ -45,6 +47,14 @@
       if (BUGGY) throw new Error('Chart render failed');
       say('Chart rendered');
     }, 800);
+  });
+
+  G.find('throw-after-settle').addEventListener('click', () => {
+    say('Exporting…');
+    setTimeout(() => {
+      if (BUGGY) throw new Error('Chart export failed');
+      say('Chart exported');
+    }, 2500);
   });
 
   async function saveDraft() {

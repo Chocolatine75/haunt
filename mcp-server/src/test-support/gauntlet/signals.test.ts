@@ -41,8 +41,8 @@ const LONG_TASK_MS = 500;
 // How many elements carry data-g, frames and shadow roots included.
 const ACTIONABLE: Record<SignalPage, number> = {
   'sig-http': 7,
-  'sig-exceptions': 6,
-  'sig-network': 7,
+  'sig-exceptions': 7,
+  'sig-network': 8,
   'sig-blocking': 2,
   'sig-dead': 10,
   'sig-a11y': 12,

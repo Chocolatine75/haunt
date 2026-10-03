@@ -23,6 +23,8 @@
   <button data-g="slow" type="button">Build report</button>
   <!-- Answers after 2 s: slow, and under the default threshold. -->
   <button data-g="slowish" type="button">Load summary</button>
+  <!-- Answers after 6.5 s: once nobody is waiting for the page any more. -->
+  <button data-g="outlast" type="button">Build archive</button>
 </section>
 
 <section>
@@ -52,6 +54,7 @@
   load('hang', '/sig/api/hang', 'Activity loaded');
   load('slow', '/sig/api/report', 'Report ready');
   load('slowish', '/sig/api/summary', 'Summary loaded');
+  load('outlast', '/sig/api/archive', 'Archive ready');
 
   G.find('abort').addEventListener('click', async () => {
     const controller = new AbortController();

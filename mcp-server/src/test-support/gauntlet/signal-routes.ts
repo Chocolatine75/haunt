@@ -96,6 +96,10 @@ export async function handleSignalRoute(
     // Slow, but under the default threshold.
     if (buggy) await sleep(2_000 + MARGIN_MS);
     json(200, { total: 7 });
+  } else if (path === '/sig/api/archive') {
+    // Longer than an action waits for the page to settle.
+    if (buggy) await sleep(6_500 + MARGIN_MS);
+    json(200, { files: 12 });
   } else if (path === '/sig/api/search') {
     // Long enough to be cancelled before it answers, in both variants.
     await sleep(3_000);
