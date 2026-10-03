@@ -6,7 +6,10 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect } from 'vitest';
-import { GAUNTLET_PAGES } from '../../test-support/gauntlet/server.js';
+import {
+  GAUNTLET_PAGES,
+  type GauntletPage,
+} from '../../test-support/gauntlet/server.js';
 import type { Signal } from './contract.js';
 import { TOURED, gate, useSignals, useTours } from './harness.js';
 import { PLANTED, unplanted } from './planted.js';
@@ -39,7 +42,7 @@ describe('S2 clean is silent', () => {
     }
 
     gate(
-      'S2.1',
+      'S2.1b',
       'R-S10',
       'sig-a11y clean: no signal when opened, none when audited again',
       async () => {
@@ -52,20 +55,25 @@ describe('S2 clean is silent', () => {
   });
 
   describe('S2.2 the pages of part 1, left alone', () => {
-    for (const page of GAUNTLET_PAGES) {
-      gate(
-        'S2.2',
-        'R-S10',
-        `${page}: loaded and left alone for two seconds, only what it plants`,
-        async () => {
-          const session = await ctx.part1(page);
-          await session.wait(2_000);
-          await session.end();
-          // Left alone: nothing was clicked, so no control can be dead.
-          const planted = PLANTED[page].filter((p) => p !== 'dead_control');
-          expect(session.all().map(label).sort()).toEqual([...planted].sort());
-        },
-      );
+    const alone = (page: GauntletPage) => async () => {
+      const session = await ctx.part1(page);
+      await session.wait(2_000);
+      await session.end();
+      // Left alone: nothing was clicked, so no control can be dead.
+      const planted = PLANTED[page].filter((p) => p !== 'dead_control');
+      expect(session.all().map(label).sort()).toEqual([...planted].sort());
+    };
+    const title = (page: GauntletPage) =>
+      `${page}: loaded and left alone for two seconds, only what it plants`;
+    const audited = (page: GauntletPage) =>
+      PLANTED[page].some((p) => p.startsWith('a11y:'));
+
+    for (const page of GAUNTLET_PAGES.filter((p) => !audited(p))) {
+      gate('S2.2', 'R-S10', title(page), alone(page));
+    }
+    // Those that plant an accessibility violation need the audit.
+    for (const page of GAUNTLET_PAGES.filter(audited)) {
+      gate('S2.2b', 'R-S10', title(page), alone(page));
     }
   });
 

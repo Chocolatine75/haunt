@@ -160,28 +160,37 @@ describe('S8 the gate itself', () => {
   });
 
   describe('S8.1 sabotage', () => {
-    for (const [name, check] of Object.entries(SABOTAGES)) {
+    const breaks = (name: string) => async () => {
+      await sabotage(null);
+      await SABOTAGES[name](ctx);
+
+      await sabotage(name);
+      let caught = false;
+      try {
+        await SABOTAGES[name](ctx);
+      } catch {
+        caught = true;
+      }
+      // What the broken engine produced is not for the harness to judge.
+      await ctx.discard();
+      expect(caught, `the gate did not notice "${name}"`).toBe(true);
+    };
+    const title = (name: string) =>
+      `${name}: the check passes normally and fails when the engine is sabotaged`;
+    const names = Object.keys(SABOTAGES);
+
+    for (const name of names.filter((n) => !n.includes('audit'))) {
       gate(
         'S8.1',
-        'R-S7 R-S6 R-S11 R-S13 R-S2 R-S15 R-S18 R-S8',
-        `${name}: the check passes normally and fails when the engine is sabotaged`,
-        async () => {
-          await sabotage(null);
-          await check(ctx);
-
-          await sabotage(name);
-          let caught = false;
-          try {
-            await check(ctx);
-          } catch {
-            caught = true;
-          }
-          // What the broken engine produced is not for the harness to judge.
-          await ctx.discard();
-          expect(caught, `the gate did not notice "${name}"`).toBe(true);
-        },
+        'R-S7 R-S6 R-S11 R-S13 R-S2 R-S18 R-S8',
+        title(name),
+        breaks(name),
         60_000,
       );
+    }
+    // The two about the audit pass with it, after the others.
+    for (const name of names.filter((n) => n.includes('audit'))) {
+      gate('S8.1b', 'R-S15', title(name), breaks(name), 60_000);
     }
   });
 
@@ -209,7 +218,10 @@ describe('S8 the gate itself', () => {
       async () => {
         const wanted = specified(readFileSync(SPEC, 'utf-8')).sort();
         expect(wanted.length).toBeGreaterThan(30);
-        const ids = new Set(registrations().map((r) => r.id));
+        // A letter only splits a numbered test in two for status.ts.
+        const ids = new Set(
+          registrations().map((r) => r.id.replace(/[a-z]$/, '')),
+        );
         expect([...ids].sort()).toEqual(wanted);
       },
     );

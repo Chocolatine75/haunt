@@ -126,7 +126,7 @@ describe('S7 where signals go', () => {
     );
 
     gate(
-      'S7.1',
+      'S7.1b',
       'R-S19',
       'haunt_capture_state lists the signals of the current page, delivered or not',
       async () => {
@@ -153,7 +153,7 @@ describe('S7 where signals go', () => {
     );
 
     gate(
-      'S7.1',
+      'S7.1b',
       'R-S19',
       'a call that asks for nothing about signals returns the snapshot as before',
       async () => {

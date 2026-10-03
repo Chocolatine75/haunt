@@ -110,7 +110,7 @@ describe('S1 every kind is detected, exactly', () => {
     }
 
     gate(
-      'S1.1',
+      'S1.1b',
       'R-S1 R-S2 R-S3',
       'sig-a11y: the twelve violations are reported when the page is opened',
       async () => {
@@ -159,7 +159,7 @@ describe('S1 every kind is detected, exactly', () => {
     }
 
     gate(
-      'S1.2',
+      'S1.2b',
       'R-S1 R-S10',
       'sig-a11y: twelve signals and no other, for a page nobody touched',
       async () => {
