@@ -147,6 +147,8 @@ describe('haunt-ci loop against a real app', { timeout: 30_000 }, () => {
       description: 'Seen only in the result of the last action',
       page_url: `${app.baseUrl}/signup`,
       recommendation: 'Show an error',
+      // Checkable, so that a replay confirms it (part 3).
+      observed: { url: '/signup' },
     };
     const seen: string[] = [];
     const decide: ActionDecider = async (_system, state) => {
@@ -154,7 +156,7 @@ describe('haunt-ci loop against a real app', { timeout: 30_000 }, () => {
       const wrapUp = state.includes('The session is over');
       return {
         actions: wrapUp
-          ? [{ type: 'read' }]
+          ? [{ type: 'goto', url: `${app.baseUrl}/never-visited` }]
           : [{ type: 'goto', url: `${app.baseUrl}/signup` }],
         issues: wrapUp ? [late] : [],
       };
@@ -167,10 +169,11 @@ describe('haunt-ci loop against a real app', { timeout: 30_000 }, () => {
     expect(seen[1]).toContain('Your last actions');
     expect(seen[1]).toContain('The session is over');
     expect(report.counts).toMatchObject({ total: 1, major: 1 });
-    // The wrap-up answer's actions are not run.
-    expect(
-      app.requests.slice(requestsBefore).filter((r) => r === 'GET /signup'),
-    ).toHaveLength(1);
+    // The wrap-up answer's actions are not run. (GET /signup is not counted:
+    // the replays that verify the issue load it too.)
+    expect(app.requests.slice(requestsBefore)).not.toContain(
+      'GET /never-visited',
+    );
   });
 
   it('keeps what a session found when its last answer fails or carries no action', async () => {
@@ -180,6 +183,7 @@ describe('haunt-ci loop against a real app', { timeout: 30_000 }, () => {
       description: 'Found during the session',
       page_url: app.baseUrl,
       recommendation: 'Fix it',
+      observed: { text_absent: 'Nothing on this page says this' },
     };
     let calls = 0;
     const decide: ActionDecider = async (_system, state) => {
@@ -232,6 +236,7 @@ describe('haunt-ci loop against a real app', { timeout: 30_000 }, () => {
       description: 'Empty signup returns a 500',
       page_url: `${app.baseUrl}/signup`,
       recommendation: 'Validate the payload',
+      observed: { text_absent: 'Account created' },
     };
     const { decide } = scriptedDecider([
       { actions: click('Sign up') },
@@ -256,6 +261,7 @@ describe('haunt-ci loop against a real app', { timeout: 30_000 }, () => {
       description: `${severity} finding`,
       page_url: app.baseUrl,
       recommendation: `Fix the ${severity} finding`,
+      observed: { text_absent: 'Nothing on this page says this' },
     });
     const decide: ActionDecider = async (systemPrompt) => ({
       actions: [{ type: 'goto', url: `${app.baseUrl}/` }],

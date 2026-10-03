@@ -1,8 +1,13 @@
-import type { Browser, Page } from 'playwright';
+import type { Browser, BrowserContext, Page } from 'playwright';
 import type { Signal } from '../gates/part-2/contract.js';
+import type { Observation } from '../gates/part-3/contract.js';
 import type { SessionRuntime } from './act/runtime.js';
+import type { Recording } from './evidence/recording.js';
 import type { SignalCollector } from './signals/collector.js';
 import type { SnapshotState } from './snapshot/snapshot.js';
+
+// What haunt_spawn accepts as cookies.
+export type SpawnCookies = Parameters<BrowserContext['addCookies']>[0];
 
 export type IssueSeverity = 'critical' | 'major' | 'minor' | 'suggestion';
 export type IssueCategory =
@@ -22,6 +27,8 @@ export interface Issue {
   // The id of the signal this issue is about (part 2, R-S21): the report
   // shows the signal under the issue instead of on its own.
   signal?: string;
+  // A fact about the page the engine can read back (part 3, R-E1).
+  observed?: Observation;
 }
 
 export interface PersonaScenario {
@@ -72,4 +79,14 @@ export interface HauntSession {
   // the collector's own list, as raised.
   collector: SignalCollector;
   signals: Signal[];
+  // Every action that ran, replayable in another browser (part 3).
+  recording: Recording;
+  evidence: {
+    // Whether pages are audited for accessibility (a replay's are not).
+    audit: boolean;
+    replay_budget_ms: number;
+    bundle_cap_bytes: number;
+    // Kept in memory for the replays, never written.
+    cookies?: SpawnCookies;
+  };
 }

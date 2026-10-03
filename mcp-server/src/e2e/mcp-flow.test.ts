@@ -133,12 +133,21 @@ describe('phantom-user session over MCP', { timeout: 30_000 }, () => {
       'Internal Server Error',
     );
 
+    // The engine saw the 500 itself; the issue names that signal, so a
+    // replay can check it (part 3).
+    const crash = (
+      emptySubmit as unknown as {
+        signals: Array<{ id: string; kind: string; status?: number }>;
+      }
+    ).signals.find((s) => s.kind === 'http_error' && s.status === 500);
+    expect(crash).toBeDefined();
     const issue = {
       severity: 'critical',
       category: 'ux',
       description: 'Empty signup submission returns a 500',
       page_url: `${app.baseUrl}/signup`,
       recommendation: 'Validate the signup payload server-side',
+      signal: crash?.id,
     };
     await act(
       session.session_id,
@@ -149,7 +158,9 @@ describe('phantom-user session over MCP', { timeout: 30_000 }, () => {
     const ended = await end(session.session_id, 'Signup crashed on me.');
     expect(ended.persona).toBe('Test Persona');
     expect(ended.step_count).toBe(3);
-    expect(ended.issues_found).toEqual([issue]);
+    expect(ended.issues_found).toMatchObject([
+      { ...issue, verification: { status: 'confirmed', attempts: 3 } },
+    ]);
     expect(ended.sandbox_blocked_requests).toEqual([]);
     expect(ended.overall_impression).toBe('Signup crashed on me.');
 
