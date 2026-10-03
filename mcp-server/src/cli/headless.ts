@@ -236,6 +236,22 @@ function describeOutcome(result: ActResult): string {
       `(${result.requested - result.executed} further action(s) were not run)`,
     );
   }
+  if (result.text_changes.added.length > 0) {
+    lines.push(
+      `Text that appeared: ${result.text_changes.added
+        .slice(0, 8)
+        .map((t) => JSON.stringify(t))
+        .join(', ')}`,
+    );
+  }
+  if (result.text_changes.removed.length > 0) {
+    lines.push(
+      `Text that went away: ${result.text_changes.removed
+        .slice(0, 8)
+        .map((t) => JSON.stringify(t))
+        .join(', ')}`,
+    );
+  }
   if (result.console_errors.length > 0) {
     lines.push(
       `Console errors: ${result.console_errors.slice(0, 5).join(' | ')}`,

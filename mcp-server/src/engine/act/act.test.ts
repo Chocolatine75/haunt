@@ -25,6 +25,8 @@ const PAGE = `<!doctype html><title>act</title>
   <label><input id="yes" type="radio" name="answer" checked> Yes</label>
   <label><input id="no" type="radio" name="answer"> No</label>
   <button id="plain">Plain</button>
+  <button onclick="document.getElementById('msg').textContent = 'Invalid email or password'">Sign in</button>
+  <p id="msg">Welcome back</p>
   <label>Avatar <input id="file" type="file"></label>
   <p id="out"></p>
   <script>
@@ -225,6 +227,27 @@ describe('hauntAct', () => {
     await open();
     const result = await act({ type: 'read', ref: await ref('Note') });
     expect(result.results[0].text).toBe('Hello');
+  });
+
+  it('reports the text an action made appear and disappear', async () => {
+    await open();
+    const result = await act({ type: 'click', ref: await ref('Sign in') });
+    // No element was added or removed: only a message changed.
+    expect(result.diff).toEqual({ added: [], removed: [], changed: [] });
+    expect(result.text_changes).toEqual({
+      added: ['Invalid email or password'],
+      removed: ['Welcome back'],
+    });
+    expect(result.results[0].changes).toMatchObject({
+      dom_changed: true,
+      none: false,
+    });
+  });
+
+  it('reports no text change when nothing was written', async () => {
+    await open();
+    const result = await act({ type: 'click', ref: await ref('Plain') });
+    expect(result.text_changes).toEqual({ added: [], removed: [] });
   });
 
   it('resizes the viewport', async () => {

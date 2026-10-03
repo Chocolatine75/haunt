@@ -94,6 +94,14 @@ export interface SnapshotDiff {
   changed: SnapshotElement[];
 }
 
+// Page text that appeared or went away, in reading order. Elements are in
+// SnapshotDiff; this is everything else a reader sees: a message, a total,
+// an error.
+export interface TextChanges {
+  added: string[];
+  removed: string[];
+}
+
 export interface Snapshot {
   url: string;
   title: string;
@@ -104,6 +112,7 @@ export interface Snapshot {
   containers?: SnapshotContainer[];
   // diff: true only.
   diff?: SnapshotDiff;
+  text_changes?: TextChanges;
   scroll: ScrollState;
   tabs: Array<{ index: number; title: string; url: string; active: boolean }>;
   dialog?: {
@@ -326,6 +335,8 @@ export interface ActResult {
   title: string;
   // What the snapshot looks like now, relative to before the call.
   diff: SnapshotDiff;
+  // Text that appeared or went away over the call.
+  text_changes: TextChanges;
   console_errors: string[];
   network_errors: string[];
   sandbox_blocked?: string[];

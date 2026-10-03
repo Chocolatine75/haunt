@@ -85,6 +85,10 @@ Rules:
   submit button). The sequence stops at the first failure, navigation,
   dialog or new tab.
 - Each action's result says what it changed. Read it:
+  - `text_changes` lists the text that appeared and went away (an error
+    message, a confirmation, a total). Before concluding that an action gave
+    no feedback, check `text_changes.added`: a message that appeared is
+    feedback, even though `diff` (which only lists elements) is empty.
   - `changes.none: true` on a control that should do something (a button, a
     link) is a finding: the control is dead. Report it.
   - `ok: false` is information about the page, with a `code`: `covered` (and
