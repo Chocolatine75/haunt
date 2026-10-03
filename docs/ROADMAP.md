@@ -34,7 +34,11 @@ not done, and is not merged as done, until every test in its gate passes.
 4. **Green means green in CI**, on Linux, macOS and Windows, with no retries.
    Pull requests run macOS only; the three systems run on `v2` once the
    part is merged, and the part is accepted when that run is green.
-   A gate test that passes only sometimes is failing.
+   A gate test that passes only sometimes is failing. Time budgets are the
+   exception for now: they are enforced by `npm run check` on a developer's
+   machine and only reported in CI, because shared runners are too uneven to
+   measure against. Making them relative to a baseline measured in the same
+   run is the open way to enforce them in CI again.
 5. **Earlier gates stay green.** A part that breaks a previous gate is not
    accepted.
 6. **Gates that need a real LLM** (marked *live*) cannot run in CI. They are
