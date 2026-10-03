@@ -96,7 +96,7 @@ describe('S6 confidentiality', () => {
             }
           }
         }
-        expect(written).toContain(report.data.report_path);
+        expect(written).toContain(resolve(report.data.report_path));
         for (const path of written) rmSync(path, { force: true });
       },
       60_000,
