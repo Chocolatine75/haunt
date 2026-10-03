@@ -89,6 +89,17 @@ export const TOOLS: ToolDefinition[] = [
         .describe(
           'Session cookies to inject before navigation (for authenticated testing)',
         ),
+      signal_thresholds: z
+        .object({
+          slow_response_ms: z.number().positive().optional(),
+          long_task_ms: z.number().positive().optional(),
+          hung_request_ms: z.number().positive().optional(),
+        })
+        .strict()
+        .optional()
+        .describe(
+          'Above which a response is reported as slow (default 3000), a main-thread task as long (500), a request as hung (10000)',
+        ),
     }),
     run: (manager, input) => hauntSpawn(manager, input),
   }),
@@ -164,6 +175,12 @@ export const TOOLS: ToolDefinition[] = [
         .boolean()
         .optional()
         .describe('Also save a screenshot. Default: false'),
+      signals: z
+        .boolean()
+        .optional()
+        .describe(
+          'Also list every signal raised so far on the current page: HTTP errors, exceptions, failed, hung and slow requests, dead controls',
+        ),
     }),
     run: (manager, input) => hauntCaptureState(manager, input),
   }),

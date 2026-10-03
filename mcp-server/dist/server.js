@@ -10,7 +10,7 @@ import {
   hauntGetCookies,
   hauntSpawn,
   zodToJsonSchema
-} from "./chunk-THIBBAMW.js";
+} from "./chunk-HLDYPDXS.js";
 import {
   _enum,
   _null,
@@ -10607,6 +10607,13 @@ var TOOLS = [
       timeout: external_exports.number().optional().describe("Maximum navigation steps for this session. Default: 30"),
       cookies: external_exports.array(cookieSchema).optional().describe(
         "Session cookies to inject before navigation (for authenticated testing)"
+      ),
+      signal_thresholds: external_exports.object({
+        slow_response_ms: external_exports.number().positive().optional(),
+        long_task_ms: external_exports.number().positive().optional(),
+        hung_request_ms: external_exports.number().positive().optional()
+      }).strict().optional().describe(
+        "Above which a response is reported as slow (default 3000), a main-thread task as long (500), a request as hung (10000)"
       )
     }),
     run: (manager, input) => hauntSpawn(manager, input)
@@ -10652,7 +10659,10 @@ var TOOLS = [
       actionable_only: external_exports.boolean().optional().describe("Leave out the surrounding text, keep only elements"),
       page: external_exports.number().optional().describe("Which page of a text snapshot that did not fit in one"),
       include_attributes: external_exports.array(external_exports.string()).optional().describe("Attributes to report for each element, e.g. data-testid"),
-      include_screenshot: external_exports.boolean().optional().describe("Also save a screenshot. Default: false")
+      include_screenshot: external_exports.boolean().optional().describe("Also save a screenshot. Default: false"),
+      signals: external_exports.boolean().optional().describe(
+        "Also list every signal raised so far on the current page: HTTP errors, exceptions, failed, hung and slow requests, dead controls"
+      )
     }),
     run: (manager, input) => hauntCaptureState(manager, input)
   }),

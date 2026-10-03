@@ -82,7 +82,23 @@ function installHooks() {
     native,
     // Pending timers short enough to be "the page still reacting".
     timers: /* @__PURE__ */ new Map(),
-    lastMutation: 0
+    // One-shot timers too long for that, and when each was set: what an
+    // ending session still has to wait for.
+    later: /* @__PURE__ */ new Map(),
+    lastMutation: 0,
+    // When what the running timer callback belongs to was started.
+    running: void 0,
+    // Set when a timer callback throws; the error event that follows is its.
+    thrown: void 0,
+    // Stretches of main-thread time taken by the engine's own page scripts,
+    // in performance.now() terms.
+    work: [],
+    reports: 0,
+    // Every interval still running, and when the page last stopped a timer
+    // or an interval that was still to run: a control whose only effect is
+    // to stop something (a pause button) did something.
+    intervals: /* @__PURE__ */ new Set(),
+    lastCleared: 0
   };
   Object.defineProperty(window, "__haunt", { value: state, enumerable: false });
   const observer = new MutationObserver(() => {
@@ -103,40 +119,168 @@ function installHooks() {
     return root;
   };
   const SHORT_MS = 2e3;
+  const LATER_MS = 5e3;
+  const caused = (handler, origin, forget) => function(...inner) {
+    forget();
+    const outer = state.running;
+    state.running = origin;
+    let returned = false;
+    try {
+      const result = handler.apply(this, inner);
+      returned = true;
+      return result;
+    } finally {
+      state.running = outer;
+      if (!returned) state.thrown = origin;
+    }
+  };
   window.setTimeout = ((handler, delay, ...args) => {
     const ms = Number(delay) || 0;
     let id = 0;
-    const run = typeof handler === "function" ? function(...inner) {
+    const run = typeof handler === "function" ? caused(handler, state.running ?? Date.now(), () => {
       state.timers.delete(id);
-      return handler.apply(this, inner);
-    } : handler;
+      state.later.delete(id);
+    }) : handler;
     id = native.setTimeout(run, delay, ...args);
     if (ms <= SHORT_MS) {
       state.timers.set(id, { at: Date.now(), delay: ms, repeat: false });
       if (typeof handler !== "function") {
         native.setTimeout(() => state.timers.delete(id), ms + 1);
       }
+    } else if (ms <= LATER_MS && typeof handler === "function") {
+      state.later.set(id, Date.now());
     }
     return id;
   });
   window.clearTimeout = ((id) => {
-    if (id !== void 0) state.timers.delete(id);
+    if (id !== void 0) {
+      const pending = state.timers.delete(id);
+      if (state.later.delete(id) || pending) state.lastCleared = Date.now();
+    }
     return native.clearTimeout(id);
   });
   window.setInterval = ((handler, delay, ...args) => {
     const ms = Number(delay) || 0;
     const id = native.setInterval(handler, delay, ...args);
+    state.intervals.add(id);
     if (ms <= SHORT_MS) {
       state.timers.set(id, { at: Date.now(), delay: ms, repeat: true });
     }
     return id;
   });
   window.clearInterval = ((id) => {
-    if (id !== void 0) state.timers.delete(id);
+    if (id !== void 0) {
+      state.timers.delete(id);
+      if (state.intervals.delete(id)) state.lastCleared = Date.now();
+    }
     return native.clearInterval(id);
   });
+  const report = (payload) => {
+    const n = ++state.reports;
+    try {
+      const send = w.__hauntReport;
+      send?.(JSON.stringify({ ...payload, d: state.doc, n, at: Date.now() }));
+    } catch {
+    }
+    return n;
+  };
+  const logged = /* @__PURE__ */ new WeakMap();
+  const escaped = /* @__PURE__ */ new WeakSet();
+  const isObject = (value) => typeof value === "object" && value !== null || typeof value === "function";
+  const textOf = (value) => {
+    if (typeof value === "string") return value;
+    if (value instanceof Error) return String(value);
+    try {
+      return isObject(value) ? JSON.stringify(value) : String(value);
+    } catch {
+      return Object.prototype.toString.call(value);
+    }
+  };
+  window.addEventListener("error", (event) => {
+    if (!(event instanceof ErrorEvent)) return;
+    const cause = state.thrown;
+    state.thrown = void 0;
+    const error = event.error;
+    const payload = {
+      k: "error",
+      message: event.message,
+      stack: error instanceof Error ? error.stack : void 0,
+      url: event.filename,
+      line: event.lineno,
+      column: event.colno,
+      cause
+    };
+    if (isObject(error)) {
+      payload.supersedes = logged.get(error);
+      escaped.add(error);
+    }
+    report(payload);
+  });
+  window.addEventListener("unhandledrejection", (event) => {
+    const reason = event.reason;
+    const payload = {
+      k: "rejection",
+      message: reason instanceof Error ? reason.message : textOf(reason),
+      stack: reason instanceof Error ? reason.stack : void 0
+    };
+    if (isObject(reason)) {
+      payload.supersedes = logged.get(reason);
+      escaped.add(reason);
+    }
+    report(payload);
+  });
+  const consoleError = console.error;
+  console.error = function(...args) {
+    try {
+      if (!args.some((arg) => isObject(arg) && escaped.has(arg))) {
+        const n = report({
+          k: "console",
+          message: args.map(textOf).join(" "),
+          cause: state.running
+        });
+        for (const arg of args) if (isObject(arg)) logged.set(arg, n);
+      }
+    } catch {
+    }
+    return consoleError.apply(this, args);
+  };
+  for (const name of ["alert", "confirm", "prompt"]) {
+    const original2 = window[name];
+    w[name] = function(...args) {
+      const from = performance.now();
+      try {
+        return original2.apply(this, args);
+      } finally {
+        state.work.push([from, performance.now()]);
+      }
+    };
+  }
+  if (window === window.top) {
+    try {
+      new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) {
+          const end = entry.startTime + entry.duration;
+          let own = 0;
+          for (const [from, to] of state.work) {
+            own += Math.max(
+              0,
+              Math.min(to, end) - Math.max(from, entry.startTime)
+            );
+          }
+          if (state.work.length > 50) state.work.splice(0, 25);
+          report({
+            k: "longtask",
+            duration: entry.duration - own,
+            cause: Math.round(performance.timeOrigin + entry.startTime)
+          });
+        }
+      }).observe({ type: "longtask", buffered: true });
+    } catch {
+    }
+  }
 }
 function collect(options) {
+  const began = performance.now();
   let state = window.__haunt;
   if (!state) {
     state = {
@@ -588,7 +732,9 @@ function collect(options) {
       max_y: Math.max(0, doc.scrollHeight - window.innerHeight)
     }
   };
-  return JSON.stringify(result);
+  const json2 = JSON.stringify(result);
+  st.work?.push([began, performance.now()]);
+  return json2;
 }
 
 // src/engine/snapshot/snapshot.ts
@@ -1035,6 +1181,18 @@ async function takeSnapshot(session, options = {}, internal = false) {
 }
 
 // src/engine/act/page-fns.ts
+function pendingTimers(since) {
+  const state = window.__haunt;
+  if (!state) return 0;
+  let count = 0;
+  for (const timer of state.timers.values()) {
+    if (!timer.repeat && timer.at >= since) count++;
+  }
+  for (const at of state.later?.values() ?? []) {
+    if (at >= since) count++;
+  }
+  return count;
+}
 function locate(target) {
   const state = window.__haunt;
   if (!state || state.doc !== target.doc) return null;
@@ -1043,137 +1201,148 @@ function locate(target) {
 }
 async function probe(el, centre = false) {
   const state = window.__haunt;
-  const idOf = (node) => {
-    let id = state.ids.get(node);
-    if (!id) {
-      id = state.next++;
-      state.ids.set(node, id);
-      state.nodes.set(id, new WeakRef(node));
-    }
-    return id;
-  };
-  const shadowOf = (e) => e.shadowRoot ?? state.roots.get(e) ?? null;
-  const parentOf = (node) => {
-    if (node.parentElement) return node.parentElement;
-    const root = node.getRootNode();
-    return root instanceof ShadowRoot ? root.host : null;
-  };
-  const contains = (outer, inner) => {
-    for (let n = inner; n; n = parentOf(n))
-      if (n === outer) return true;
-    return false;
-  };
-  const html = el;
-  const input = el;
-  const explicit = el.getAttribute("role")?.trim().split(/\s+/)[0];
-  const role = explicit ?? (el.tagName === "BUTTON" ? "button" : el.tagName === "A" ? "link" : el.tagName === "SELECT" ? "combobox" : el.tagName === "INPUT" || el.tagName === "TEXTAREA" || html.isContentEditable ? "textbox" : "generic");
-  const result = {
-    connected: el.isConnected,
-    tag: el.tagName.toLowerCase(),
-    role,
-    input_type: el.tagName === "INPUT" ? input.type : void 0,
-    disabled: el.matches(":disabled") || el.getAttribute("aria-disabled") === "true",
-    readonly: Boolean(input.readOnly),
-    editable: "none",
-    ignores_pointer: false,
-    stable: true
-  };
-  if (!result.connected) return result;
-  if (el.tagName === "TEXTAREA") result.editable = "value";
-  else if (el.tagName === "INPUT") {
-    result.editable = [
-      "checkbox",
-      "radio",
-      "file",
-      "button",
-      "submit",
-      "reset",
-      "image",
-      "hidden"
-    ].includes(input.type) ? "none" : "value";
-  } else if (html.isContentEditable) result.editable = "content";
-  if (el.tagName === "INPUT" && (input.type === "checkbox" || input.type === "radio")) {
-    result.checked = input.checked;
-  } else if (el.hasAttribute("aria-checked")) {
-    result.checked = el.getAttribute("aria-checked") === "true";
+  const began = performance.now();
+  try {
+    return await look();
+  } finally {
+    state.work?.push([began, performance.now()]);
   }
-  const style = getComputedStyle(el);
-  if (el.getClientRects().length === 0) result.hidden = "display";
-  else if (style.visibility !== "visible") result.hidden = "visibility";
-  else {
-    const size = el.getBoundingClientRect();
-    if (size.width === 0 || size.height === 0) result.hidden = "zero_size";
-  }
-  if (result.hidden) return result;
-  const visibleIn = (rect2) => {
-    if (rect2.top < 0 || rect2.left < 0 || rect2.bottom > innerHeight || rect2.right > innerWidth)
+  async function look() {
+    const idOf = (node) => {
+      let id = state.ids.get(node);
+      if (!id) {
+        id = state.next++;
+        state.ids.set(node, id);
+        state.nodes.set(id, new WeakRef(node));
+      }
+      return id;
+    };
+    const shadowOf = (e) => e.shadowRoot ?? state.roots.get(e) ?? null;
+    const parentOf = (node) => {
+      if (node.parentElement) return node.parentElement;
+      const root = node.getRootNode();
+      return root instanceof ShadowRoot ? root.host : null;
+    };
+    const contains = (outer, inner) => {
+      for (let n = inner; n; n = parentOf(n))
+        if (n === outer) return true;
       return false;
-    const cx = rect2.left + rect2.width / 2;
-    const cy = rect2.top + rect2.height / 2;
-    for (let n = parentOf(el); n && n !== document.body && n !== document.documentElement; n = parentOf(n)) {
-      const s = getComputedStyle(n);
-      if (s.overflowX === "visible" && s.overflowY === "visible") continue;
-      const box = n.getBoundingClientRect();
-      if (cx < box.left || cx > box.right || cy < box.top || cy > box.bottom)
-        return false;
+    };
+    const html = el;
+    const input = el;
+    const explicit = el.getAttribute("role")?.trim().split(/\s+/)[0];
+    const role = explicit ?? (el.tagName === "BUTTON" ? "button" : el.tagName === "A" ? "link" : el.tagName === "SELECT" ? "combobox" : el.tagName === "INPUT" || el.tagName === "TEXTAREA" || html.isContentEditable ? "textbox" : "generic");
+    const result = {
+      connected: el.isConnected,
+      tag: el.tagName.toLowerCase(),
+      role,
+      input_type: el.tagName === "INPUT" ? input.type : void 0,
+      disabled: el.matches(":disabled") || el.getAttribute("aria-disabled") === "true",
+      readonly: Boolean(input.readOnly),
+      editable: "none",
+      ignores_pointer: false,
+      stable: true
+    };
+    if (!result.connected) return result;
+    if (el.tagName === "TEXTAREA") result.editable = "value";
+    else if (el.tagName === "INPUT") {
+      result.editable = [
+        "checkbox",
+        "radio",
+        "file",
+        "button",
+        "submit",
+        "reset",
+        "image",
+        "hidden"
+      ].includes(input.type) ? "none" : "value";
+    } else if (html.isContentEditable) result.editable = "content";
+    if (el.tagName === "INPUT" && (input.type === "checkbox" || input.type === "radio")) {
+      result.checked = input.checked;
+    } else if (el.hasAttribute("aria-checked")) {
+      result.checked = el.getAttribute("aria-checked") === "true";
     }
-    return true;
-  };
-  if (!visibleIn(el.getBoundingClientRect())) {
-    const where = centre ? "center" : "nearest";
-    el.scrollIntoView({
-      block: where,
-      inline: where,
-      behavior: "instant"
+    const style = getComputedStyle(el);
+    if (el.getClientRects().length === 0) result.hidden = "display";
+    else if (style.visibility !== "visible") result.hidden = "visibility";
+    else {
+      const size = el.getBoundingClientRect();
+      if (size.width === 0 || size.height === 0) result.hidden = "zero_size";
+    }
+    if (result.hidden) return result;
+    const visibleIn = (rect2) => {
+      if (rect2.top < 0 || rect2.left < 0 || rect2.bottom > innerHeight || rect2.right > innerWidth)
+        return false;
+      const cx = rect2.left + rect2.width / 2;
+      const cy = rect2.top + rect2.height / 2;
+      for (let n = parentOf(el); n && n !== document.body && n !== document.documentElement; n = parentOf(n)) {
+        const s = getComputedStyle(n);
+        if (s.overflowX === "visible" && s.overflowY === "visible") continue;
+        const box = n.getBoundingClientRect();
+        if (cx < box.left || cx > box.right || cy < box.top || cy > box.bottom)
+          return false;
+      }
+      return true;
+    };
+    if (!visibleIn(el.getBoundingClientRect())) {
+      const where = centre ? "center" : "nearest";
+      el.scrollIntoView({
+        block: where,
+        inline: where,
+        behavior: "instant"
+      });
+    }
+    const before = el.getBoundingClientRect();
+    const frames = document.getAnimations().length > 0 ? 2 : 1;
+    await new Promise((resolve3) => {
+      let left = frames;
+      const next = () => --left <= 0 ? resolve3() : requestAnimationFrame(next);
+      requestAnimationFrame(next);
+      (state.native?.setTimeout ?? setTimeout)(resolve3, 150);
     });
-  }
-  const before = el.getBoundingClientRect();
-  const frames = document.getAnimations().length > 0 ? 2 : 1;
-  await new Promise((resolve3) => {
-    let left = frames;
-    const next = () => --left <= 0 ? resolve3() : requestAnimationFrame(next);
-    requestAnimationFrame(next);
-    (state.native?.setTimeout ?? setTimeout)(resolve3, 150);
-  });
-  if (!el.isConnected) {
-    result.connected = false;
-    return result;
-  }
-  const rect = el.getBoundingClientRect();
-  const animating = (() => {
-    for (let n = el; n; n = parentOf(n)) {
-      for (const animation of n.getAnimations?.() ?? []) {
-        const timing = animation.effect?.getComputedTiming();
-        const finite = timing ? Number.isFinite(timing.endTime) : true;
-        if (finite && (animation.pending || animation.playState === "running")) {
-          return true;
+    if (!el.isConnected) {
+      result.connected = false;
+      return result;
+    }
+    const rect = el.getBoundingClientRect();
+    const animating = (() => {
+      for (let n = el; n; n = parentOf(n)) {
+        for (const animation of n.getAnimations?.() ?? []) {
+          const timing = animation.effect?.getComputedTiming();
+          const finite = timing ? Number.isFinite(timing.endTime) : true;
+          if (finite && (animation.pending || animation.playState === "running")) {
+            return true;
+          }
         }
       }
+      return false;
+    })();
+    result.stable = !animating && Math.abs(rect.left - before.left) < 0.5 && Math.abs(rect.top - before.top) < 0.5 && Math.abs(rect.width - before.width) < 0.5 && Math.abs(rect.height - before.height) < 0.5;
+    result.x = rect.left + rect.width / 2;
+    result.y = rect.top + rect.height / 2;
+    if (style.pointerEvents === "none") {
+      result.ignores_pointer = true;
+      return result;
     }
-    return false;
-  })();
-  result.stable = !animating && Math.abs(rect.left - before.left) < 0.5 && Math.abs(rect.top - before.top) < 0.5 && Math.abs(rect.width - before.width) < 0.5 && Math.abs(rect.height - before.height) < 0.5;
-  result.x = rect.left + rect.width / 2;
-  result.y = rect.top + rect.height / 2;
-  if (style.pointerEvents === "none") {
-    result.ignores_pointer = true;
+    const x = Math.min(Math.max(rect.left + rect.width / 2, 0), innerWidth - 1);
+    const y = Math.min(
+      Math.max(rect.top + rect.height / 2, 0),
+      innerHeight - 1
+    );
+    result.x = rect.left + rect.width / 2;
+    result.y = rect.top + rect.height / 2;
+    let top = document.elementFromPoint(x, y);
+    for (; ; ) {
+      const inner = top ? shadowOf(top)?.elementFromPoint(x, y) : null;
+      if (!inner || inner === top) break;
+      top = inner;
+    }
+    if (top && top !== el && !contains(el, top) && !contains(top, el)) {
+      const label = top.closest("label");
+      if (!(label && label.control === el)) result.covered_by = idOf(top);
+    }
     return result;
   }
-  const x = Math.min(Math.max(rect.left + rect.width / 2, 0), innerWidth - 1);
-  const y = Math.min(Math.max(rect.top + rect.height / 2, 0), innerHeight - 1);
-  result.x = rect.left + rect.width / 2;
-  result.y = rect.top + rect.height / 2;
-  let top = document.elementFromPoint(x, y);
-  for (; ; ) {
-    const inner = top ? shadowOf(top)?.elementFromPoint(x, y) : null;
-    if (!inner || inner === top) break;
-    top = inner;
-  }
-  if (top && top !== el && !contains(el, top) && !contains(top, el)) {
-    const label = top.closest("label");
-    if (!(label && label.control === el)) result.covered_by = idOf(top);
-  }
-  return result;
 }
 function waitQuiet(args) {
   const state = window.__haunt;
@@ -1211,6 +1380,33 @@ function waitQuiet(args) {
     requestAnimationFrame(() => requestAnimationFrame(start));
     wait(start, 100);
   });
+}
+function credentialField(el) {
+  if (!(el instanceof HTMLInputElement)) return false;
+  if (el.type === "password" || el.type === "email") return true;
+  if (/password|one-time-code|cc-number|cc-csc/.test(el.autocomplete || ""))
+    return true;
+  const labels = [...el.labels ?? []].map((l) => l.textContent ?? "");
+  const name = [
+    el.getAttribute("aria-label") ?? "",
+    ...labels,
+    el.placeholder,
+    el.name,
+    el.id
+  ].join(" ");
+  return /pass(word|code|phrase)?|pwd|secret|\bpin\b|e-?mail/i.test(name);
+}
+function focusedElement() {
+  let active = document.activeElement;
+  for (; ; ) {
+    const inner = active?.shadowRoot?.activeElement;
+    if (!inner) return active;
+    active = inner;
+  }
+}
+function reactedSince(since) {
+  const state = window.__haunt;
+  return (state?.lastCleared ?? 0) >= since || (state?.lastMutation ?? 0) >= since;
 }
 function sinceMutation() {
   const state = window.__haunt;
@@ -5697,6 +5893,12 @@ async function typeText(session, text, delay) {
 async function focus(handle) {
   await handle.evaluate((el) => el.focus());
 }
+async function noteSecret(session, handle, text) {
+  if (!handle || !text) return;
+  if (await withTimeout2(handle.evaluate(credentialField), 1e3)) {
+    session.collector.addSecret(text);
+  }
+}
 async function centreOf(handle) {
   const box = await handle.boundingBox();
   if (!box)
@@ -5749,11 +5951,13 @@ async function execute(session, action) {
         if (!runtime.dialog)
           for (const key of modifiers) await page.keyboard.up(key);
       }
-      return {};
+      const plain = (action.button ?? "left") === "left" && modifiers.length === 0;
+      return plain ? { clicked: action.ref } : {};
     }
     case "fill": {
       const target = await ready(session, action.ref, { pointer: false });
       const { probe: p, handle } = target;
+      await noteSecret(session, handle, action.text);
       if (p.editable === "none" || p.readonly) {
         fail(
           "not_editable",
@@ -5825,6 +6029,15 @@ async function execute(session, action) {
         }
         await focus(target.handle);
       }
+      const active = await withTimeout2(
+        page.evaluateHandle(focusedElement),
+        1e3
+      );
+      await noteSecret(
+        session,
+        active?.asElement(),
+        action.text
+      );
       await typeText(session, action.text, action.delay_ms);
       return {};
     }
@@ -5987,10 +6200,12 @@ async function execute(session, action) {
     case "goto": {
       const blockedBefore = session.sandbox_blocked_requests.length;
       try {
-        await page.goto(action.url, {
-          waitUntil: "domcontentloaded",
-          timeout: NAVIGATION_MS
-        });
+        await session.collector.typed(
+          page.goto(action.url, {
+            waitUntil: "domcontentloaded",
+            timeout: NAVIGATION_MS
+          })
+        );
       } catch (error) {
         navigationFailure(session, blockedBefore, error);
       }
@@ -6006,7 +6221,7 @@ async function execute(session, action) {
       const blockedBefore = session.sandbox_blocked_requests.length;
       try {
         const move = action.type === "back" ? page.goBack(options) : action.type === "forward" ? page.goForward(options) : page.reload(options);
-        await unlessDialog(session, move);
+        await unlessDialog(session, session.collector.typed(move));
       } catch (error) {
         navigationFailure(session, blockedBefore, error);
       }
@@ -6069,10 +6284,12 @@ async function execute(session, action) {
         const opened = await page.context().newPage();
         if (action.url) {
           try {
-            await opened.goto(action.url, {
-              waitUntil: "domcontentloaded",
-              timeout: NAVIGATION_MS
-            });
+            await session.collector.typed(
+              opened.goto(action.url, {
+                waitUntil: "domcontentloaded",
+                timeout: NAVIGATION_MS
+              })
+            );
           } catch (error) {
             await opened.close().catch(() => {
             });
@@ -6204,17 +6421,40 @@ async function focusOf(session) {
   if (session.runtime.dialog || session.page.isClosed()) return -1;
   return await withTimeout2(session.page.evaluate(focusedId), 1e3) ?? -1;
 }
+function scrolled(before, after) {
+  if (!before) return false;
+  const same = (a, b) => a?.x === b?.x && a?.y === b?.y;
+  if (!same(before.snapshot.scroll, after.scroll)) return true;
+  const was = new Map(
+    before.elements.filter((el) => el.scroll).map((el) => [el.ref, el.scroll])
+  );
+  return (after.elements ?? []).some(
+    (el) => el.scroll && was.has(el.ref) && !same(was.get(el.ref), el.scroll)
+  );
+}
+var withoutFragment = (url) => url.split("#")[0];
+var CONTROL_ROLES = /* @__PURE__ */ new Set([
+  "button",
+  "link",
+  "tab",
+  "menuitem",
+  "menuitemcheckbox",
+  "menuitemradio"
+]);
 function isEmpty(diff) {
   return !diff || diff.added.length === 0 && diff.removed.length === 0 && diff.changed.length === 0;
 }
 async function runStep(session, input) {
-  const { runtime } = session;
+  const { runtime, collector } = session;
+  const stepNumber = session.step_count;
+  collector.startStep(stepNumber);
   const startedAt = Date.now();
   const pageBefore = session.page;
   const urlBefore = pageBefore.url();
   const navigationsBefore = runtime.navigations.get(pageBefore) ?? 0;
   const downloadsBefore = runtime.downloads.length;
   const textBefore = session.snapshot.previous?.textHash;
+  const readBefore = session.snapshot.previous;
   const focusBefore = await focusOf(session);
   const dialogBefore = runtime.dialog;
   const alreadyChanging = !runtime.dialog && (await withTimeout2(session.page.evaluate(sinceMutation), 1e3) ?? 1e9) < 150;
@@ -6268,18 +6508,38 @@ async function runStep(session, input) {
   const download = runtime.downloads[downloadsBefore];
   const navigated = !switched && !page.isClosed() && ((runtime.navigations.get(page) ?? 0) !== navigationsBefore || page.url() !== urlBefore);
   const domChanged = !runtime.dialog && (!isEmpty(after.diff) || session.snapshot.previous?.textHash !== textBefore);
+  const focusAfter = await focusOf(session);
   const changes = {
     url_before: urlBefore,
     url_after: page.isClosed() ? urlBefore : page.url(),
     navigated,
     tabs_opened: [...runtime.opened],
     tabs_closed: [...runtime.closed],
-    focus_moved: await focusOf(session) !== focusBefore,
+    focus_moved: focusAfter !== focusBefore,
     dom_changed: domChanged,
     none: false
   };
   if (dialog) changes.dialog = dialog;
   if (download) changes.download = { filename: download };
+  const appeared = textChanges(readBefore?.texts ?? [], session.snapshot.previous?.texts ?? []).added.length > 0;
+  collector.endStep(stepNumber, appeared);
+  if (outcome.clicked && !error && !switched && !page.isClosed()) {
+    const ref2 = outcome.clicked;
+    const element = readBefore?.elements.find((el) => el.ref === ref2);
+    const target = session.snapshot.targets.get(ref2);
+    const focusElsewhere = focusAfter > 0 && focusAfter !== focusBefore && !(target?.frame === page.mainFrame() && target.local === focusAfter);
+    const nothing = !domChanged && !dialog && !download && !runtime.dialog && changes.tabs_opened.length === 0 && changes.tabs_closed.length === 0 && withoutFragment(changes.url_after) === withoutFragment(urlBefore) && !focusElsewhere && !scrolled(readBefore, after);
+    if (nothing && element && CONTROL_ROLES.has(element.role) && !collector.causedAnything(stepNumber) && target && !target.frame.isDetached() && !await withTimeout2(
+      target.frame.evaluate(reactedSince, startedAt),
+      1e3
+    )) {
+      collector.raiseDeadControl(stepNumber, page.url(), {
+        ref: ref2,
+        role: element.role,
+        name: element.name
+      });
+    }
+  }
   changes.none = !navigated && !switched && changes.tabs_opened.length === 0 && changes.tabs_closed.length === 0 && !dialog && !download && !domChanged;
   const step = {
     type: type2,
@@ -6332,6 +6592,7 @@ async function hauntAct(manager, input) {
   const before = new Map(session.snapshot.previous?.comparable ?? []);
   const textsBefore = [...session.snapshot.previous?.texts ?? []];
   const results = [];
+  const firstStep = session.step_count + 1;
   let stopped;
   for (let i = 0; i < input.actions.length; i++) {
     if (session.step_count >= session.max_steps) {
@@ -6361,10 +6622,11 @@ async function hauntAct(manager, input) {
       textsBefore,
       session.snapshot.previous?.texts ?? []
     ),
-    console_errors: session.console_errors.splice(0),
-    network_errors: session.network_errors.splice(0),
+    console_errors: session.console_errors.splice(0).map((text) => session.collector.redact(text)),
+    network_errors: session.network_errors.splice(0).map((text) => session.collector.redact(text)),
     step: session.step_count,
-    steps_remaining: session.max_steps - session.step_count
+    steps_remaining: session.max_steps - session.step_count,
+    signals: session.collector.deliver(firstStep)
   };
   if (stopped) result.stopped = stopped;
   if (blocked.length > 0) result.sandbox_blocked = blocked;
@@ -6376,8 +6638,9 @@ import { mkdirSync } from "fs";
 async function hauntCaptureState(manager, input) {
   const session = manager.get(input.session_id);
   await manager.reapStale(SESSION_TTL_MS);
-  const { session_id, include_screenshot, ...options } = input;
+  const { session_id, include_screenshot, signals, ...options } = input;
   const output = await takeSnapshot(session, options);
+  if (signals) output.signals = session.collector.onPage(session.page.url());
   if (include_screenshot && !session.runtime.dialog) {
     mkdirSync(SCREENSHOTS_DIR, { recursive: true });
     output.screenshot_path = `${session.id}-capture-${Date.now()}.png`;
@@ -6389,12 +6652,34 @@ async function hauntCaptureState(manager, input) {
 }
 
 // src/engine/end-session.ts
+var sleep2 = (ms) => new Promise((r) => setTimeout(r, ms));
+async function lastEffects(session) {
+  if (sabotaged("signals_off")) return;
+  const { collector } = session;
+  const deadline = Date.now() + SETTLE_CAP_MS;
+  for (; ; ) {
+    let timers = 0;
+    if (!session.runtime.dialog && !session.page.isClosed()) {
+      const counts = await Promise.all(
+        session.page.frames().map(
+          (frame) => frame.evaluate(pendingTimers, collector.lastStepStart).catch(() => 0)
+        )
+      );
+      timers = counts.reduce((sum, count) => sum + count, 0);
+    }
+    if (timers === 0 && collector.awaited() === 0) return;
+    if (Date.now() >= deadline) return;
+    await sleep2(50);
+  }
+}
 async function hauntEndSession(manager, input) {
   const session = manager.get(input.session_id);
   const known = new Set(session.issues.map((issue) => JSON.stringify(issue)));
   for (const issue of input.issues ?? []) {
     if (!known.has(JSON.stringify(issue))) session.issues.push(issue);
   }
+  await lastEffects(session);
+  const signals = session.collector.all();
   await session.browser.close();
   manager.delete(input.session_id);
   await manager.reapStale(SESSION_TTL_MS);
@@ -6409,6 +6694,7 @@ async function hauntEndSession(manager, input) {
     step_count: session.step_count,
     issues_found: session.issues,
     sandbox_blocked_requests: session.sandbox_blocked_requests,
+    signals,
     overall_impression: input.overall_impression ?? `Completed ${session.step_count} steps across ${session.pages_visited.length} pages.`
   };
   return output;
@@ -6422,13 +6708,13 @@ var SEVERITY_ORDER = [
   "minor",
   "suggestion"
 ];
-function likelyFile(pageUrl) {
+function likelyFile(pageUrl2) {
   let path;
   try {
-    path = new URL(pageUrl).pathname;
+    path = new URL(pageUrl2).pathname;
   } catch {
-    if (!pageUrl.startsWith("/")) return void 0;
-    path = pageUrl;
+    if (!pageUrl2.startsWith("/")) return void 0;
+    path = pageUrl2;
   }
   if (!path) return void 0;
   if (/\/(login|sign-?in|sign-?up|register|auth|session)(\/|$)/i.test(path)) {
@@ -9450,9 +9736,9 @@ function requireDumper() {
   }
   function blockHeader(string, indentPerLevel) {
     const indentIndicator = needIndentIndicator(string) ? String(indentPerLevel) : "";
-    const clip2 = string[string.length - 1] === "\n";
-    const keep = clip2 && (string[string.length - 2] === "\n" || string === "\n");
-    const chomp = keep ? "+" : clip2 ? "" : "-";
+    const clip3 = string[string.length - 1] === "\n";
+    const keep = clip3 && (string[string.length - 2] === "\n" || string === "\n");
+    const chomp = keep ? "+" : clip3 ? "" : "-";
     return indentIndicator + chomp + "\n";
   }
   function dropEndingNewline(string) {
@@ -9912,6 +10198,490 @@ function purgeOldScreenshots(maxAgeMs, dir = SCREENSHOTS_DIR) {
   return removed;
 }
 
+// src/engine/signals/collector.ts
+var DEFAULT_THRESHOLDS = {
+  slow_response_ms: 3e3,
+  long_task_ms: 500,
+  hung_request_ms: 1e4
+};
+var REPORT_BINDING = "__hauntReport";
+var REDACTED = "[redacted]";
+var MIN_SECRET_LENGTH = 4;
+var MAX_MESSAGE = 500;
+var MAX_STACK = 4e3;
+var MAX_SIGNALS = 500;
+var DATA_TYPES = /* @__PURE__ */ new Set(["document", "fetch", "xhr"]);
+function withoutQuery(url) {
+  const cut = url.search(/[?#]/);
+  return cut === -1 ? url : url.slice(0, cut);
+}
+function scrubUrls(text) {
+  return text.replace(/\bhttps?:\/\/[^\s)'"<>]+/g, (found) => {
+    const position = /(:\d+){1,2}$/.exec(found)?.[0] ?? "";
+    const url = position ? found.slice(0, -position.length) : found;
+    return withoutQuery(url) + position;
+  });
+}
+function spellings(secret) {
+  const forms = /* @__PURE__ */ new Set([
+    secret,
+    encodeURIComponent(secret),
+    encodeURI(secret),
+    secret.replaceAll(" ", "+"),
+    encodeURIComponent(secret).replaceAll("%20", "+")
+  ]);
+  return [...forms].sort((a, b) => b.length - a.length);
+}
+var clip2 = (text, max) => (typeof text === "string" ? text : "").slice(0, max);
+var seconds = (ms) => `${(ms / 1e3).toFixed(1)} s`;
+var SignalCollector = class {
+  constructor(options) {
+    this.options = options;
+    this.thresholds = { ...DEFAULT_THRESHOLDS, ...options.thresholds };
+  }
+  options;
+  // Every signal of the session, as raised: what was typed into credential
+  // fields is removed when they are handed over, not here.
+  signals = [];
+  thresholds;
+  meta = /* @__PURE__ */ new Map();
+  byKey = /* @__PURE__ */ new Map();
+  inflight = /* @__PURE__ */ new Map();
+  secrets = [];
+  // When each step started; index 0 is the session's own start.
+  stepStarts = [Date.now()];
+  feedback = /* @__PURE__ */ new Map();
+  requestsIn = /* @__PURE__ */ new Map();
+  blocksAt = /* @__PURE__ */ new Map();
+  // Navigations the tester asked for that are under way.
+  typing = 0;
+  next = 1;
+  get off() {
+    return sabotaged("signals_off");
+  }
+  // ----- the browser's side ------------------------------------------------
+  attach(context) {
+    context.on("request", (request) => this.onRequest(request));
+    context.on("response", (response) => {
+      const request = response.request();
+      this.onResponse(request, response.status(), response.headers());
+    });
+    context.on("requestfinished", (request) => this.inflight.delete(request));
+    context.on("requestfailed", (request) => this.onFailed(request));
+    context.on("console", (message) => {
+      if (sabotaged("signals_console_line") && message.type() === "error" && message.text().startsWith("Failed to load resource")) {
+        this.raise({
+          kind: "console_error",
+          url: withoutQuery(message.page()?.url() ?? ""),
+          step: this.currentStep,
+          message: message.text(),
+          severity: "minor"
+        });
+      }
+    });
+  }
+  onRequest(request) {
+    if (this.off) return;
+    let frame = null;
+    try {
+      frame = request.frame();
+    } catch {
+    }
+    const at = Date.now();
+    const step = this.stepAt(at);
+    this.inflight.set(request, {
+      at,
+      step,
+      frame,
+      page: pageUrl(frame, request),
+      typed: this.typing > 0 && request.isNavigationRequest() && !frame?.parentFrame()
+    });
+    this.requestsIn.set(step, (this.requestsIn.get(step) ?? 0) + 1);
+  }
+  onResponse(request, status, headers) {
+    const pending = this.inflight.get(request);
+    if (!pending) return;
+    pending.answered = true;
+    const type2 = request.resourceType();
+    const base = {
+      url: pending.page,
+      step: this.stepOf(pending.step),
+      method: request.method(),
+      request_url: withoutQuery(request.url())
+    };
+    const download = /attachment/i.test(headers["content-disposition"] ?? "");
+    if (request.isNavigationRequest() && !download) {
+      this.forgetRequestsOf(pending.frame, pending.at);
+    }
+    if (status >= 400 && !(status < 500 && sabotaged("signals_ignore_4xx"))) {
+      const loggedOut = (status === 401 || status === 403) && !this.options.authenticated;
+      const path = new URL(base.request_url).pathname;
+      this.raise({
+        ...base,
+        kind: "http_error",
+        status,
+        resource_type: type2,
+        message: `${base.method} ${path} answered ${status}`,
+        severity: status >= 500 && DATA_TYPES.has(type2) ? "major" : "minor",
+        ...loggedOut ? { while_logged_out: true } : {}
+      });
+    }
+    if (DATA_TYPES.has(type2) && !pending.hung) {
+      const measured = Math.max(
+        Date.now() - pending.at,
+        Math.round(request.timing().responseStart)
+      );
+      if (measured >= this.thresholds.slow_response_ms) {
+        const path = new URL(base.request_url).pathname;
+        this.raise({
+          ...base,
+          kind: "slow_response",
+          duration_ms: measured,
+          message: `${base.method} ${path} took ${seconds(measured)} to answer`,
+          severity: "minor"
+        });
+      }
+    }
+  }
+  onFailed(request) {
+    const pending = this.inflight.get(request);
+    this.inflight.delete(request);
+    if (!pending) return;
+    const { sandbox } = this.options;
+    let origin;
+    try {
+      origin = new URL(request.url()).origin;
+    } catch {
+      return;
+    }
+    if ((sandbox.blocked(request) || !sandbox.allowed(origin)) && !sabotaged("signals_sandbox_blocks")) {
+      return;
+    }
+    const error = request.failure()?.errorText ?? "unknown";
+    if (error === "net::ERR_ABORTED" || pending.hung) return;
+    if (pending.typed) return;
+    const requestUrl = withoutQuery(request.url());
+    this.raise({
+      kind: "request_failed",
+      url: pending.page,
+      step: this.stepOf(pending.step),
+      method: request.method(),
+      request_url: requestUrl,
+      error,
+      message: `${request.method()} ${new URL(requestUrl).pathname} failed: ${error}`,
+      severity: "minor"
+    });
+  }
+  forgetRequestsOf(frame, before) {
+    if (!frame) return;
+    const inside = (candidate) => {
+      for (let f = candidate; f; f = f.parentFrame()) {
+        if (f === frame) return true;
+      }
+      return false;
+    };
+    for (const [request, pending] of this.inflight) {
+      if (pending.at >= before) continue;
+      if (!pending.frame || pending.frame.isDetached() || inside(pending.frame)) {
+        this.inflight.delete(request);
+      }
+    }
+  }
+  // Requests that have gone unanswered for longer than the threshold.
+  checkHung(now = Date.now()) {
+    for (const [request, pending] of this.inflight) {
+      const waited = now - pending.at;
+      if (pending.hung || pending.answered) continue;
+      if (waited < this.thresholds.hung_request_ms) continue;
+      if (pending.frame?.isDetached()) {
+        this.inflight.delete(request);
+        continue;
+      }
+      pending.hung = true;
+      const requestUrl = withoutQuery(request.url());
+      this.raise({
+        kind: "request_hung",
+        url: pending.page,
+        step: this.stepOf(pending.step),
+        method: request.method(),
+        request_url: requestUrl,
+        duration_ms: waited,
+        message: `${request.method()} ${new URL(requestUrl).pathname} has had no answer for ${seconds(waited)}`,
+        severity: "major"
+      });
+    }
+  }
+  // Requests the last step started that are still on the wire and might
+  // still answer.
+  awaited() {
+    const since = this.lastStepStart;
+    let count = 0;
+    for (const pending of this.inflight.values()) {
+      if (pending.at >= since && !pending.hung && !pending.answered) count++;
+    }
+    return count;
+  }
+  // Runs a navigation the tester asked for.
+  async typed(navigation) {
+    this.typing++;
+    try {
+      return await navigation;
+    } finally {
+      this.typing--;
+    }
+  }
+  // ----- the page's side ---------------------------------------------------
+  // Called through the binding by the hooks of any document of the session.
+  fromPage(source, raw) {
+    if (this.off) return;
+    let report;
+    try {
+      report = JSON.parse(String(raw));
+    } catch {
+      return;
+    }
+    if (!report || typeof report !== "object") return;
+    const at = typeof report.at === "number" ? report.at : Date.now();
+    const cause = typeof report.cause === "number" ? report.cause : at;
+    const base = {
+      url: withoutQuery(source.page.url()),
+      step: this.stepOf(this.stepAt(Math.min(cause, at)))
+    };
+    const frameUrl = withoutQuery(source.frame.url());
+    const document2 = `${clip2(report.d, 40)}#${Number(report.n)}`;
+    const superseded = typeof report.supersedes === "number" ? `${clip2(report.d, 40)}#${report.supersedes}` : void 0;
+    const message = clip2(report.message, MAX_MESSAGE) || "(no message)";
+    switch (report.k) {
+      case "error": {
+        const line = Number(report.line) || 1;
+        const column = Number(report.column) || 1;
+        const url = withoutQuery(clip2(report.url, 2e3)) || frameUrl;
+        this.dropReport(superseded);
+        this.raise(
+          {
+            ...base,
+            kind: "js_exception",
+            message: message.replace(/^Uncaught /, ""),
+            stack: clip2(report.stack, MAX_STACK) || `${message}
+    at ${url}:${line}:${column}`,
+            source: { url, line, column },
+            severity: "major"
+          },
+          document2
+        );
+        break;
+      }
+      case "rejection": {
+        const blockedNow = this.options.sandbox.blockedCount() > (this.blocksAt.get(base.step) ?? 0);
+        if (blockedNow && /failed to fetch|load failed|networkerror/i.test(message)) {
+          break;
+        }
+        this.dropReport(superseded);
+        this.raise(
+          {
+            ...base,
+            kind: "unhandled_rejection",
+            message,
+            stack: clip2(report.stack, MAX_STACK) || message,
+            severity: "major"
+          },
+          document2
+        );
+        break;
+      }
+      case "console":
+        this.raise(
+          { ...base, kind: "console_error", message, severity: "minor" },
+          document2
+        );
+        break;
+      case "longtask": {
+        const duration = Math.round(Number(report.duration) || 0);
+        if (duration < this.thresholds.long_task_ms) break;
+        this.raise({
+          ...base,
+          kind: "long_task",
+          duration_ms: duration,
+          message: `The page did not respond for ${duration} ms`,
+          severity: "minor"
+        });
+        break;
+      }
+    }
+  }
+  // A console.error that turned out to be the first trace of an exception
+  // or a rejection (R-S13). Only while nobody has been told of it.
+  dropReport(report) {
+    if (!report || sabotaged("signals_no_dedup")) return;
+    const index = this.signals.findIndex((signal) => {
+      const meta2 = this.meta.get(signal.id);
+      return meta2?.report === report && !meta2.delivered;
+    });
+    if (index === -1) return;
+    const [dropped] = this.signals.splice(index, 1);
+    const meta = this.meta.get(dropped.id);
+    if (meta) this.byKey.delete(meta.key);
+    this.meta.delete(dropped.id);
+  }
+  // ----- steps -------------------------------------------------------------
+  get currentStep() {
+    return this.stepStarts.length - 1;
+  }
+  get lastStepStart() {
+    return this.stepStarts[this.stepStarts.length - 1];
+  }
+  startStep(step) {
+    this.stepStarts[step] = Date.now();
+    this.blocksAt.set(step, this.options.sandbox.blockedCount());
+  }
+  // Whether any text appeared on the page during the step (R-S5).
+  endStep(step, feedback) {
+    this.feedback.set(step, feedback);
+    for (const signal of this.signals) {
+      if (signal.step === step) this.setFeedback(signal);
+    }
+  }
+  // The step that was running, or had last run, at a moment.
+  stepAt(time) {
+    for (let step = this.stepStarts.length - 1; step > 0; step--) {
+      if (time >= this.stepStarts[step]) return step;
+    }
+    return 0;
+  }
+  stepOf(caused) {
+    return sabotaged("signals_latest_step") ? this.currentStep : caused;
+  }
+  // What a step set in motion, as far as can be told from here: requests it
+  // started and signals attributed to it.
+  causedAnything(step) {
+    return (this.requestsIn.get(step) ?? 0) > 0 || this.signals.some((signal) => signal.step === step);
+  }
+  // ----- raising and handing over -------------------------------------------
+  setFeedback(signal) {
+    if (signal.step === 0) return;
+    if (signal.kind !== "http_error" && signal.kind !== "request_failed" && signal.kind !== "js_exception") {
+      return;
+    }
+    const feedback = this.feedback.get(signal.step);
+    if (feedback !== void 0) signal.feedback = feedback;
+  }
+  raise(draft, report) {
+    if (this.off || !/^https?:/.test(draft.url)) return void 0;
+    const {
+      message: _m,
+      severity: _s,
+      ...identity2
+    } = draft;
+    identity2.duration_ms = void 0;
+    const key = JSON.stringify([draft.message, identity2]);
+    const known = this.byKey.get(key);
+    if (known && !sabotaged("signals_no_dedup")) {
+      known.count++;
+      return known;
+    }
+    if (this.signals.length >= MAX_SIGNALS) return void 0;
+    const signal = { ...draft, id: `s${this.next++}`, count: 1 };
+    this.setFeedback(signal);
+    this.signals.push(signal);
+    this.byKey.set(key, signal);
+    this.meta.set(signal.id, { key, delivered: false, report });
+    return signal;
+  }
+  raiseDeadControl(step, url, control) {
+    this.raise({
+      kind: "dead_control",
+      url: withoutQuery(url),
+      step,
+      ...control,
+      message: `Clicking the ${control.role} "${control.name}" changed nothing`,
+      severity: "major"
+    });
+  }
+  // A value typed into a credential field (R-S18).
+  addSecret(text) {
+    if (text.length >= MIN_SECRET_LENGTH && !this.secrets.includes(text)) {
+      this.secrets.push(text);
+    }
+  }
+  // A text with nothing in it that was typed into a credential field. Also
+  // for what leaves the engine outside a signal (an action's console and
+  // network errors).
+  redact(text) {
+    if (sabotaged("signals_secrets_kept")) return text;
+    let out = text;
+    for (const form of this.secrets.flatMap(spellings)) {
+      out = out.replaceAll(form, REDACTED);
+    }
+    return out;
+  }
+  // A copy fit to leave the engine: no query string anywhere, and nothing
+  // that was typed into a credential field.
+  clean(signal, late2) {
+    const scrub = (value) => {
+      if (typeof value === "string") return this.redact(scrubUrls(value));
+      if (Array.isArray(value)) return value.map(scrub);
+      if (value && typeof value === "object") {
+        return Object.fromEntries(
+          Object.entries(value).map(([k, v]) => [k, scrub(v)])
+        );
+      }
+      return value;
+    };
+    const copy = scrub(signal);
+    if (late2) copy.late = true;
+    return copy;
+  }
+  handOver(signals, firstStep) {
+    const out = [];
+    for (const signal of signals) {
+      const meta = this.meta.get(signal.id);
+      if (!meta) continue;
+      const late2 = signal.step < firstStep;
+      if (late2 && !meta.delivered && sabotaged("signals_late_dropped")) {
+        this.signals.splice(this.signals.indexOf(signal), 1);
+        continue;
+      }
+      if (late2 && !meta.delivered) signal.late = true;
+      meta.delivered = true;
+      out.push(this.clean(signal, signal.late === true));
+    }
+    return out;
+  }
+  // The signals nobody has been given yet. `firstStep` is the first step of
+  // the call they are delivered with: anything older is late (R-S7).
+  deliver(firstStep) {
+    this.checkHung();
+    const waiting = this.signals.filter(
+      (signal) => !this.meta.get(signal.id)?.delivered
+    );
+    return this.handOver(waiting, firstStep);
+  }
+  // Every signal raised so far on a page, delivered before or not (R-S19).
+  onPage(url) {
+    this.checkHung();
+    const page = withoutQuery(url);
+    return this.handOver(
+      this.signals.filter((signal) => signal.url === page),
+      this.currentStep + 1
+    );
+  }
+  // Every signal of the session (R-S20).
+  all() {
+    this.checkHung();
+    const kept = sabotaged("signals_end_dropped") ? this.signals.filter((signal) => this.meta.get(signal.id)?.delivered) : [...this.signals];
+    return this.handOver(kept, this.currentStep + 1);
+  }
+};
+function pageUrl(frame, request) {
+  try {
+    if (frame && !(request.isNavigationRequest() && !frame.parentFrame())) {
+      return withoutQuery(frame.page().url());
+    }
+  } catch {
+  }
+  return withoutQuery(request.url());
+}
+
 // src/engine/spawn.ts
 async function hauntSpawn(manager, input) {
   await manager.reapStale(SESSION_TTL_MS);
@@ -9943,6 +10713,7 @@ async function hauntSpawn(manager, input) {
   const allowedOrigins = /* @__PURE__ */ new Set();
   const sandboxBlockedRequests = [];
   let capturingAllowlist = true;
+  const refused = /* @__PURE__ */ new WeakSet();
   await context.routeWebSocket(/.*/, (ws) => {
     let origin;
     let originAndPath;
@@ -9977,6 +10748,7 @@ async function hauntSpawn(manager, input) {
       sandboxBlockedRequests.push(
         `${request.method()} ${request.url()} (unparseable URL)`
       );
+      refused.add(request);
       await route.abort();
       return;
     }
@@ -9992,6 +10764,7 @@ async function hauntSpawn(manager, input) {
       allowedOrigins.add(origin);
     } else if (!allowedOrigins.has(origin) && !exempt) {
       sandboxBlockedRequests.push(`${request.method()} ${originAndPath}`);
+      refused.add(request);
       await route.abort();
       return;
     }
@@ -10016,6 +10789,7 @@ async function hauntSpawn(manager, input) {
           sandboxBlockedRequests.push(
             `${request.method()} ${originAndPath} -> ${location} (unparseable redirect target)`
           );
+          refused.add(request);
           await route.abort();
           return;
         }
@@ -10025,6 +10799,7 @@ async function hauntSpawn(manager, input) {
           sandboxBlockedRequests.push(
             `${request.method()} ${originAndPath} -> ${target.origin}${target.pathname} (cross-origin redirect)`
           );
+          refused.add(request);
           await route.abort();
           return;
         }
@@ -10035,6 +10810,19 @@ async function hauntSpawn(manager, input) {
   await context.addInitScript(installHooks);
   const snapshotState = newSnapshotState();
   const runtime = attachRuntime(context, snapshotState);
+  const collector = new SignalCollector({
+    thresholds: input.signal_thresholds,
+    authenticated: Boolean(input.cookies && input.cookies.length > 0),
+    sandbox: {
+      blocked: (request) => refused.has(request),
+      allowed: (origin) => capturingAllowlist || allowedOrigins.has(origin),
+      blockedCount: () => sandboxBlockedRequests.length
+    }
+  });
+  collector.attach(context);
+  await context.exposeBinding(REPORT_BINDING, (source, report) => {
+    collector.fromPage(source, report);
+  });
   const consoleErrors = [];
   const networkErrors = [];
   context.on("console", (msg) => {
@@ -10085,14 +10873,17 @@ async function hauntSpawn(manager, input) {
     network_errors: networkErrors,
     sandbox_blocked_requests: sandboxBlockedRequests,
     snapshot: snapshotState,
-    runtime
+    runtime,
+    collector,
+    signals: collector.signals
   };
   manager.set(sessionId, session);
   return {
     session_id: sessionId,
     persona_name: personaConfig.name,
     persona_goal: personaConfig.scenarios[0]?.goal ?? "Explore the application",
-    persona_description: personaConfig.system_prompt
+    persona_description: personaConfig.system_prompt,
+    signals: collector.deliver(0)
   };
 }
 

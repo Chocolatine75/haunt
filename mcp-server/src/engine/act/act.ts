@@ -6,14 +6,16 @@
 import { existsSync } from 'node:fs';
 import type { ElementHandle, Frame, Page } from 'playwright';
 import type {
-  ActResult,
   ActionChanges,
   ActionError,
   FailureCode,
+  Snapshot,
   SnapshotDiff,
+  SnapshotElement,
   StepResult,
   StopReason,
 } from '../../gates/part-1/contract.js';
+import type { ActSignalsResult } from '../../gates/part-2/contract.js';
 import { SESSION_TTL_MS } from '../constants.js';
 import { sabotaged } from '../sabotage.js';
 import type { SessionManager } from '../session/manager.js';
@@ -27,12 +29,15 @@ import {
 import type { HauntSession, Issue } from '../types.js';
 import {
   type Probe,
+  credentialField,
   fileInputFor,
+  focusedElement,
   focusedId,
   hasText,
   listOptions,
   locate,
   probe,
+  reactedSince,
   scrollBy,
   scrollToText,
   sinceMutation,
@@ -283,6 +288,8 @@ async function ready(
 interface Outcome {
   options?: StepResult['options'];
   text?: string;
+  // The control a click went to, for telling whether it is dead.
+  clicked?: string;
 }
 
 const KEY_ALIASES: Record<string, string> = {
@@ -335,6 +342,19 @@ async function typeText(
 
 async function focus(handle: ElementHandle<Element>): Promise<void> {
   await handle.evaluate((el) => (el as HTMLElement).focus());
+}
+
+// What is typed into a credential field must come back in no signal
+// (R-S18). The collector is told before the page has a chance to echo it.
+async function noteSecret(
+  session: HauntSession,
+  handle: ElementHandle<Element> | undefined,
+  text: string,
+): Promise<void> {
+  if (!handle || !text) return;
+  if (await withTimeout(handle.evaluate(credentialField), 1_000)) {
+    session.collector.addSecret(text);
+  }
 }
 
 async function centreOf(
@@ -401,12 +421,17 @@ async function execute(
         if (!runtime.dialog)
           for (const key of modifiers) await page.keyboard.up(key);
       }
-      return {};
+      // Only a plain click is one whose lack of effect means something: a
+      // right-click or a modified click is often meant to do nothing.
+      const plain =
+        (action.button ?? 'left') === 'left' && modifiers.length === 0;
+      return plain ? { clicked: action.ref } : {};
     }
 
     case 'fill': {
       const target = await ready(session, action.ref, { pointer: false });
       const { probe: p, handle } = target;
+      await noteSecret(session, handle, action.text);
       if (p.editable === 'none' || p.readonly) {
         fail(
           'not_editable',
@@ -490,6 +515,15 @@ async function execute(
         }
         await focus(target.handle);
       }
+      const active = await withTimeout(
+        page.evaluateHandle(focusedElement),
+        1_000,
+      );
+      await noteSecret(
+        session,
+        active?.asElement() as ElementHandle<Element> | undefined,
+        action.text,
+      );
       await typeText(session, action.text, action.delay_ms);
       return {};
     }
@@ -670,10 +704,12 @@ async function execute(
     case 'goto': {
       const blockedBefore = session.sandbox_blocked_requests.length;
       try {
-        await page.goto(action.url, {
-          waitUntil: 'domcontentloaded',
-          timeout: NAVIGATION_MS,
-        });
+        await session.collector.typed(
+          page.goto(action.url, {
+            waitUntil: 'domcontentloaded',
+            timeout: NAVIGATION_MS,
+          }),
+        );
       } catch (error) {
         navigationFailure(session, blockedBefore, error);
       }
@@ -695,7 +731,7 @@ async function execute(
             : action.type === 'forward'
               ? page.goForward(options)
               : page.reload(options);
-        await unlessDialog(session, move);
+        await unlessDialog(session, session.collector.typed(move));
       } catch (error) {
         navigationFailure(session, blockedBefore, error);
       }
@@ -773,10 +809,12 @@ async function execute(
         const opened = await page.context().newPage();
         if (action.url) {
           try {
-            await opened.goto(action.url, {
-              waitUntil: 'domcontentloaded',
-              timeout: NAVIGATION_MS,
-            });
+            await session.collector.typed(
+              opened.goto(action.url, {
+                waitUntil: 'domcontentloaded',
+                timeout: NAVIGATION_MS,
+              }),
+            );
           } catch (error) {
             await opened.close().catch(() => {});
             // Opening and closing it again is not something that happened.
@@ -944,6 +982,38 @@ async function focusOf(session: HauntSession): Promise<number> {
   return (await withTimeout(session.page.evaluate(focusedId), 1_000)) ?? -1;
 }
 
+// Whether the page, or any scrollable part of it, scrolled between two
+// readings: a control whose only effect is to scroll a list works.
+function scrolled(
+  before: { snapshot: Snapshot; elements: SnapshotElement[] } | undefined,
+  after: Snapshot,
+): boolean {
+  if (!before) return false;
+  const same = (
+    a: Snapshot['scroll'] | undefined,
+    b: Snapshot['scroll'] | undefined,
+  ) => a?.x === b?.x && a?.y === b?.y;
+  if (!same(before.snapshot.scroll, after.scroll)) return true;
+  const was = new Map(
+    before.elements.filter((el) => el.scroll).map((el) => [el.ref, el.scroll]),
+  );
+  return (after.elements ?? []).some(
+    (el) => el.scroll && was.has(el.ref) && !same(was.get(el.ref), el.scroll),
+  );
+}
+
+const withoutFragment = (url: string) => url.split('#')[0];
+
+// Roles whose click is meant to do something (R-S2).
+const CONTROL_ROLES = new Set([
+  'button',
+  'link',
+  'tab',
+  'menuitem',
+  'menuitemcheckbox',
+  'menuitemradio',
+]);
+
 function isEmpty(diff: SnapshotDiff | undefined): boolean {
   return (
     !diff ||
@@ -957,13 +1027,16 @@ async function runStep(
   session: HauntSession,
   input: unknown,
 ): Promise<StepResult> {
-  const { runtime } = session;
+  const { runtime, collector } = session;
+  const stepNumber = session.step_count;
+  collector.startStep(stepNumber);
   const startedAt = Date.now();
   const pageBefore = session.page;
   const urlBefore = pageBefore.url();
   const navigationsBefore = runtime.navigations.get(pageBefore) ?? 0;
   const downloadsBefore = runtime.downloads.length;
   const textBefore = session.snapshot.previous?.textHash;
+  const readBefore = session.snapshot.previous;
   const focusBefore = await focusOf(session);
   const dialogBefore = runtime.dialog;
   // A page that changes by itself (a ticking clock, a list rebuilt on a
@@ -1043,18 +1116,69 @@ async function runStep(
     !runtime.dialog &&
     (!isEmpty(after.diff) ||
       session.snapshot.previous?.textHash !== textBefore);
+  const focusAfter = await focusOf(session);
   const changes: ActionChanges = {
     url_before: urlBefore,
     url_after: page.isClosed() ? urlBefore : page.url(),
     navigated,
     tabs_opened: [...runtime.opened],
     tabs_closed: [...runtime.closed],
-    focus_moved: (await focusOf(session)) !== focusBefore,
+    focus_moved: focusAfter !== focusBefore,
     dom_changed: domChanged,
     none: false,
   };
   if (dialog) changes.dialog = dialog;
   if (download) changes.download = { filename: download };
+
+  // Whether the user was told anything (R-S5): some text appeared.
+  const appeared =
+    textChanges(readBefore?.texts ?? [], session.snapshot.previous?.texts ?? [])
+      .added.length > 0;
+  collector.endStep(stepNumber, appeared);
+
+  // A click on a control that changed nothing a user could notice and set
+  // nothing in motion (R-S2). Moving the focus elsewhere, scrolling
+  // something, rewriting the DOM even to the same thing (opening what was
+  // already open) or stopping something that was running (a pause button)
+  // is an effect; landing on "#" of the same page is not.
+  if (outcome.clicked && !error && !switched && !page.isClosed()) {
+    const ref = outcome.clicked;
+    const element = readBefore?.elements.find((el) => el.ref === ref);
+    const target = session.snapshot.targets.get(ref);
+    const focusElsewhere =
+      focusAfter > 0 &&
+      focusAfter !== focusBefore &&
+      !(target?.frame === page.mainFrame() && target.local === focusAfter);
+    const nothing =
+      !domChanged &&
+      !dialog &&
+      !download &&
+      !runtime.dialog &&
+      changes.tabs_opened.length === 0 &&
+      changes.tabs_closed.length === 0 &&
+      withoutFragment(changes.url_after) === withoutFragment(urlBefore) &&
+      !focusElsewhere &&
+      !scrolled(readBefore, after);
+    if (
+      nothing &&
+      element &&
+      CONTROL_ROLES.has(element.role) &&
+      !collector.causedAnything(stepNumber) &&
+      target &&
+      !target.frame.isDetached() &&
+      !(await withTimeout(
+        target.frame.evaluate(reactedSince, startedAt),
+        1_000,
+      ))
+    ) {
+      collector.raiseDeadControl(stepNumber, page.url(), {
+        ref,
+        role: element.role,
+        name: element.name,
+      });
+    }
+  }
+
   changes.none =
     !navigated &&
     !switched &&
@@ -1096,7 +1220,7 @@ function stopAfter(step: StepResult): StopReason | undefined {
 export async function hauntAct(
   manager: SessionManager,
   input: ActInput,
-): Promise<ActResult> {
+): Promise<ActSignalsResult> {
   const session = manager.get(input.session_id);
   await manager.reapStale(SESSION_TTL_MS);
 
@@ -1136,6 +1260,8 @@ export async function hauntAct(
   const textsBefore = [...(session.snapshot.previous?.texts ?? [])];
 
   const results: StepResult[] = [];
+  // Signals of earlier steps delivered with this call are late (R-S7).
+  const firstStep = session.step_count + 1;
   let stopped: StopReason | undefined;
   for (let i = 0; i < input.actions.length; i++) {
     if (session.step_count >= session.max_steps) {
@@ -1156,7 +1282,7 @@ export async function hauntAct(
   const page = session.page;
   if (!page.isClosed()) session.pages_visited.push(page.url());
   const blocked = session.sandbox_blocked_requests.slice(blockedBefore);
-  const result: ActResult = {
+  const result: ActSignalsResult = {
     results,
     executed: results.length,
     requested: input.actions.length,
@@ -1169,10 +1295,15 @@ export async function hauntAct(
       textsBefore,
       session.snapshot.previous?.texts ?? [],
     ),
-    console_errors: session.console_errors.splice(0),
-    network_errors: session.network_errors.splice(0),
+    console_errors: session.console_errors
+      .splice(0)
+      .map((text) => session.collector.redact(text)),
+    network_errors: session.network_errors
+      .splice(0)
+      .map((text) => session.collector.redact(text)),
     step: session.step_count,
     steps_remaining: session.max_steps - session.step_count,
+    signals: session.collector.deliver(firstStep),
   };
   if (stopped) result.stopped = stopped;
   if (blocked.length > 0) result.sandbox_blocked = blocked;
