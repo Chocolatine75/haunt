@@ -62,6 +62,10 @@ export interface CollectOptions {
 //   are remembered as they are made.
 // - Short timers and DOM mutations are tracked, so that after an action the
 //   engine can tell a page that has finished reacting from one that has not.
+// - Uncaught exceptions, unhandled rejections, console.error calls and long
+//   tasks are reported to the engine as they happen (signals/collector.ts),
+//   each with the moment its cause started: a timer's callback is caused by
+//   whatever set the timer, however much later it runs.
 export function installHooks(): void {
   const w = window as unknown as Record<string, unknown>;
   if (w.__haunt) return;
@@ -81,7 +85,23 @@ export function installHooks(): void {
     native,
     // Pending timers short enough to be "the page still reacting".
     timers: new Map<number, { at: number; delay: number; repeat: boolean }>(),
+    // One-shot timers too long for that, and when each was set: what an
+    // ending session still has to wait for.
+    later: new Map<number, number>(),
     lastMutation: 0,
+    // When what the running timer callback belongs to was started.
+    running: undefined as number | undefined,
+    // Set when a timer callback throws; the error event that follows is its.
+    thrown: undefined as number | undefined,
+    // Stretches of main-thread time taken by the engine's own page scripts,
+    // in performance.now() terms.
+    work: [] as Array<[number, number]>,
+    reports: 0,
+    // Every interval still running, and when the page last stopped a timer
+    // or an interval that was still to run: a control whose only effect is
+    // to stop something (a pause button) did something.
+    intervals: new Set<number>(),
+    lastCleared: 0,
   };
   Object.defineProperty(window, '__haunt', { value: state, enumerable: false });
 
@@ -109,8 +129,29 @@ export function installHooks(): void {
   };
 
   const SHORT_MS = 2_000;
+  // What ending a session waits for at most (the settle cap).
+  const LATER_MS = 5_000;
   // biome-ignore lint/suspicious/noExplicitAny: mirrors the DOM signatures
   type Handler = any;
+  // Runs a timer's callback as part of whatever set the timer. If it throws,
+  // the error event the browser raises next is this callback's: the
+  // exception itself is left alone, so the page's own error handling sees
+  // exactly what it would without the engine.
+  const caused = (handler: Handler, origin: number, forget: () => void) =>
+    function (this: unknown, ...inner: unknown[]) {
+      forget();
+      const outer = state.running;
+      state.running = origin;
+      let returned = false;
+      try {
+        const result = handler.apply(this, inner);
+        returned = true;
+        return result;
+      } finally {
+        state.running = outer;
+        if (!returned) state.thrown = origin;
+      }
+    };
   window.setTimeout = ((
     handler: Handler,
     delay?: number,
@@ -120,10 +161,10 @@ export function installHooks(): void {
     let id = 0;
     const run =
       typeof handler === 'function'
-        ? function (this: unknown, ...inner: unknown[]) {
+        ? caused(handler, state.running ?? Date.now(), () => {
             state.timers.delete(id);
-            return handler.apply(this, inner);
-          }
+            state.later.delete(id);
+          })
         : handler;
     id = native.setTimeout(run, delay, ...args) as unknown as number;
     if (ms <= SHORT_MS) {
@@ -132,11 +173,16 @@ export function installHooks(): void {
       if (typeof handler !== 'function') {
         native.setTimeout(() => state.timers.delete(id), ms + 1);
       }
+    } else if (ms <= LATER_MS && typeof handler === 'function') {
+      state.later.set(id, Date.now());
     }
     return id;
   }) as typeof window.setTimeout;
   window.clearTimeout = ((id?: number) => {
-    if (id !== undefined) state.timers.delete(id);
+    if (id !== undefined) {
+      const pending = state.timers.delete(id);
+      if (state.later.delete(id) || pending) state.lastCleared = Date.now();
+    }
     return native.clearTimeout(id);
   }) as typeof window.clearTimeout;
   window.setInterval = ((
@@ -145,27 +191,167 @@ export function installHooks(): void {
     ...args: unknown[]
   ) => {
     const ms = Number(delay) || 0;
+    // Not run as part of what set it: what an interval does an hour later
+    // is not the doing of the page load that started it.
     const id = native.setInterval(handler, delay, ...args) as unknown as number;
+    state.intervals.add(id);
     if (ms <= SHORT_MS) {
       state.timers.set(id, { at: Date.now(), delay: ms, repeat: true });
     }
     return id;
   }) as typeof window.setInterval;
   window.clearInterval = ((id?: number) => {
-    if (id !== undefined) state.timers.delete(id);
+    if (id !== undefined) {
+      state.timers.delete(id);
+      if (state.intervals.delete(id)) state.lastCleared = Date.now();
+    }
     return native.clearInterval(id);
   }) as typeof window.clearInterval;
+
+  // ----- signals -----------------------------------------------------------
+
+  // Sends one report to the engine and returns its number in this document.
+  const report = (payload: Record<string, unknown>): number => {
+    const n = ++state.reports;
+    try {
+      const send = (w as { __hauntReport?: (json: string) => unknown })
+        .__hauntReport;
+      send?.(JSON.stringify({ ...payload, d: state.doc, n, at: Date.now() }));
+    } catch {
+      // Nothing the page should ever notice.
+    }
+    return n;
+  };
+  // An error logged and then left to escape, or caught by the page's global
+  // handler and logged there, is one failure: the report that came first
+  // for an error object is remembered with it.
+  const logged = new WeakMap<object, number>();
+  const escaped = new WeakSet<object>();
+  const isObject = (value: unknown): value is object =>
+    (typeof value === 'object' && value !== null) ||
+    typeof value === 'function';
+  const textOf = (value: unknown): string => {
+    if (typeof value === 'string') return value;
+    if (value instanceof Error) return String(value);
+    try {
+      return isObject(value) ? JSON.stringify(value) : String(value);
+    } catch {
+      return Object.prototype.toString.call(value);
+    }
+  };
+
+  window.addEventListener('error', (event) => {
+    // A resource that failed to load raises an Event here, not an
+    // ErrorEvent, and only while capturing: that is the network's signal.
+    if (!(event instanceof ErrorEvent)) return;
+    const cause = state.thrown;
+    state.thrown = undefined;
+    const error: unknown = event.error;
+    const payload: Record<string, unknown> = {
+      k: 'error',
+      message: event.message,
+      stack: error instanceof Error ? error.stack : undefined,
+      url: event.filename,
+      line: event.lineno,
+      column: event.colno,
+      cause,
+    };
+    if (isObject(error)) {
+      payload.supersedes = logged.get(error);
+      escaped.add(error);
+    }
+    report(payload);
+  });
+
+  window.addEventListener('unhandledrejection', (event) => {
+    const reason: unknown = event.reason;
+    const payload: Record<string, unknown> = {
+      k: 'rejection',
+      message: reason instanceof Error ? reason.message : textOf(reason),
+      stack: reason instanceof Error ? reason.stack : undefined,
+    };
+    if (isObject(reason)) {
+      payload.supersedes = logged.get(reason);
+      escaped.add(reason);
+    }
+    report(payload);
+  });
+
+  const consoleError = console.error;
+  console.error = function (this: unknown, ...args: unknown[]) {
+    try {
+      // Already reported as the exception or the rejection it is.
+      if (!args.some((arg) => isObject(arg) && escaped.has(arg))) {
+        const n = report({
+          k: 'console',
+          message: args.map(textOf).join(' '),
+          cause: state.running,
+        });
+        for (const arg of args) if (isObject(arg)) logged.set(arg, n);
+      }
+    } catch {
+      // The page's own call must go through whatever happens here.
+    }
+    return consoleError.apply(this, args);
+  };
+
+  // A JavaScript dialog holds the main thread for as long as it is open:
+  // the user reading it, not the page being busy.
+  for (const name of ['alert', 'confirm', 'prompt'] as const) {
+    const original = window[name] as (...args: unknown[]) => unknown;
+    (w as Record<string, unknown>)[name] = function (
+      this: unknown,
+      ...args: unknown[]
+    ) {
+      const from = performance.now();
+      try {
+        return original.apply(this, args);
+      } finally {
+        state.work.push([from, performance.now()]);
+      }
+    };
+  }
+
+  // Long tasks are the top document's to report: the same task is listed in
+  // every frame of the page.
+  if (window === window.top) {
+    try {
+      new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) {
+          const end = entry.startTime + entry.duration;
+          // Less what the engine's own scripts took of it.
+          let own = 0;
+          for (const [from, to] of state.work) {
+            own += Math.max(
+              0,
+              Math.min(to, end) - Math.max(from, entry.startTime),
+            );
+          }
+          if (state.work.length > 50) state.work.splice(0, 25);
+          report({
+            k: 'longtask',
+            duration: entry.duration - own,
+            cause: Math.round(performance.timeOrigin + entry.startTime),
+          });
+        }
+      }).observe({ type: 'longtask', buffered: true });
+    } catch {
+      // No long-task timing in this browser.
+    }
+  }
 }
 
 // Returns the RawSnapshot as a JSON string: handing Playwright one string
 // instead of tens of thousands of small objects is several times faster.
 export function collect(options: CollectOptions): string {
+  const began = performance.now();
   interface State {
     doc: string;
     roots: WeakMap<Element, ShadowRoot>;
     ids: WeakMap<Node, number>;
     nodes: Map<number, WeakRef<Node>>;
     next: number;
+    work?: Array<[number, number]>;
   }
   let state = (window as unknown as { __haunt?: State }).__haunt;
   if (!state) {
@@ -728,5 +914,9 @@ export function collect(options: CollectOptions): string {
       max_y: Math.max(0, doc.scrollHeight - window.innerHeight),
     },
   };
-  return JSON.stringify(result);
+  const json = JSON.stringify(result);
+  // Reading a large page holds the main thread: the engine's doing, not the
+  // page's, and not to be reported as a long task.
+  st.work?.push([began, performance.now()]);
+  return json;
 }

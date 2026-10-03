@@ -15,7 +15,25 @@ interface PageState {
     clearTimeout: typeof window.clearTimeout;
   };
   timers: Map<number, { at: number; delay: number; repeat: boolean }>;
+  later?: Map<number, number>;
   lastMutation: number;
+  // Main-thread time taken by the engine's own scripts (page-script.ts).
+  work?: Array<[number, number]>;
+}
+
+// How many one-shot timers set at or after `since` have yet to run: what a
+// session that is ending still has to wait for.
+export function pendingTimers(since: number): number {
+  const state = (window as unknown as { __haunt?: PageState }).__haunt;
+  if (!state) return 0;
+  let count = 0;
+  for (const timer of state.timers.values()) {
+    if (!timer.repeat && timer.at >= since) count++;
+  }
+  for (const at of state.later?.values() ?? []) {
+    if (at >= since) count++;
+  }
+  return count;
 }
 
 // The DOM node behind a reference, or null when that node is gone.
@@ -56,195 +74,210 @@ export async function probe(
   centre = false,
 ): Promise<Probe> {
   const state = (window as unknown as { __haunt: PageState }).__haunt;
-  const idOf = (node: Node): number => {
-    let id = state.ids.get(node);
-    if (!id) {
-      id = state.next++;
-      state.ids.set(node, id);
-      state.nodes.set(id, new WeakRef(node));
-    }
-    return id;
-  };
-  const shadowOf = (e: Element) => e.shadowRoot ?? state.roots.get(e) ?? null;
-  const parentOf = (node: Node): Element | null => {
-    if (node.parentElement) return node.parentElement;
-    const root = node.getRootNode();
-    return root instanceof ShadowRoot ? root.host : null;
-  };
-  const contains = (outer: Element, inner: Element | null) => {
-    for (let n: Element | null = inner; n; n = parentOf(n))
-      if (n === outer) return true;
-    return false;
-  };
-
-  const html = el as HTMLElement;
-  const input = el as HTMLInputElement;
-  const explicit = el.getAttribute('role')?.trim().split(/\s+/)[0];
-  const role =
-    explicit ??
-    (el.tagName === 'BUTTON'
-      ? 'button'
-      : el.tagName === 'A'
-        ? 'link'
-        : el.tagName === 'SELECT'
-          ? 'combobox'
-          : el.tagName === 'INPUT' ||
-              el.tagName === 'TEXTAREA' ||
-              html.isContentEditable
-            ? 'textbox'
-            : 'generic');
-
-  const result: Probe = {
-    connected: el.isConnected,
-    tag: el.tagName.toLowerCase(),
-    role,
-    input_type: el.tagName === 'INPUT' ? input.type : undefined,
-    disabled:
-      el.matches(':disabled') || el.getAttribute('aria-disabled') === 'true',
-    readonly: Boolean(input.readOnly),
-    editable: 'none',
-    ignores_pointer: false,
-    stable: true,
-  };
-  if (!result.connected) return result;
-
-  if (el.tagName === 'TEXTAREA') result.editable = 'value';
-  else if (el.tagName === 'INPUT') {
-    result.editable = [
-      'checkbox',
-      'radio',
-      'file',
-      'button',
-      'submit',
-      'reset',
-      'image',
-      'hidden',
-    ].includes(input.type)
-      ? 'none'
-      : 'value';
-  } else if (html.isContentEditable) result.editable = 'content';
-
-  if (
-    el.tagName === 'INPUT' &&
-    (input.type === 'checkbox' || input.type === 'radio')
-  ) {
-    result.checked = input.checked;
-  } else if (el.hasAttribute('aria-checked')) {
-    result.checked = el.getAttribute('aria-checked') === 'true';
+  // Scrolling a large page and reading its layout holds the main thread:
+  // the engine's doing, not to be reported as the page's long task.
+  const began = performance.now();
+  try {
+    return await look();
+  } finally {
+    state.work?.push([began, performance.now()]);
   }
 
-  const style = getComputedStyle(el);
-  if (el.getClientRects().length === 0) result.hidden = 'display';
-  else if (style.visibility !== 'visible') result.hidden = 'visibility';
-  else {
-    const size = el.getBoundingClientRect();
-    if (size.width === 0 || size.height === 0) result.hidden = 'zero_size';
-  }
-  if (result.hidden) return result;
-
-  // Into view, only if it is not already: scrolling a page for nothing moves
-  // things from under the pointer (and closes hover menus).
-  const visibleIn = (rect: DOMRect) => {
-    if (
-      rect.top < 0 ||
-      rect.left < 0 ||
-      rect.bottom > innerHeight ||
-      rect.right > innerWidth
-    )
+  async function look(): Promise<Probe> {
+    const idOf = (node: Node): number => {
+      let id = state.ids.get(node);
+      if (!id) {
+        id = state.next++;
+        state.ids.set(node, id);
+        state.nodes.set(id, new WeakRef(node));
+      }
+      return id;
+    };
+    const shadowOf = (e: Element) => e.shadowRoot ?? state.roots.get(e) ?? null;
+    const parentOf = (node: Node): Element | null => {
+      if (node.parentElement) return node.parentElement;
+      const root = node.getRootNode();
+      return root instanceof ShadowRoot ? root.host : null;
+    };
+    const contains = (outer: Element, inner: Element | null) => {
+      for (let n: Element | null = inner; n; n = parentOf(n))
+        if (n === outer) return true;
       return false;
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    for (
-      let n = parentOf(el);
-      n && n !== document.body && n !== document.documentElement;
-      n = parentOf(n)
-    ) {
-      const s = getComputedStyle(n);
-      if (s.overflowX === 'visible' && s.overflowY === 'visible') continue;
-      const box = n.getBoundingClientRect();
-      if (cx < box.left || cx > box.right || cy < box.top || cy > box.bottom)
-        return false;
-    }
-    return true;
-  };
-  if (!visibleIn(el.getBoundingClientRect())) {
-    // The least scrolling that shows it. Centring would also scroll its own
-    // container, and a virtualised list rebuilds its rows when that happens.
-    const where = centre ? 'center' : 'nearest';
-    el.scrollIntoView({
-      block: where,
-      inline: where,
-      behavior: 'instant' as ScrollBehavior,
-    });
-  }
+    };
 
-  const before = el.getBoundingClientRect();
-  // One frame later, has it moved? Two frames when something in the document
-  // is being animated, since an animation's first frame can leave it where
-  // it was. A frame that never comes (a hidden tab) must not hang the action.
-  const frames = document.getAnimations().length > 0 ? 2 : 1;
-  await new Promise<void>((resolve) => {
-    let left = frames;
-    const next = () => (--left <= 0 ? resolve() : requestAnimationFrame(next));
-    requestAnimationFrame(next);
-    (state.native?.setTimeout ?? setTimeout)(resolve, 150);
-  });
-  if (!el.isConnected) {
-    result.connected = false;
-    return result;
-  }
-  const rect = el.getBoundingClientRect();
-  // Still, and not in the middle of a finite animation or transition of its
-  // own or of something it sits in. Comparing positions alone can be fooled
-  // when two frames land almost on top of each other on a busy machine.
-  const animating = (() => {
-    for (let n: Element | null = el; n; n = parentOf(n)) {
-      for (const animation of n.getAnimations?.() ?? []) {
-        const timing = animation.effect?.getComputedTiming();
-        const finite = timing
-          ? Number.isFinite(timing.endTime as number)
-          : true;
-        if (
-          finite &&
-          (animation.pending || animation.playState === 'running')
-        ) {
-          return true;
+    const html = el as HTMLElement;
+    const input = el as HTMLInputElement;
+    const explicit = el.getAttribute('role')?.trim().split(/\s+/)[0];
+    const role =
+      explicit ??
+      (el.tagName === 'BUTTON'
+        ? 'button'
+        : el.tagName === 'A'
+          ? 'link'
+          : el.tagName === 'SELECT'
+            ? 'combobox'
+            : el.tagName === 'INPUT' ||
+                el.tagName === 'TEXTAREA' ||
+                html.isContentEditable
+              ? 'textbox'
+              : 'generic');
+
+    const result: Probe = {
+      connected: el.isConnected,
+      tag: el.tagName.toLowerCase(),
+      role,
+      input_type: el.tagName === 'INPUT' ? input.type : undefined,
+      disabled:
+        el.matches(':disabled') || el.getAttribute('aria-disabled') === 'true',
+      readonly: Boolean(input.readOnly),
+      editable: 'none',
+      ignores_pointer: false,
+      stable: true,
+    };
+    if (!result.connected) return result;
+
+    if (el.tagName === 'TEXTAREA') result.editable = 'value';
+    else if (el.tagName === 'INPUT') {
+      result.editable = [
+        'checkbox',
+        'radio',
+        'file',
+        'button',
+        'submit',
+        'reset',
+        'image',
+        'hidden',
+      ].includes(input.type)
+        ? 'none'
+        : 'value';
+    } else if (html.isContentEditable) result.editable = 'content';
+
+    if (
+      el.tagName === 'INPUT' &&
+      (input.type === 'checkbox' || input.type === 'radio')
+    ) {
+      result.checked = input.checked;
+    } else if (el.hasAttribute('aria-checked')) {
+      result.checked = el.getAttribute('aria-checked') === 'true';
+    }
+
+    const style = getComputedStyle(el);
+    if (el.getClientRects().length === 0) result.hidden = 'display';
+    else if (style.visibility !== 'visible') result.hidden = 'visibility';
+    else {
+      const size = el.getBoundingClientRect();
+      if (size.width === 0 || size.height === 0) result.hidden = 'zero_size';
+    }
+    if (result.hidden) return result;
+
+    // Into view, only if it is not already: scrolling a page for nothing moves
+    // things from under the pointer (and closes hover menus).
+    const visibleIn = (rect: DOMRect) => {
+      if (
+        rect.top < 0 ||
+        rect.left < 0 ||
+        rect.bottom > innerHeight ||
+        rect.right > innerWidth
+      )
+        return false;
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      for (
+        let n = parentOf(el);
+        n && n !== document.body && n !== document.documentElement;
+        n = parentOf(n)
+      ) {
+        const s = getComputedStyle(n);
+        if (s.overflowX === 'visible' && s.overflowY === 'visible') continue;
+        const box = n.getBoundingClientRect();
+        if (cx < box.left || cx > box.right || cy < box.top || cy > box.bottom)
+          return false;
+      }
+      return true;
+    };
+    if (!visibleIn(el.getBoundingClientRect())) {
+      // The least scrolling that shows it. Centring would also scroll its own
+      // container, and a virtualised list rebuilds its rows when that happens.
+      const where = centre ? 'center' : 'nearest';
+      el.scrollIntoView({
+        block: where,
+        inline: where,
+        behavior: 'instant' as ScrollBehavior,
+      });
+    }
+
+    const before = el.getBoundingClientRect();
+    // One frame later, has it moved? Two frames when something in the document
+    // is being animated, since an animation's first frame can leave it where
+    // it was. A frame that never comes (a hidden tab) must not hang the action.
+    const frames = document.getAnimations().length > 0 ? 2 : 1;
+    await new Promise<void>((resolve) => {
+      let left = frames;
+      const next = () =>
+        --left <= 0 ? resolve() : requestAnimationFrame(next);
+      requestAnimationFrame(next);
+      (state.native?.setTimeout ?? setTimeout)(resolve, 150);
+    });
+    if (!el.isConnected) {
+      result.connected = false;
+      return result;
+    }
+    const rect = el.getBoundingClientRect();
+    // Still, and not in the middle of a finite animation or transition of its
+    // own or of something it sits in. Comparing positions alone can be fooled
+    // when two frames land almost on top of each other on a busy machine.
+    const animating = (() => {
+      for (let n: Element | null = el; n; n = parentOf(n)) {
+        for (const animation of n.getAnimations?.() ?? []) {
+          const timing = animation.effect?.getComputedTiming();
+          const finite = timing
+            ? Number.isFinite(timing.endTime as number)
+            : true;
+          if (
+            finite &&
+            (animation.pending || animation.playState === 'running')
+          ) {
+            return true;
+          }
         }
       }
-    }
-    return false;
-  })();
-  result.stable =
-    !animating &&
-    Math.abs(rect.left - before.left) < 0.5 &&
-    Math.abs(rect.top - before.top) < 0.5 &&
-    Math.abs(rect.width - before.width) < 0.5 &&
-    Math.abs(rect.height - before.height) < 0.5;
+      return false;
+    })();
+    result.stable =
+      !animating &&
+      Math.abs(rect.left - before.left) < 0.5 &&
+      Math.abs(rect.top - before.top) < 0.5 &&
+      Math.abs(rect.width - before.width) < 0.5 &&
+      Math.abs(rect.height - before.height) < 0.5;
 
-  result.x = rect.left + rect.width / 2;
-  result.y = rect.top + rect.height / 2;
-  if (style.pointerEvents === 'none') {
-    result.ignores_pointer = true;
+    result.x = rect.left + rect.width / 2;
+    result.y = rect.top + rect.height / 2;
+    if (style.pointerEvents === 'none') {
+      result.ignores_pointer = true;
+      return result;
+    }
+
+    const x = Math.min(Math.max(rect.left + rect.width / 2, 0), innerWidth - 1);
+    const y = Math.min(
+      Math.max(rect.top + rect.height / 2, 0),
+      innerHeight - 1,
+    );
+    result.x = rect.left + rect.width / 2;
+    result.y = rect.top + rect.height / 2;
+    let top = document.elementFromPoint(x, y);
+    for (;;) {
+      const inner: Element | null | undefined = top
+        ? shadowOf(top)?.elementFromPoint(x, y)
+        : null;
+      if (!inner || inner === top) break;
+      top = inner;
+    }
+    if (top && top !== el && !contains(el, top) && !contains(top, el)) {
+      const label = top.closest('label') as HTMLLabelElement | null;
+      if (!(label && label.control === el)) result.covered_by = idOf(top);
+    }
     return result;
   }
-
-  const x = Math.min(Math.max(rect.left + rect.width / 2, 0), innerWidth - 1);
-  const y = Math.min(Math.max(rect.top + rect.height / 2, 0), innerHeight - 1);
-  result.x = rect.left + rect.width / 2;
-  result.y = rect.top + rect.height / 2;
-  let top = document.elementFromPoint(x, y);
-  for (;;) {
-    const inner: Element | null | undefined = top
-      ? shadowOf(top)?.elementFromPoint(x, y)
-      : null;
-    if (!inner || inner === top) break;
-    top = inner;
-  }
-  if (top && top !== el && !contains(el, top) && !contains(top, el)) {
-    const label = top.closest('label') as HTMLLabelElement | null;
-    if (!(label && label.control === el)) result.covered_by = idOf(top);
-  }
-  return result;
 }
 
 export interface Quiet {
@@ -308,6 +341,43 @@ export function waitQuiet(args: {
     requestAnimationFrame(() => requestAnimationFrame(start));
     wait(start, 100);
   });
+}
+
+// Whether what is typed into this element is a credential, by the rule the
+// snapshot uses to show such a field as "(filled)" (snapshot/page-script.ts,
+// isCredential; repeated here because a page function cannot import).
+export function credentialField(el: Element | null): boolean {
+  if (!(el instanceof HTMLInputElement)) return false;
+  if (el.type === 'password' || el.type === 'email') return true;
+  if (/password|one-time-code|cc-number|cc-csc/.test(el.autocomplete || ''))
+    return true;
+  const labels = [...(el.labels ?? [])].map((l) => l.textContent ?? '');
+  const name = [
+    el.getAttribute('aria-label') ?? '',
+    ...labels,
+    el.placeholder,
+    el.name,
+    el.id,
+  ].join(' ');
+  return /pass(word|code|phrase)?|pwd|secret|\bpin\b|e-?mail/i.test(name);
+}
+
+// The focused element, across shadow roots.
+export function focusedElement(): Element | null {
+  let active: Element | null = document.activeElement;
+  for (;;) {
+    const inner = active?.shadowRoot?.activeElement;
+    if (!inner) return active;
+    active = inner;
+  }
+}
+
+// Whether the page has stopped a timer or an interval that was still to run
+// since `since` (epoch ms).
+export function clearedSince(since: number): boolean {
+  const state = (window as unknown as { __haunt?: { lastCleared?: number } })
+    .__haunt;
+  return (state?.lastCleared ?? 0) >= since;
 }
 
 // Milliseconds since this document last changed (a large number if never).

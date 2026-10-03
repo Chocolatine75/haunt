@@ -1,7 +1,11 @@
 // mcp-server/src/engine/end-session.ts
+import type { Signal } from '../gates/part-2/contract.js';
+import { SETTLE_CAP_MS } from './act/act.js';
+import { pendingTimers } from './act/page-fns.js';
 import { SESSION_TTL_MS } from './constants.js';
+import { sabotaged } from './sabotage.js';
 import type { SessionManager } from './session/manager.js';
-import type { Issue } from './types.js';
+import type { HauntSession, Issue } from './types.js';
 
 export interface EndSessionInput {
   session_id: string;
@@ -18,7 +22,39 @@ export interface EndSessionOutput {
   step_count: number;
   issues_found: Issue[];
   sandbox_blocked_requests: string[];
+  // Every signal of the session, counted once each.
+  signals: Signal[];
   overall_impression: string;
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// What the last action set in motion may not have happened yet: a request
+// still on the wire, a timer not yet due. There is no later call to report
+// it with, so it is waited for here, within the cap an action waits
+// (R-S8).
+async function lastEffects(session: HauntSession): Promise<void> {
+  if (sabotaged('signals_off')) return;
+  const { collector } = session;
+  const deadline = Date.now() + SETTLE_CAP_MS;
+  for (;;) {
+    let timers = 0;
+    if (!session.runtime.dialog && !session.page.isClosed()) {
+      const counts = await Promise.all(
+        session.page
+          .frames()
+          .map((frame) =>
+            frame
+              .evaluate(pendingTimers, collector.lastStepStart)
+              .catch(() => 0),
+          ),
+      );
+      timers = counts.reduce((sum, count) => sum + count, 0);
+    }
+    if (timers === 0 && collector.awaited() === 0) return;
+    if (Date.now() >= deadline) return;
+    await sleep(50);
+  }
 }
 
 export async function hauntEndSession(
@@ -31,6 +67,9 @@ export async function hauntEndSession(
   for (const issue of input.issues ?? []) {
     if (!known.has(JSON.stringify(issue))) session.issues.push(issue);
   }
+
+  await lastEffects(session);
+  const signals = session.collector.all();
 
   await session.browser.close();
   manager.delete(input.session_id);
@@ -48,6 +87,7 @@ export async function hauntEndSession(
     step_count: session.step_count,
     issues_found: session.issues,
     sandbox_blocked_requests: session.sandbox_blocked_requests,
+    signals,
     overall_impression:
       input.overall_impression ??
       `Completed ${session.step_count} steps across ${session.pages_visited.length} pages.`,
