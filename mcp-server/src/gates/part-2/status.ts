@@ -47,4 +47,9 @@ export const PASSING: ReadonlySet<string> = new Set<string>([
   'S5.3',
   'S5.4',
   'S8.1b',
+  // Signals in the report, haunt-ci and the command.
+  'S7.1',
+  'S7.2',
+  'S7.3',
+  'S7.4',
 ]);
