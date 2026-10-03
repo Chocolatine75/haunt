@@ -156,12 +156,12 @@ not produce.
 
 | Page | Planted |
 |---|---|
-| `sig-http` | A `fetch` answered 500, one answered 404, a missing image, a missing stylesheet, a form post answered 422, a document link answered 503 |
-| `sig-exceptions` | An exception on click, one 800 ms after a click, one at load, one inside a promise, one in an event handler of a frame, a `console.error` |
-| `sig-network` | A request whose connection is dropped, one that never answers, one that takes 4 s, one cancelled by the page itself, one cancelled by navigating away |
+| `sig-http` | A `fetch` answered 500, one answered 404, a missing image, a missing stylesheet, a form post answered 422, a document link answered 503, the same failing request made 20 times, a request answered 401 |
+| `sig-exceptions` | An exception on click, one 800 ms after a click, one at load, one inside a promise, one in an event handler of a frame, a `console.error`, a rejection the page also logs with `console.error` |
+| `sig-network` | A request whose connection is dropped, one that never answers, one that takes 4 s, one that takes 2 s (below the threshold), one cancelled by the page itself, one cancelled by navigating away, a download |
 | `sig-blocking` | A 600 ms main-thread block on click, a 120 ms one (below the threshold) |
 | `sig-dead` | A button wired to nothing, a link going nowhere (`href="#"` with no handler), a tab that does not switch — and working ones beside them |
-| `sig-a11y` | Twelve violations, one per rule: image without `alt`, button without a name, link without a name, input without a label, select without a name, low contrast text, missing `lang`, empty page title, duplicate ARIA id reference, invalid ARIA attribute value, list item outside a list, frame without a title |
+| `sig-a11y` | Twelve violations, one per rule: image without `alt`, button without a name, link without a name, input without a label, select without a name, low contrast text, missing `lang`, empty page title, ARIA role without its required attribute, invalid ARIA attribute value, list item outside a list, frame without a title. Two of them a second time, inside an open shadow root and inside the frame |
 | `sig-silent` | A save that fails with a 500 and shows nothing; the same failing with a visible message |
 | `sig-secrets` | Requests and exceptions whose URL, message and stack contain what was typed into a password field |
 
