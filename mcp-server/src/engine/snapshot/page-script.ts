@@ -102,6 +102,9 @@ export function installHooks(): void {
     // to stop something (a pause button) did something.
     intervals: new Set<number>(),
     lastCleared: 0,
+    // Set while the engine's accessibility audit runs here: what axe-core
+    // logs is not the page's (R-S17).
+    silent: 0,
   };
   Object.defineProperty(window, '__haunt', { value: state, enumerable: false });
 
@@ -213,6 +216,7 @@ export function installHooks(): void {
   // Sends one report to the engine and returns its number in this document.
   const report = (payload: Record<string, unknown>): number => {
     const n = ++state.reports;
+    if (state.silent > 0) return n;
     try {
       const send = (w as { __hauntReport?: (json: string) => unknown })
         .__hauntReport;

@@ -179,7 +179,13 @@ export const TOOLS: ToolDefinition[] = [
         .boolean()
         .optional()
         .describe(
-          'Also list every signal raised so far on the current page: HTTP errors, exceptions, failed, hung and slow requests, dead controls',
+          'Also list every signal raised so far on the current page: HTTP errors, exceptions, failed, hung and slow requests, dead controls, accessibility violations',
+        ),
+      audit: z
+        .boolean()
+        .optional()
+        .describe(
+          'Run the accessibility audit (axe-core, WCAG 2 A and AA) on the page as it is now and list its violations with the other signals of the page. Each page is already audited once, when first reached; ask again after the page has changed',
         ),
     }),
     run: (manager, input) => hauntCaptureState(manager, input),

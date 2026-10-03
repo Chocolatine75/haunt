@@ -25,6 +25,8 @@ export const SABOTAGES = [
   'signals_ignore_4xx',
   'signals_secrets_kept',
   'signals_end_dropped',
+  'signals_no_audit',
+  'signals_audit_every_action',
   // Not a breakage: nothing collected at all, to measure what collecting
   // costs (S8.4).
   'signals_off',

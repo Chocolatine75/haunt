@@ -130,6 +130,44 @@ describe('SignalCollector', () => {
     );
   });
 
+  it('takes the findings of an audit as signals, once per page and elements', () => {
+    const c = collector();
+    const contrast = {
+      rule: 'color-contrast',
+      impact: 'serious' as const,
+      help: 'Elements must meet minimum color contrast ratio thresholds',
+      nodes: 2,
+      refs: ['e3'],
+    };
+    const region = { ...contrast, rule: 'region', impact: 'moderate' as const };
+    const [first, minor] = c.fromAudit('http://a.test/page?tab=1', 1, [
+      contrast,
+      region,
+    ]);
+    expect(first).toMatchObject({
+      kind: 'a11y',
+      url: 'http://a.test/page',
+      step: 1,
+      severity: 'major',
+      message:
+        'Elements must meet minimum color contrast ratio thresholds (2 elements)',
+    });
+    expect(minor.severity).toBe('minor');
+    // The same violation found again on the same page is that signal.
+    c.startStep(2);
+    expect(c.fromAudit('http://a.test/page', 2, [contrast])[0].id).toBe(
+      first.id,
+    );
+    // On more elements, or audited again on purpose, it is a new one.
+    expect(
+      c.fromAudit('http://a.test/page', 2, [{ ...contrast, nodes: 3 }])[0].id,
+    ).not.toBe(first.id);
+    expect(
+      c.fromAudit('http://a.test/page', 2, [contrast], { again: true })[0].id,
+    ).not.toBe(first.id);
+    expect(c.handOverNow([first])).toHaveLength(1);
+  });
+
   it('raises nothing while switched off', () => {
     const c = collector();
     setSabotage('signals_off');

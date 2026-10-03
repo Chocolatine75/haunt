@@ -14,9 +14,10 @@ import { loadPersona } from './persona/loader.js';
 import { sabotaged } from './sabotage.js';
 import { purgeOldScreenshots } from './screenshots.js';
 import type { SessionManager } from './session/manager.js';
+import { auditIfNew } from './signals/audit.js';
 import { REPORT_BINDING, SignalCollector } from './signals/collector.js';
 import { installHooks } from './snapshot/page-script.js';
-import { newSnapshotState } from './snapshot/snapshot.js';
+import { newSnapshotState, takeSnapshot } from './snapshot/snapshot.js';
 import type { HauntSession } from './types.js';
 
 export interface SpawnInput {
@@ -313,6 +314,11 @@ export async function hauntSpawn(
   };
 
   manager.set(sessionId, session);
+
+  // The first page's audit (R-S15) names its elements by reference, so the
+  // page is read first; both are step 0, delivered here.
+  await takeSnapshot(session, { format: 'json' }, true).catch(() => {});
+  await auditIfNew(session, 0);
 
   return {
     session_id: sessionId,
