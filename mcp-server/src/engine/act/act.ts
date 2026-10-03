@@ -961,12 +961,12 @@ async function runStep(
   runtime.opened.length = 0;
   runtime.closed.length = 0;
 
-  const type = ((input as { type?: unknown })?.type ??
-    'click') as StepResult['type'];
+  let type: StepResult['type'] = 'invalid';
   let error: ActionError | undefined;
   let outcome: Outcome = {};
 
   const validation = validateAction(input);
+  if (validation.ok) type = validation.action.type;
   if (!validation.ok) {
     error = {
       code: 'invalid_action',

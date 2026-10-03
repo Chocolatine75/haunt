@@ -58,6 +58,8 @@ export interface SnapshotElement {
   pressed?: boolean;
   required?: boolean;
   invalid?: boolean;
+  // The browser's validation message for a field it refuses.
+  validation?: string;
   readonly?: boolean;
   disabled?: boolean;
   // Outside the viewport (or outside its scroll container's visible area).
@@ -279,7 +281,8 @@ export interface ActionChanges {
 export const SETTLE_CAP_MS = 5_000;
 
 export interface StepResult {
-  type: Action['type'];
+  // 'invalid' when the action was not one that could be understood.
+  type: Action['type'] | 'invalid';
   ok: boolean;
   error?: ActionError;
   changes: ActionChanges;

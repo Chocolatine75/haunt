@@ -36,21 +36,20 @@ describe('parseDecideActionInput', () => {
     );
   });
 
-  it.each([
-    [{}],
-    [{ actions: [] }],
-    [{ actions: 'click e1' }],
-    [{ issues: [] }],
-  ])('rejects %j, which has nothing to execute', (input) => {
-    expect(() => parseDecideActionInput(input)).toThrow(
-      'decide_action tool call was missing "actions"',
-    );
-  });
+  it.each([[{}], [{ actions: [] }], [{ actions: 'click e1' }], [null]])(
+    'treats %j as a decision to do nothing',
+    (input) => {
+      expect(parseDecideActionInput(input)).toEqual({
+        actions: [],
+        issues: [],
+      });
+    },
+  );
 });
 
 describe('decideActionParameters', () => {
-  it('requires only the actions, so a step with nothing to report is valid', () => {
-    expect(decideActionParameters().required).toEqual(['actions']);
+  it('requires nothing, so that "nothing more to do" is a valid answer', () => {
+    expect(decideActionParameters().required).toEqual([]);
   });
 
   it('describes every action the engine accepts', () => {

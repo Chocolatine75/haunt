@@ -101,4 +101,25 @@ describe('hauntEndSession', () => {
       'GET http://evil.example/ (blocked)',
     ]);
   });
+
+  it('adds the issues passed with the call to those of the session', async () => {
+    const manager = new SessionManager();
+    const earlier = {
+      severity: 'minor' as const,
+      category: 'ux' as const,
+      description: 'earlier',
+      page_url: '/',
+      recommendation: 'r',
+    };
+    const session = mockSession({ issues: [earlier] });
+    manager.set(session.id, session);
+
+    const late = { ...earlier, description: 'from the last action' };
+    const output = await hauntEndSession(manager, {
+      session_id: session.id,
+      issues: [late],
+    });
+
+    expect(output.issues_found).toEqual([earlier, late]);
+  });
 });

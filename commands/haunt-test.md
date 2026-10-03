@@ -199,7 +199,7 @@ several actions. Spawn each session with `timeout` set to `steps × 5`.
    Choose corner-case actions: submit empty forms, enter bad data, access protected URLs directly, trigger the same action twice.
    Read each result as described in "How to act on a page" — what changed, what failed and why, what the console and the network said — and turn what a real user would suffer from into issues for the next call.
 5. Repeat capture → act up to `steps - 1` more times.
-6. `haunt_end_session` for all sessions in a single message.
+6. `haunt_end_session` for all sessions in a single message. Pass in its `issues` whatever the result of the last action revealed — no later call would carry it.
 
 CRITICAL: every batch of the same tool MUST be a single message with parallel tool calls.
 

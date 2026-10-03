@@ -9,7 +9,7 @@ import {
   hauntGetCookies,
   hauntSpawn,
   zodToJsonSchema
-} from "./chunk-TVFI5C7Y.js";
+} from "./chunk-FBGX7WZF.js";
 import {
   Anthropic
 } from "./chunk-MMWLM6BK.js";
@@ -34300,7 +34300,6 @@ function decideActionParameters() {
     properties: {
       actions: {
         type: "array",
-        minItems: 1,
         maxItems: MAX_ACTIONS_PER_STEP,
         description: "Usually one action. Several only when the later ones do not depend on what the earlier ones do to the page (filling the fields of one form, for instance).",
         items: action
@@ -34338,19 +34337,15 @@ function decideActionParameters() {
         }
       }
     },
-    required: ["actions"]
+    required: []
   };
 }
 function parseDecideActionInput(input) {
-  const parsed = input;
-  if (!Array.isArray(parsed.actions) || parsed.actions.length === 0) {
-    throw new Error(
-      `${DECIDE_ACTION_TOOL_NAME} tool call was missing "actions"`
-    );
-  }
+  const parsed = input ?? {};
+  const actions = Array.isArray(parsed.actions) ? parsed.actions : [];
   return {
-    actions: parsed.actions.slice(0, MAX_ACTIONS_PER_STEP),
-    issues: parsed.issues ?? []
+    actions: actions.slice(0, MAX_ACTIONS_PER_STEP),
+    issues: Array.isArray(parsed.issues) ? parsed.issues : []
   };
 }
 
@@ -34419,7 +34414,7 @@ function createMistralDecider(client, model) {
 }
 
 // src/cli/headless.ts
-var USAGE = "Usage: haunt-ci <url> [--personas p1,p2] [--steps N] [--provider anthropic|mistral] [--model id] [--headed] [--email addr --password pw] [--login-url url]";
+var USAGE = "Usage: haunt-ci <url> [--personas p1,p2] [--steps N] [--provider anthropic|mistral] [--model id] [--headed] [--verbose] [--email addr --password pw] [--login-url url]";
 var VALUED_FLAGS = [
   "personas",
   "steps",
@@ -34457,6 +34452,7 @@ function parseArgs(argv) {
     );
   }
   const headless = !argv.includes("--headed");
+  const verbose = argv.includes("--verbose");
   const email = getFlag("email");
   const password = getFlag("password");
   if (email && !password || password && !email) {
@@ -34469,6 +34465,7 @@ function parseArgs(argv) {
     provider: providerFlag,
     model: getFlag("model"),
     headless,
+    verbose,
     email,
     password,
     loginUrl: getFlag("login-url")
@@ -34507,7 +34504,8 @@ function createDecider(resolved) {
 }
 var UNAUTHENTICATED_NOTE = "Note: you are NOT logged in for this session. If this page shows content that looks private, personalized, or administrative (e.g. a dashboard, account data, admin controls) without redirecting you to a login page first, that is itself a serious security bug \u2014 report it.";
 var SANDBOX_BLOCK_NOTE = "Note: your last action was blocked by the haunt test sandbox because it targeted an origin outside the app under test. This is NOT an app bug \u2014 do not report it as an issue. Blocked: ";
-var HOW_TO_ACT = "Elements are named by the reference in square brackets, e.g. [e12]. Use that reference in your actions. A failed action is information about the page (covered, disabled, gone), not necessarily a bug. An action that changed nothing at all on a control that should do something is worth reporting.";
+var HOW_TO_ACT = 'Elements are named by the reference in square brackets, e.g. [e12]. Use that reference in your actions; every action is an object with a "type". A failed action is information about the page (covered, disabled, gone), not necessarily a bug.\nReport an issue as soon as you have seen it \u2014 in this very answer, not later. In particular, look at what your last actions did: a button or a submit that changed nothing on the page, a server error in the console (status 500, an exception), a form accepted or refused without any message, private content shown without logging in. Each of those is an issue a real user would hit.';
+var WRAP_UP = 'The session is over: no further action will be run, so leave "actions" empty. Report in "issues" anything you have seen and not reported yet, including what your last actions just revealed.';
 function describeOutcome(result) {
   const lines = result.results.map((step, i) => {
     if (!step.ok)
@@ -34558,7 +34556,8 @@ ${snapshot}`, HOW_TO_ACT];
   }
   return sections.join("\n\n");
 }
-async function runPersonaSession(decide, manager, personaName, targetUrl, steps, headless, cookies) {
+async function runPersonaSession(decide, manager, personaName, targetUrl, steps, headless, cookies, log = () => {
+}) {
   const authenticated = Boolean(cookies && cookies.length > 0);
   const spawnResult = await hauntSpawn(manager, {
     persona: personaName,
@@ -34568,6 +34567,7 @@ async function runPersonaSession(decide, manager, personaName, targetUrl, steps,
     timeout: steps * MAX_ACTIONS_PER_STEP,
     cookies
   });
+  let finalIssues = [];
   try {
     let last;
     for (let step = 1; step <= steps; step++) {
@@ -34579,11 +34579,36 @@ async function runPersonaSession(decide, manager, personaName, targetUrl, steps,
         spawnResult.persona_description,
         describeState(state.text, step, steps, authenticated, last)
       );
+      log(
+        `[${spawnResult.persona_name}] step ${step}: ${JSON.stringify(actions)}${issues.length > 0 ? ` (+${issues.length} issue(s))` : ""}`
+      );
+      if (actions.length === 0) {
+        manager.get(spawnResult.session_id).issues.push(...issues);
+        last = void 0;
+        continue;
+      }
       last = await hauntAct(manager, {
         session_id: spawnResult.session_id,
         actions,
         issues
       });
+      log(describeOutcome(last).replace(/^/gm, "    "));
+    }
+    if (last) {
+      const state = await hauntCaptureState(manager, {
+        session_id: spawnResult.session_id,
+        format: "text"
+      });
+      const { issues } = await decide(
+        spawnResult.persona_description,
+        `${describeState(state.text, steps, steps, authenticated, last)}
+
+${WRAP_UP}`
+      ).catch(() => ({ issues: [] }));
+      finalIssues = issues;
+      log(
+        `[${spawnResult.persona_name}] wrap-up: ${issues.length} more issue(s)`
+      );
     }
   } catch (error) {
     if (manager.has(spawnResult.session_id)) {
@@ -34595,7 +34620,8 @@ async function runPersonaSession(decide, manager, personaName, targetUrl, steps,
     throw error;
   }
   const endResult = await hauntEndSession(manager, {
-    session_id: spawnResult.session_id
+    session_id: spawnResult.session_id,
+    issues: finalIssues
   });
   return {
     area: targetUrl,
@@ -34615,7 +34641,8 @@ async function runHeadlessTest(decide, manager, options) {
         options.targetUrl,
         options.steps,
         options.headless,
-        options.cookies
+        options.cookies,
+        options.verbose ? (line) => console.error(line) : void 0
       )
     )
   );

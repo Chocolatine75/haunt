@@ -451,6 +451,12 @@ function collect(options) {
     if (el.required || aria("aria-required"))
       raw.required = true;
     if (aria("aria-invalid")) raw.invalid = true;
+    if ("validationMessage" in el && el.validationMessage && el.matches(":user-invalid")) {
+      raw.invalid = true;
+      const typed = el.value;
+      const message = el.validationMessage;
+      raw.validation = typed && isCredential(el, name) ? message.split(typed).join("\u2026") : message;
+    }
     if (el.matches(":disabled") || aria("aria-disabled")) raw.disabled = true;
     const style = styleOf(el);
     const rect = el.getBoundingClientRect();
@@ -687,7 +693,11 @@ function elementLine(e, depth) {
     parts.push(e.expanded ? "expanded" : "collapsed");
   if (e.pressed) parts.push("pressed");
   if (e.required) parts.push("required");
-  if (e.invalid) parts.push("invalid");
+  if (e.invalid) {
+    parts.push(
+      e.validation ? `invalid(${JSON.stringify(e.validation)})` : "invalid"
+    );
+  }
   if (e.readonly) parts.push("readonly");
   if (e.disabled) parts.push("disabled");
   if (e.hidden) parts.push(`hidden(${e.hidden})`);
@@ -713,8 +723,8 @@ function elementLine(e, depth) {
 function header(snapshot) {
   const lines = [`Page: ${snapshot.title}`, `URL: ${snapshot.url}`];
   const { x, y, max_x, max_y } = snapshot.scroll;
-  if (max_y > 0) lines.push(`Scroll: ${px(y)} above \xB7 ${px(max_y - y)} below`);
-  if (max_x > 0) lines.push(`Scroll: ${px(x)} left \xB7 ${px(max_x - x)} right`);
+  if (max_y > 4) lines.push(`Scroll: ${px(y)} above \xB7 ${px(max_y - y)} below`);
+  if (max_x > 4) lines.push(`Scroll: ${px(x)} left \xB7 ${px(max_x - x)} right`);
   if (snapshot.tabs.length > 1) {
     lines.push("Tabs:");
     for (const tab of snapshot.tabs) {
@@ -5440,6 +5450,13 @@ var actionSchema = actions.superRefine((action, ctx) => {
   }
 });
 function validateAction(input) {
+  if (typeof input !== "object" || input === null) {
+    return {
+      ok: false,
+      parameter: "type",
+      message: `An action is an object such as {"type": "click", "ref": "e12"}; got ${JSON.stringify(input)}.`
+    };
+  }
   const parsed = actionSchema.safeParse(input);
   if (parsed.success) return { ok: true, action: parsed.data };
   const issue = parsed.error.issues[0];
@@ -6172,10 +6189,11 @@ async function runStep(session, input) {
   const alreadyChanging = !runtime.dialog && (await withTimeout2(session.page.evaluate(sinceMutation), 1e3) ?? 1e9) < 150;
   runtime.opened.length = 0;
   runtime.closed.length = 0;
-  const type2 = input?.type ?? "click";
+  let type2 = "invalid";
   let error;
   let outcome = {};
   const validation = validateAction(input);
+  if (validation.ok) type2 = validation.action.type;
   if (!validation.ok) {
     error = {
       code: "invalid_action",
@@ -6337,6 +6355,10 @@ async function hauntCaptureState(manager, input) {
 // src/engine/end-session.ts
 async function hauntEndSession(manager, input) {
   const session = manager.get(input.session_id);
+  const known = new Set(session.issues.map((issue) => JSON.stringify(issue)));
+  for (const issue of input.issues ?? []) {
+    if (!known.has(JSON.stringify(issue))) session.issues.push(issue);
+  }
   await session.browser.close();
   manager.delete(input.session_id);
   await manager.reapStale(SESSION_TTL_MS);
@@ -9867,7 +9889,13 @@ async function hauntSpawn(manager, input) {
     );
   }
   const browser = await chromium.launch({
-    headless: input.headless ?? personaConfig.browser.headless
+    headless: input.headless ?? personaConfig.browser.headless,
+    // Every response reaches the page through the sandbox's route handler,
+    // which makes Chromium treat the document as coming from a public
+    // address. Its local-network-access check then refuses the app's own
+    // WebSocket on localhost. The sandbox below is what decides where the
+    // session may connect, so that check is turned off.
+    args: ["--disable-features=LocalNetworkAccessChecks"]
   });
   const context = await browser.newContext({
     viewport: personaConfig.browser.viewport ?? { width: 1280, height: 720 },
@@ -9879,6 +9907,28 @@ async function hauntSpawn(manager, input) {
   const allowedOrigins = /* @__PURE__ */ new Set();
   const sandboxBlockedRequests = [];
   let capturingAllowlist = true;
+  await context.routeWebSocket(/.*/, (ws) => {
+    let origin;
+    let originAndPath;
+    try {
+      const parsed = new URL(ws.url());
+      const scheme = parsed.protocol === "wss:" ? "https:" : "http:";
+      origin = `${scheme}//${parsed.host}`;
+      originAndPath = `${parsed.protocol}//${parsed.host}${parsed.pathname}`;
+    } catch {
+      sandboxBlockedRequests.push(`WS ${ws.url()} (unparseable URL)`);
+      ws.close({ code: 1008, reason: "blocked by the haunt test sandbox" });
+      return;
+    }
+    if (capturingAllowlist) {
+      allowedOrigins.add(origin);
+    } else if (!allowedOrigins.has(origin)) {
+      sandboxBlockedRequests.push(`WS ${originAndPath}`);
+      ws.close({ code: 1008, reason: "blocked by the haunt test sandbox" });
+      return;
+    }
+    ws.connectToServer();
+  });
   await context.route("**/*", async (route) => {
     const request = route.request();
     let origin;

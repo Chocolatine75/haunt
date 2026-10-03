@@ -22,6 +22,9 @@ export interface RawElement {
   pressed?: boolean;
   required?: boolean;
   invalid?: boolean;
+  // The browser's own message for a field it refuses, as a user would be
+  // shown in the validation bubble.
+  validation?: string;
   readonly?: boolean;
   disabled?: boolean;
   offscreen?: boolean;
@@ -543,6 +546,23 @@ export function collect(options: CollectOptions): string {
     if ((el as HTMLInputElement).required || aria('aria-required'))
       raw.required = true;
     if (aria('aria-invalid')) raw.invalid = true;
+    // Native validation only speaks up once the user has tried: before
+    // that, an empty required field is not an error anyone has seen.
+    if (
+      'validationMessage' in el &&
+      (el as HTMLInputElement).validationMessage &&
+      el.matches(':user-invalid')
+    ) {
+      raw.invalid = true;
+      // Chromium quotes what was typed in some messages; a credential must
+      // not come back that way either.
+      const typed = (el as HTMLInputElement).value;
+      const message = (el as HTMLInputElement).validationMessage;
+      raw.validation =
+        typed && isCredential(el, name)
+          ? message.split(typed).join('…')
+          : message;
+    }
     if (el.matches(':disabled') || aria('aria-disabled')) raw.disabled = true;
 
     // Visibility

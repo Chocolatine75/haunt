@@ -58,6 +58,25 @@ describe('hauntCaptureState', () => {
     ]);
   });
 
+  it("reports the browser's own validation message once the user has tried", async () => {
+    const session_id = await sessionOn(
+      '<form><label>Email <input type="email" required></label><button>Send</button></form>',
+    );
+    const before = await hauntCaptureState(manager, { session_id });
+    expect(before.text).not.toContain('invalid');
+
+    const page = manager.get(session_id).page;
+    await page.getByLabel('Email').fill('not-an-email');
+    await page.getByRole('button', { name: 'Send' }).click();
+
+    const after = await hauntCaptureState(manager, { session_id });
+    expect(after.text).toMatch(
+      /- textbox "Email" \[e\d+\] .*invalid\("[^"]*@[^"]*"\)/,
+    );
+    // The message quotes what was typed; an email field's value stays out.
+    expect(after.text).not.toContain('not-an-email');
+  });
+
   it('saves a screenshot only when asked to', async () => {
     const session_id = await sessionOn('<p>hi</p>');
 

@@ -10,7 +10,7 @@ import {
   hauntGetCookies,
   hauntSpawn,
   zodToJsonSchema
-} from "./chunk-TVFI5C7Y.js";
+} from "./chunk-FBGX7WZF.js";
 import {
   _enum,
   _null,
@@ -10663,6 +10663,9 @@ var TOOLS = [
       session_id: external_exports.string(),
       overall_impression: external_exports.string().optional().describe(
         "The orchestrator's summary of the session from the persona's perspective"
+      ),
+      issues: external_exports.array(issueSchema).optional().describe(
+        "Issues found since the last haunt_act call, typically from the result of the last action"
       )
     }),
     run: (manager, input) => hauntEndSession(manager, input)

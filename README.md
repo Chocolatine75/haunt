@@ -202,6 +202,8 @@ A `.env` file in the working directory (`mcp-server/.env` in this repo) is loade
 automatically — put `ANTHROPIC_API_KEY=` or `MISTRAL_API_KEY=` there instead of
 exporting it. It's gitignored; never commit it.
 
+Add `--verbose` to see, on stderr, each action the model decided and what it did.
+
 Exits `1` if any critical or major issue was found (`0` otherwise), so it fails a
 build the way a test suite does:
 

@@ -6,6 +6,8 @@ import type { Issue } from './types.js';
 export interface EndSessionInput {
   session_id: string;
   overall_impression?: string;
+  // What the last action revealed: there is no later call to carry it.
+  issues?: Issue[];
 }
 
 export interface EndSessionOutput {
@@ -24,6 +26,11 @@ export async function hauntEndSession(
   input: EndSessionInput,
 ): Promise<EndSessionOutput> {
   const session = manager.get(input.session_id);
+  // A model asked for "anything not reported yet" tends to repeat itself.
+  const known = new Set(session.issues.map((issue) => JSON.stringify(issue)));
+  for (const issue of input.issues ?? []) {
+    if (!known.has(JSON.stringify(issue))) session.issues.push(issue);
+  }
 
   await session.browser.close();
   manager.delete(input.session_id);

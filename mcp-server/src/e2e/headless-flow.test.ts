@@ -106,7 +106,8 @@ describe('haunt-ci loop against a real app', { timeout: 30_000 }, () => {
 
     await run(decide);
 
-    expect(seen).toHaveLength(3);
+    // Three steps, then the wrap-up question.
+    expect(seen).toHaveLength(4);
     expect(seen[0]).toContain(`URL: ${app.baseUrl}/`);
     expect(seen[0]).toContain('Page: Fixture Home');
     expect(seen[0]).toContain('Step 1 of 3');
@@ -137,6 +138,91 @@ describe('haunt-ci loop against a real app', { timeout: 30_000 }, () => {
     );
     // A failed action is information for the decider, not an app issue.
     expect(report.counts.total).toBe(0);
+  });
+
+  it('asks once more after the last step, and records what that answer reports', async () => {
+    const late: Issue = {
+      severity: 'major',
+      category: 'ux',
+      description: 'Seen only in the result of the last action',
+      page_url: `${app.baseUrl}/signup`,
+      recommendation: 'Show an error',
+    };
+    const seen: string[] = [];
+    const decide: ActionDecider = async (_system, state) => {
+      seen.push(state);
+      const wrapUp = state.includes('The session is over');
+      return {
+        actions: wrapUp
+          ? [{ type: 'read' }]
+          : [{ type: 'goto', url: `${app.baseUrl}/signup` }],
+        issues: wrapUp ? [late] : [],
+      };
+    };
+
+    const requestsBefore = app.requests.length;
+    const { report } = await run(decide, { steps: 1 });
+
+    expect(seen).toHaveLength(2);
+    expect(seen[1]).toContain('Your last actions');
+    expect(seen[1]).toContain('The session is over');
+    expect(report.counts).toMatchObject({ total: 1, major: 1 });
+    // The wrap-up answer's actions are not run.
+    expect(
+      app.requests.slice(requestsBefore).filter((r) => r === 'GET /signup'),
+    ).toHaveLength(1);
+  });
+
+  it('keeps what a session found when its last answer fails or carries no action', async () => {
+    const found: Issue = {
+      severity: 'major',
+      category: 'ux',
+      description: 'Found during the session',
+      page_url: app.baseUrl,
+      recommendation: 'Fix it',
+    };
+    let calls = 0;
+    const decide: ActionDecider = async (_system, state) => {
+      calls++;
+      if (state.includes('The session is over')) {
+        throw new Error('provider returned 529');
+      }
+      // Step 1 acts and reports; step 2 has nothing more to do.
+      return calls === 1
+        ? {
+            actions: [{ type: 'goto', url: `${app.baseUrl}/` }],
+            issues: [found],
+          }
+        : { actions: [], issues: [] };
+    };
+
+    const { report, failures } = await run(decide, { steps: 2 });
+
+    expect(failures).toEqual([]);
+    expect(report.counts).toMatchObject({ total: 1, major: 1 });
+    expect(manager.all()).toEqual([]);
+  });
+
+  it('prints each decision and its outcome when verbose', async () => {
+    const { decide } = scriptedDecider([
+      { actions: click('Sign up') },
+      // The wrap-up answer; its action is not run.
+      { actions: () => [{ type: 'read' }] },
+    ]);
+    const lines: string[] = [];
+    const original = console.error;
+    console.error = (line: string) => lines.push(String(line));
+    try {
+      await run(decide, { steps: 1, verbose: true });
+    } finally {
+      console.error = original;
+    }
+    const printed = lines.join('\n');
+    expect(printed).toMatch(
+      /\[Test Persona\] step 1: \[\{"type":"click","ref":"e\d+"\}\]/,
+    );
+    expect(printed).toContain(`1. click: went to ${app.baseUrl}/signup`);
+    expect(printed).toContain('wrap-up: 0 more issue(s)');
   });
 
   it('closes every browser and writes the issues the decider reported', async () => {

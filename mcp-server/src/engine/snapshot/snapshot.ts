@@ -198,7 +198,11 @@ function elementLine(e: SnapshotElement, depth: number): string {
     parts.push(e.expanded ? 'expanded' : 'collapsed');
   if (e.pressed) parts.push('pressed');
   if (e.required) parts.push('required');
-  if (e.invalid) parts.push('invalid');
+  if (e.invalid) {
+    parts.push(
+      e.validation ? `invalid(${JSON.stringify(e.validation)})` : 'invalid',
+    );
+  }
   if (e.readonly) parts.push('readonly');
   if (e.disabled) parts.push('disabled');
   if (e.hidden) parts.push(`hidden(${e.hidden})`);
@@ -226,8 +230,9 @@ function elementLine(e: SnapshotElement, depth: number): string {
 function header(snapshot: Snapshot): string[] {
   const lines = [`Page: ${snapshot.title}`, `URL: ${snapshot.url}`];
   const { x, y, max_x, max_y } = snapshot.scroll;
-  if (max_y > 0) lines.push(`Scroll: ${px(y)} above · ${px(max_y - y)} below`);
-  if (max_x > 0) lines.push(`Scroll: ${px(x)} left · ${px(max_x - x)} right`);
+  // A pixel or two of slack is not something a tester can scroll to.
+  if (max_y > 4) lines.push(`Scroll: ${px(y)} above · ${px(max_y - y)} below`);
+  if (max_x > 4) lines.push(`Scroll: ${px(x)} left · ${px(max_x - x)} right`);
   if (snapshot.tabs.length > 1) {
     lines.push('Tabs:');
     for (const tab of snapshot.tabs) {
