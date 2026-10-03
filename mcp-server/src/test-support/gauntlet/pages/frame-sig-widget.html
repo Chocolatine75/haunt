@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — sig widget</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<button data-g="frame-throw" type="button">Estimate shipping</button>
+<p id="result" role="status"></p>
+<script>
+  window.__gauntlet.find('frame-throw').addEventListener('click', () => {
+    if ('{{VARIANT}}' === 'buggy') throw new Error('Shipping estimate failed');
+    document.getElementById('result').textContent = 'Shipping: 4.90';
+  });
+</script>
+</body>
+</html>

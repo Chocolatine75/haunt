@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — sig-silent</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<!--
+  The same save, failing with the same 500, twice: once the page says
+  nothing at all, once it tells the user. Only the first is a silent error.
+-->
+<h1>Silent failure</h1>
+<p><button data-g="save-silent" type="button">Save preferences</button></p>
+<p><button data-g="save-loud" type="button">Save profile</button></p>
+<p id="result" role="status"></p>
+
+<script>
+  const G = window.__gauntlet;
+  const say = (text) => { document.getElementById('result').textContent = text; };
+  const save = () => fetch('/sig/api/settings?variant={{VARIANT}}', { method: 'POST' });
+
+  G.find('save-silent').addEventListener('click', async () => {
+    const res = await save();
+    if (res.ok) say('Preferences saved');
+  });
+  G.find('save-loud').addEventListener('click', async () => {
+    const res = await save();
+    say(res.ok ? 'Profile saved' : 'Could not save your profile. Try again.');
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — sig-exceptions</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<!--
+  Errors that reach the top of the page: thrown while loading, in a click
+  handler, long after the click that scheduled them, inside a promise nobody
+  awaits, in a frame. And one that the page only logs.
+-->
+<h1>Exceptions</h1>
+
+<!-- In a script of its own, so that the rest of the page still runs. -->
+<script>
+  {{#buggy}}throw new Error('Boot failed: missing config');{{/buggy}}
+</script>
+
+<p><button data-g="throw-now" type="button">Show cart total</button></p>
+<!-- Says "Rendering…" at once and fails 800 ms later. -->
+<p><button data-g="throw-later" type="button">Render chart</button></p>
+<!-- Fails 2.5 s later: after any wait for the page to settle is over. -->
+<p><button data-g="throw-after-settle" type="button">Export chart</button></p>
+<p><button data-g="reject" type="button">Save draft</button></p>
+<!-- Logs the error and lets it escape: one failure, seen twice. -->
+<p><button data-g="reject-logged" type="button">Sync</button></p>
+<p><button data-g="log-error" type="button">Start payment widget</button></p>
+
+<iframe data-frame="widget" src="/frame/sig-widget?variant={{VARIANT}}" title="Shipping widget" width="420" height="120"></iframe>
+<p id="result" role="status"></p>
+
+<script>
+  const G = window.__gauntlet;
+  const BUGGY = '{{VARIANT}}' === 'buggy';
+  const say = (text) => { document.getElementById('result').textContent = text; };
+
+  G.find('throw-now').addEventListener('click', () => {
+    if (BUGGY) throw new Error('Cart total unavailable');
+    say('Cart total: 42.00');
+  });
+  G.find('throw-later').addEventListener('click', () => {
+    say('Rendering…');
+    setTimeout(() => {
+      if (BUGGY) throw new Error('Chart render failed');
+      say('Chart rendered');
+    }, 800);
+  });
+
+  G.find('throw-after-settle').addEventListener('click', () => {
+    say('Exporting…');
+    setTimeout(() => {
+      if (BUGGY) throw new Error('Chart export failed');
+      say('Chart exported');
+    }, 2500);
+  });
+
+  async function saveDraft() {
+    if (BUGGY) throw new Error('Draft could not be saved');
+    say('Draft saved');
+  }
+  G.find('reject').addEventListener('click', () => {
+    saveDraft();
+  });
+
+  async function sync() {
+    try {
+      if (BUGGY) throw new Error('Sync conflict on record 7');
+      say('Synced');
+    } catch (err) {
+      console.error(err);
+      throw err;
+    }
+  }
+  G.find('reject-logged').addEventListener('click', () => {
+    sync();
+  });
+
+  G.find('log-error').addEventListener('click', () => {
+    if (BUGGY) console.error('Payment widget failed to initialise');
+    else say('Payment widget ready');
+  });
+</script>
+</body>
+</html>
