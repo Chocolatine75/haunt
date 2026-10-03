@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — ev-silent</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<!--
+  A form that refuses an invalid email and, in the buggy variant, never
+  says why: no request, no exception, only a message that is not there.
+-->
+<h1>Newsletter</h1>
+<form data-g="signup" id="signup" novalidate>
+  <p><label>Email <input data-g="email" name="contact" type="text"></label></p>
+  <p><button data-g="join" type="submit">Join</button></p>
+</form>
+<p id="result" role="status"></p>
+<script>
+  window.__gauntlet.find('signup').addEventListener('submit', (event) => {
+    event.preventDefault();
+    const value = window.__gauntlet.find('email').value;
+    const result = document.getElementById('result');
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value)) {
+      if ('{{VARIANT}}' === 'clean') result.textContent = 'Enter a valid email address';
+      return;
+    }
+    result.textContent = 'Welcome aboard';
+  });
+</script>
+</body>
+</html>

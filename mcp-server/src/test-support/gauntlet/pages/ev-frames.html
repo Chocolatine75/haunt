@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — ev-frames</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<!--
+  Two failing requests from controls a replay has to find again: one inside
+  a frame, one inside an open shadow root.
+-->
+<h1>Checkout</h1>
+<iframe data-frame="quote" src="/frame/ev-quote?variant={{VARIANT}}" title="Shipping quote" width="420" height="120"></iframe>
+<div id="host"></div>
+<p id="result" role="status"></p>
+<script>
+  const root = document.getElementById('host').attachShadow({ mode: 'open' });
+  root.innerHTML = '<button data-g="coupon" type="button">Apply coupon</button>';
+  window.__gauntlet.registerRoot(root);
+  root.querySelector('button').addEventListener('click', async () => {
+    const res = await fetch('/ev/api/coupon?variant={{VARIANT}}');
+    document.getElementById('result').textContent = res.ok ? 'Coupon applied' : 'Could not apply';
+  });
+</script>
+</body>
+</html>

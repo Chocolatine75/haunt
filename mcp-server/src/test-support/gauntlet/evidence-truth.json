@@ -1,0 +1,174 @@
+{
+  "ev-sequence": {
+    "steps": [
+      {
+        "type": "fill",
+        "target": "name",
+        "text": "Ada Lovelace"
+      },
+      {
+        "type": "select",
+        "target": "shipping",
+        "values": ["Express"]
+      },
+      {
+        "type": "click",
+        "target": "submit"
+      }
+    ],
+    "claims": [
+      {
+        "signal": {
+          "kind": "http_error",
+          "path": "/ev/api/order",
+          "status": 500
+        }
+      }
+    ],
+    "status": "confirmed"
+  },
+  "ev-flaky": {
+    "query": "run=gauntlet",
+    "steps": [
+      {
+        "type": "click",
+        "target": "save"
+      }
+    ],
+    "claims": [
+      {
+        "signal": {
+          "kind": "http_error",
+          "path": "/ev/api/save",
+          "status": 500
+        }
+      }
+    ],
+    "status": "flaky",
+    "rate": 0.2
+  },
+  "ev-late": {
+    "steps": [
+      {
+        "type": "click",
+        "target": "archive"
+      }
+    ],
+    "claims": [
+      {
+        "signal": {
+          "kind": "js_exception",
+          "message_contains": "Archive job lost"
+        }
+      }
+    ],
+    "status": "confirmed",
+    "wait_ms": 2500
+  },
+  "ev-silent": {
+    "steps": [
+      {
+        "type": "fill",
+        "target": "email",
+        "text": "not-an-email"
+      },
+      {
+        "type": "click",
+        "target": "join"
+      }
+    ],
+    "claims": [
+      {
+        "observed": {
+          "text_absent": "Enter a valid email address"
+        }
+      }
+    ],
+    "status": "confirmed"
+  },
+  "ev-frames": {
+    "steps": [
+      {
+        "type": "click",
+        "target": "quote",
+        "frame": "quote"
+      },
+      {
+        "type": "click",
+        "target": "coupon"
+      }
+    ],
+    "claims": [
+      {
+        "signal": {
+          "kind": "http_error",
+          "path": "/ev/api/quote",
+          "status": 500
+        }
+      },
+      {
+        "signal": {
+          "kind": "http_error",
+          "path": "/ev/api/coupon",
+          "status": 500
+        }
+      }
+    ],
+    "status": "confirmed"
+  },
+  "ev-login": {
+    "steps": [
+      {
+        "type": "fill",
+        "target": "email",
+        "secret": "email"
+      },
+      {
+        "type": "fill",
+        "target": "password",
+        "secret": "password"
+      },
+      {
+        "type": "click",
+        "target": "sign-in"
+      },
+      {
+        "type": "click",
+        "target": "export"
+      }
+    ],
+    "claims": [
+      {
+        "signal": {
+          "kind": "http_error",
+          "path": "/ev/api/export",
+          "status": 500
+        }
+      }
+    ],
+    "status": "confirmed"
+  },
+  "ev-long": {
+    "steps": [
+      {
+        "type": "click",
+        "target": "next",
+        "repeat": 199
+      },
+      {
+        "type": "click",
+        "target": "delete"
+      }
+    ],
+    "claims": [
+      {
+        "signal": {
+          "kind": "http_error",
+          "path": "/ev/api/delete",
+          "status": 500
+        }
+      }
+    ],
+    "status": "confirmed"
+  }
+}

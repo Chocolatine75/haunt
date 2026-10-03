@@ -17,6 +17,7 @@ import {
 import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { evSignedIn, handleEvidenceRoute } from './evidence-routes.js';
 import { handleSignalRoute } from './signal-routes.js';
 
 declare global {
@@ -70,6 +71,21 @@ export const SIGNAL_PAGES = [
 ] as const;
 
 export type SignalPage = (typeof SIGNAL_PAGES)[number];
+
+// Part 3's pages: failures a session finds and a replay has to find again,
+// each in the two variants of part 2's pages. What a tester files on each is
+// in evidence-truth.json.
+export const EVIDENCE_PAGES = [
+  'ev-sequence',
+  'ev-flaky',
+  'ev-late',
+  'ev-silent',
+  'ev-frames',
+  'ev-login',
+  'ev-long',
+] as const;
+
+export type EvidencePage = (typeof EVIDENCE_PAGES)[number];
 export type Variant = 'buggy' | 'clean';
 
 export interface Gauntlet {
@@ -77,7 +93,7 @@ export interface Gauntlet {
   baseUrl: string;
   // A second origin serving the same app, for cross-origin frames.
   otherUrl: string;
-  url(page: GauntletPage | SignalPage, query?: string): string;
+  url(page: GauntletPage | SignalPage | EvidencePage, query?: string): string;
   // "<METHOD> <path>" of every request, per origin.
   requests: { base: string[]; other: string[] };
   close(): Promise<void>;
@@ -117,10 +133,17 @@ async function handle(
   // attribute, a script that throws while loading) has a clean twin.
   const variant =
     url.searchParams.get('variant') === 'clean' ? 'clean' : 'buggy';
+  // {{#in}}...{{/in}} and {{#out}}...{{/out}}: for a visitor signed in to
+  // ev-login, or not.
+  const signedIn = evSignedIn(req) ? 'in' : 'out';
   const html = (body: string) => {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(
       body
+        .replace(
+          /\{\{#(in|out)\}\}([\s\S]*?)\{\{\/\1\}\}/g,
+          (_, only: string, inner: string) => (only === signedIn ? inner : ''),
+        )
         .replace(
           /\{\{#(buggy|clean)\}\}([\s\S]*?)\{\{\/\1\}\}/g,
           (_, only: string, inner: string) => (only === variant ? inner : ''),
@@ -142,6 +165,7 @@ async function handle(
   }
 
   if (await handleSignalRoute(req, res, url)) return;
+  if (await handleEvidenceRoute(req, res, url)) return;
 
   // Async combobox options, slow on purpose.
   if (path === '/api/options') {
@@ -234,7 +258,8 @@ async function handle(
   }
   if (
     (GAUNTLET_PAGES as readonly string[]).includes(first) ||
-    (SIGNAL_PAGES as readonly string[]).includes(first)
+    (SIGNAL_PAGES as readonly string[]).includes(first) ||
+    (EVIDENCE_PAGES as readonly string[]).includes(first)
   ) {
     html(file(join('pages', `${first}.html`)));
     return;
@@ -244,6 +269,7 @@ async function handle(
       `<title>Gauntlet</title><h1>Gauntlet</h1><ul>${[
         ...GAUNTLET_PAGES,
         ...SIGNAL_PAGES,
+        ...EVIDENCE_PAGES,
       ]
         .map((p) => `<li><a href="/${p}">${p}</a></li>`)
         .join('')}</ul>`,

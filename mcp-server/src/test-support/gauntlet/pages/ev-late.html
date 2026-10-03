@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — ev-late</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<!-- An exception 2.5 s after the click: a replay has to wait for it. -->
+<h1>Archive</h1>
+<p><button data-g="archive" type="button">Archive project</button></p>
+<p id="result" role="status"></p>
+<script>
+  window.__gauntlet.find('archive').addEventListener('click', () => {
+    document.getElementById('result').textContent = 'Archiving…';
+    setTimeout(() => {
+      if ('{{VARIANT}}' === 'buggy') throw new Error('Archive job lost');
+      document.getElementById('result').textContent = 'Archived';
+    }, 2500);
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — ev-long</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<!--
+  Records shown one at a time; deleting the 200th fails. Reaching it takes
+  199 clicks on Next: a 200-step session, for the storage cap.
+-->
+<h1>Records</h1>
+<p id="record">Record 1 of 200</p>
+<p>
+  <button data-g="next" type="button">Next</button>
+  <button data-g="delete" type="button">Delete</button>
+</p>
+<p id="result" role="status"></p>
+<script>
+  let record = 1;
+  const show = () => { document.getElementById('record').textContent = `Record ${record} of 200`; };
+  window.__gauntlet.find('next').addEventListener('click', () => {
+    if (record < 200) record++;
+    show();
+  });
+  window.__gauntlet.find('delete').addEventListener('click', async () => {
+    const res = await fetch(`/ev/api/delete?variant={{VARIANT}}&record=${record}`, { method: 'POST' });
+    document.getElementById('result').textContent = res.ok ? `Deleted record ${record}` : 'Could not delete';
+  });
+</script>
+</body>
+</html>
