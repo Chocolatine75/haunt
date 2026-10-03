@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — sig-network</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<!--
+  Requests that go wrong without an error status: dropped, never answered,
+  slow. Beside them, three that look like failures to a browser's event log
+  and are not: a request the page cancels itself, one cut short by leaving
+  the page, and a download. Those behave the same in both variants.
+-->
+<h1>Network</h1>
+
+<section>
+  <h2>Failing</h2>
+  <button data-g="drop" type="button">Load comments</button>
+  <button data-g="hang" type="button">Load activity</button>
+  <!-- Answers after 4 s. -->
+  <button data-g="slow" type="button">Build report</button>
+  <!-- Answers after 2 s: slow, and under the default threshold. -->
+  <button data-g="slowish" type="button">Load summary</button>
+</section>
+
+<section>
+  <h2>Not failing</h2>
+  <button data-g="abort" type="button">Search, then cancel</button>
+  <button data-g="leave" type="button">Search, then leave</button>
+  <a data-g="download" href="/api/report.csv">Download report</a>
+</section>
+<p id="result" role="status"></p>
+
+<script>
+  const G = window.__gauntlet;
+  const api = (path) => `${path}?variant={{VARIANT}}`;
+  const say = (text) => { document.getElementById('result').textContent = text; };
+
+  const load = (id, path, done) => {
+    G.find(id).addEventListener('click', async () => {
+      try {
+        await fetch(api(path));
+        say(done);
+      } catch {
+        say('Network error, try again');
+      }
+    });
+  };
+  load('drop', '/sig/api/drop', 'Comments loaded');
+  load('hang', '/sig/api/hang', 'Activity loaded');
+  load('slow', '/sig/api/report', 'Report ready');
+  load('slowish', '/sig/api/summary', 'Summary loaded');
+
+  G.find('abort').addEventListener('click', async () => {
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), 100);
+    try {
+      await fetch(api('/sig/api/search'), { signal: controller.signal });
+      say('Results');
+    } catch (err) {
+      if (err.name !== 'AbortError') throw err;
+      say('Search cancelled');
+    }
+  });
+  G.find('leave').addEventListener('click', () => {
+    fetch(api('/sig/api/search')).catch(() => {});
+    // Long enough for the request to be on the wire when the page goes.
+    setTimeout(() => {
+      location.href = '/sig-network?variant={{VARIANT}}&left=1';
+    }, 50);
+  });
+  if (new URLSearchParams(location.search).has('left')) say('Welcome back');
+</script>
+</body>
+</html>

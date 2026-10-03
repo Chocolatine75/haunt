@@ -1,0 +1,643 @@
+{
+  "sig-http": {
+    "load": [
+      {
+        "signal": {
+          "kind": "http_error",
+          "severity": "minor",
+          "method": "GET",
+          "path": "/sig/asset/theme.css",
+          "status": 404,
+          "resource_type": "stylesheet"
+        }
+      },
+      {
+        "signal": {
+          "kind": "http_error",
+          "severity": "minor",
+          "method": "GET",
+          "path": "/sig/asset/logo.png",
+          "status": 404,
+          "resource_type": "image"
+        }
+      }
+    ],
+    "load_same_fact": [
+      {
+        "kind": "request_failed",
+        "path": "/sig/asset/theme.css",
+        "why": "the browser drops the stylesheet it got a 404 page for, and reports that too"
+      }
+    ],
+    "triggers": [
+      {
+        "trigger": "load-orders",
+        "signals": [
+          {
+            "signal": {
+              "kind": "http_error",
+              "severity": "major",
+              "method": "GET",
+              "path": "/sig/api/orders",
+              "status": 500,
+              "resource_type": "fetch",
+              "feedback": true
+            }
+          }
+        ]
+      },
+      {
+        "trigger": "load-profile",
+        "signals": [
+          {
+            "signal": {
+              "kind": "http_error",
+              "severity": "minor",
+              "method": "GET",
+              "path": "/sig/api/profile",
+              "status": 404,
+              "resource_type": "fetch",
+              "feedback": true
+            }
+          }
+        ]
+      },
+      {
+        "trigger": "subscribe",
+        "signals": [
+          {
+            "signal": {
+              "kind": "http_error",
+              "severity": "minor",
+              "method": "POST",
+              "path": "/sig/api/subscribe",
+              "status": 422,
+              "resource_type": "fetch",
+              "feedback": true
+            }
+          }
+        ]
+      },
+      {
+        "trigger": "refresh-prices",
+        "signals": [
+          {
+            "signal": {
+              "kind": "http_error",
+              "severity": "major",
+              "method": "GET",
+              "path": "/sig/api/prices",
+              "status": 500,
+              "resource_type": "fetch",
+              "feedback": true,
+              "count": 20
+            }
+          }
+        ]
+      },
+      {
+        "trigger": "whoami",
+        "signals": [
+          {
+            "signal": {
+              "kind": "http_error",
+              "severity": "minor",
+              "method": "GET",
+              "path": "/sig/api/me",
+              "status": 401,
+              "resource_type": "fetch",
+              "feedback": true
+            }
+          }
+        ]
+      },
+      {
+        "trigger": "report-link",
+        "navigates": true,
+        "signals": [
+          {
+            "signal": {
+              "kind": "http_error",
+              "severity": "major",
+              "method": "GET",
+              "path": "/sig/doc/report",
+              "status": 503,
+              "resource_type": "document",
+              "feedback": true
+            }
+          }
+        ]
+      }
+    ]
+  },
+
+  "sig-exceptions": {
+    "load": [
+      {
+        "signal": {
+          "kind": "js_exception",
+          "severity": "major",
+          "source_path": "/sig-exceptions"
+        },
+        "contains": { "message": "Boot failed: missing config" }
+      }
+    ],
+    "triggers": [
+      {
+        "trigger": "throw-now",
+        "signals": [
+          {
+            "signal": {
+              "kind": "js_exception",
+              "severity": "major",
+              "source_path": "/sig-exceptions",
+              "feedback": false
+            },
+            "contains": { "message": "Cart total unavailable" }
+          }
+        ]
+      },
+      {
+        "trigger": "throw-later",
+        "wait_ms": 800,
+        "signals": [
+          {
+            "signal": {
+              "kind": "js_exception",
+              "severity": "major",
+              "source_path": "/sig-exceptions",
+              "feedback": true
+            },
+            "contains": { "message": "Chart render failed" }
+          }
+        ]
+      },
+      {
+        "trigger": "reject",
+        "signals": [
+          {
+            "signal": { "kind": "unhandled_rejection", "severity": "major" },
+            "contains": { "message": "Draft could not be saved" }
+          }
+        ]
+      },
+      {
+        "trigger": "reject-logged",
+        "signals": [
+          {
+            "signal": { "kind": "unhandled_rejection", "severity": "major" },
+            "contains": { "message": "Sync conflict on record 7" }
+          }
+        ],
+        "same_fact": [
+          {
+            "kind": "console_error",
+            "why": "the page logs the error it then lets escape"
+          }
+        ]
+      },
+      {
+        "trigger": "log-error",
+        "signals": [
+          {
+            "signal": { "kind": "console_error", "severity": "minor" },
+            "contains": { "message": "Payment widget failed to initialise" }
+          }
+        ]
+      },
+      {
+        "trigger": "frame-throw",
+        "frame": "widget",
+        "signals": [
+          {
+            "signal": {
+              "kind": "js_exception",
+              "severity": "major",
+              "source_path": "/frame/sig-widget",
+              "feedback": false
+            },
+            "contains": { "message": "Shipping estimate failed" }
+          }
+        ]
+      }
+    ]
+  },
+
+  "sig-network": {
+    "load": [],
+    "triggers": [
+      {
+        "trigger": "drop",
+        "signals": [
+          {
+            "signal": {
+              "kind": "request_failed",
+              "severity": "minor",
+              "method": "GET",
+              "path": "/sig/api/drop",
+              "feedback": true
+            }
+          }
+        ]
+      },
+      {
+        "trigger": "hang",
+        "signals": [
+          {
+            "signal": {
+              "kind": "request_hung",
+              "severity": "major",
+              "method": "GET",
+              "path": "/sig/api/hang"
+            }
+          }
+        ]
+      },
+      {
+        "trigger": "slow",
+        "wait_ms": 4100,
+        "signals": [
+          {
+            "signal": {
+              "kind": "slow_response",
+              "severity": "minor",
+              "method": "GET",
+              "path": "/sig/api/report"
+            },
+            "at_least": { "duration_ms": 4000 }
+          }
+        ]
+      },
+      {
+        "trigger": "slowish",
+        "wait_ms": 2100,
+        "signals": [],
+        "under_threshold": [
+          {
+            "signal": {
+              "kind": "slow_response",
+              "severity": "minor",
+              "method": "GET",
+              "path": "/sig/api/summary"
+            },
+            "at_least": { "duration_ms": 2000 }
+          }
+        ]
+      },
+      {
+        "trigger": "abort",
+        "both_variants": true,
+        "signals": [],
+        "not_a_failure": [
+          {
+            "kind": "request_failed",
+            "path": "/sig/api/search",
+            "why": "cancelled by the page itself"
+          }
+        ]
+      },
+      {
+        "trigger": "leave",
+        "both_variants": true,
+        "navigates": true,
+        "signals": [],
+        "not_a_failure": [
+          {
+            "kind": "request_hung",
+            "path": "/sig/api/search",
+            "why": "cancelled by navigating away, after which the browser says nothing more about it"
+          }
+        ]
+      },
+      {
+        "trigger": "download",
+        "both_variants": true,
+        "signals": [],
+        "not_a_failure": [
+          {
+            "kind": "request_failed",
+            "path": "/api/report.csv",
+            "why": "a download, which ends the navigation that started it"
+          }
+        ]
+      }
+    ]
+  },
+
+  "sig-blocking": {
+    "load": [],
+    "triggers": [
+      {
+        "trigger": "block-600",
+        "signals": [
+          {
+            "signal": { "kind": "long_task", "severity": "minor" },
+            "at_least": { "duration_ms": 600 }
+          }
+        ]
+      },
+      {
+        "trigger": "block-120",
+        "signals": [],
+        "under_threshold": [
+          {
+            "signal": { "kind": "long_task", "severity": "minor" },
+            "at_least": { "duration_ms": 120 }
+          }
+        ]
+      }
+    ]
+  },
+
+  "sig-dead": {
+    "load": [],
+    "triggers": [
+      {
+        "trigger": "refresh",
+        "signals": [
+          {
+            "signal": {
+              "kind": "dead_control",
+              "severity": "major",
+              "role": "button",
+              "name": "Refresh"
+            }
+          }
+        ]
+      },
+      {
+        "trigger": "help",
+        "signals": [
+          {
+            "signal": {
+              "kind": "dead_control",
+              "severity": "major",
+              "role": "link",
+              "name": "Help"
+            }
+          }
+        ]
+      },
+      {
+        "trigger": "tab-billing",
+        "signals": [
+          {
+            "signal": {
+              "kind": "dead_control",
+              "severity": "major",
+              "role": "tab",
+              "name": "Billing"
+            }
+          }
+        ]
+      },
+      { "trigger": "save", "effect": "text", "signals": [] },
+      {
+        "trigger": "guide",
+        "effect": "navigation",
+        "navigates": true,
+        "signals": []
+      },
+      { "trigger": "tab-team", "effect": "text", "signals": [] },
+      { "trigger": "focus-search", "effect": "focus", "signals": [] },
+      { "trigger": "to-latest", "effect": "scroll", "signals": [] }
+    ]
+  },
+
+  "sig-a11y": {
+    "load": [
+      {
+        "signal": {
+          "kind": "a11y",
+          "severity": "major",
+          "rule": "image-alt",
+          "impact": "critical"
+        },
+        "elements": [{ "id": "logo" }, { "id": "frame-photo", "frame": "note" }]
+      },
+      {
+        "signal": {
+          "kind": "a11y",
+          "severity": "major",
+          "rule": "button-name",
+          "impact": "critical"
+        },
+        "elements": [{ "id": "icon-button" }, { "id": "shadow-button" }]
+      },
+      {
+        "signal": {
+          "kind": "a11y",
+          "severity": "major",
+          "rule": "link-name",
+          "impact": "serious"
+        },
+        "elements": [{ "id": "icon-link" }]
+      },
+      {
+        "signal": {
+          "kind": "a11y",
+          "severity": "major",
+          "rule": "label",
+          "impact": "critical"
+        },
+        "elements": [{ "id": "search" }]
+      },
+      {
+        "signal": {
+          "kind": "a11y",
+          "severity": "major",
+          "rule": "select-name",
+          "impact": "critical"
+        },
+        "elements": [{ "id": "country" }]
+      },
+      {
+        "signal": {
+          "kind": "a11y",
+          "severity": "major",
+          "rule": "color-contrast",
+          "impact": "serious"
+        },
+        "elements": [{ "id": "fine-print" }]
+      },
+      {
+        "signal": {
+          "kind": "a11y",
+          "severity": "major",
+          "rule": "html-has-lang",
+          "impact": "serious"
+        },
+        "elements": []
+      },
+      {
+        "signal": {
+          "kind": "a11y",
+          "severity": "major",
+          "rule": "document-title",
+          "impact": "serious"
+        },
+        "elements": []
+      },
+      {
+        "signal": {
+          "kind": "a11y",
+          "severity": "major",
+          "rule": "aria-required-attr",
+          "impact": "critical"
+        },
+        "elements": [{ "id": "terms" }]
+      },
+      {
+        "signal": {
+          "kind": "a11y",
+          "severity": "major",
+          "rule": "aria-valid-attr-value",
+          "impact": "critical"
+        },
+        "elements": [{ "id": "mute" }]
+      },
+      {
+        "signal": {
+          "kind": "a11y",
+          "severity": "major",
+          "rule": "listitem",
+          "impact": "serious"
+        },
+        "elements": [{ "id": "orphan" }]
+      },
+      {
+        "signal": {
+          "kind": "a11y",
+          "severity": "major",
+          "rule": "frame-title",
+          "impact": "serious"
+        },
+        "elements": [{ "id": "note-frame" }]
+      }
+    ],
+    "triggers": []
+  },
+
+  "sig-silent": {
+    "load": [],
+    "triggers": [
+      {
+        "trigger": "save-silent",
+        "signals": [
+          {
+            "signal": {
+              "kind": "http_error",
+              "severity": "major",
+              "method": "POST",
+              "path": "/sig/api/settings",
+              "status": 500,
+              "resource_type": "fetch",
+              "feedback": false
+            }
+          }
+        ]
+      },
+      {
+        "trigger": "save-loud",
+        "signals": [
+          {
+            "signal": {
+              "kind": "http_error",
+              "severity": "major",
+              "method": "POST",
+              "path": "/sig/api/settings",
+              "status": 500,
+              "resource_type": "fetch",
+              "feedback": true
+            }
+          }
+        ]
+      }
+    ]
+  },
+
+  "sig-secrets": {
+    "secret_field": "password",
+    "load": [],
+    "triggers": [
+      {
+        "trigger": "in-query",
+        "signals": [
+          {
+            "signal": {
+              "kind": "http_error",
+              "severity": "major",
+              "method": "GET",
+              "path": "/sig/api/session",
+              "status": 500,
+              "resource_type": "fetch",
+              "feedback": true
+            }
+          }
+        ]
+      },
+      {
+        "trigger": "in-path",
+        "signals": [
+          {
+            "signal": {
+              "kind": "http_error",
+              "severity": "minor",
+              "method": "GET",
+              "status": 404,
+              "resource_type": "fetch",
+              "feedback": true
+            },
+            "starts_with": { "path": "/sig/api/reset/" }
+          }
+        ]
+      },
+      {
+        "trigger": "in-message",
+        "signals": [
+          {
+            "signal": {
+              "kind": "js_exception",
+              "severity": "major",
+              "source_path": "/sig-secrets",
+              "feedback": false
+            },
+            "contains": { "message": "is too weak" }
+          }
+        ]
+      },
+      {
+        "trigger": "in-stack",
+        "signals": [
+          {
+            "signal": {
+              "kind": "js_exception",
+              "severity": "major",
+              "source_path": "/sig-secrets",
+              "feedback": false
+            },
+            "contains": { "message": "Key derivation failed" }
+          }
+        ]
+      },
+      {
+        "trigger": "in-console",
+        "signals": [
+          {
+            "signal": { "kind": "console_error", "severity": "minor" },
+            "contains": { "message": "login failed with password" }
+          }
+        ]
+      },
+      {
+        "trigger": "in-rejection",
+        "signals": [
+          {
+            "signal": { "kind": "unhandled_rejection", "severity": "major" },
+            "contains": { "message": "was refused" }
+          }
+        ]
+      }
+    ]
+  }
+}

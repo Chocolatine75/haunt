@@ -17,6 +17,7 @@ import {
 import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { handleSignalRoute } from './signal-routes.js';
 
 declare global {
   interface Window {
@@ -52,12 +53,31 @@ export const GAUNTLET_PAGES = [
 
 export type GauntletPage = (typeof GAUNTLET_PAGES)[number];
 
+// Part 2's pages. Each plants defects the engine has to detect by itself,
+// and exists in two variants, ?variant=buggy (the default) and
+// ?variant=clean, identical except for the defects. What each must and must
+// not produce is in ground-truth.json. Kept apart from GAUNTLET_PAGES, which
+// load without an error of any kind.
+export const SIGNAL_PAGES = [
+  'sig-http',
+  'sig-exceptions',
+  'sig-network',
+  'sig-blocking',
+  'sig-dead',
+  'sig-a11y',
+  'sig-silent',
+  'sig-secrets',
+] as const;
+
+export type SignalPage = (typeof SIGNAL_PAGES)[number];
+export type Variant = 'buggy' | 'clean';
+
 export interface Gauntlet {
   // Origin the pages are tested on.
   baseUrl: string;
   // A second origin serving the same app, for cross-origin frames.
   otherUrl: string;
-  url(page: GauntletPage, query?: string): string;
+  url(page: GauntletPage | SignalPage, query?: string): string;
   // "<METHOD> <path>" of every request, per origin.
   requests: { base: string[]; other: string[] };
   close(): Promise<void>;
@@ -92,9 +112,22 @@ async function handle(
   const url = new URL(req.url ?? '/', 'http://gauntlet');
   const path = url.pathname;
 
+  // {{#buggy}}...{{/buggy}} and {{#clean}}...{{/clean}} keep their content in
+  // that variant only, so a defect planted in the markup itself (a missing
+  // attribute, a script that throws while loading) has a clean twin.
+  const variant =
+    url.searchParams.get('variant') === 'clean' ? 'clean' : 'buggy';
   const html = (body: string) => {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(body.replaceAll('{{OTHER_ORIGIN}}', otherOrigin()));
+    res.end(
+      body
+        .replace(
+          /\{\{#(buggy|clean)\}\}([\s\S]*?)\{\{\/\1\}\}/g,
+          (_, only: string, inner: string) => (only === variant ? inner : ''),
+        )
+        .replaceAll('{{VARIANT}}', variant)
+        .replaceAll('{{OTHER_ORIGIN}}', otherOrigin()),
+    );
   };
 
   if (path === '/_g.js') {
@@ -107,6 +140,8 @@ async function handle(
     res.end(file('style.css'));
     return;
   }
+
+  if (await handleSignalRoute(req, res, url)) return;
 
   // Async combobox options, slow on purpose.
   if (path === '/api/options') {
@@ -197,15 +232,21 @@ async function handle(
     html(file(join('pages', 'spa.html')));
     return;
   }
-  if ((GAUNTLET_PAGES as readonly string[]).includes(first)) {
+  if (
+    (GAUNTLET_PAGES as readonly string[]).includes(first) ||
+    (SIGNAL_PAGES as readonly string[]).includes(first)
+  ) {
     html(file(join('pages', `${first}.html`)));
     return;
   }
   if (path === '/') {
     html(
-      `<title>Gauntlet</title><h1>Gauntlet</h1><ul>${GAUNTLET_PAGES.map(
-        (p) => `<li><a href="/${p}">${p}</a></li>`,
-      ).join('')}</ul>`,
+      `<title>Gauntlet</title><h1>Gauntlet</h1><ul>${[
+        ...GAUNTLET_PAGES,
+        ...SIGNAL_PAGES,
+      ]
+        .map((p) => `<li><a href="/${p}">${p}</a></li>`)
+        .join('')}</ul>`,
     );
     return;
   }
