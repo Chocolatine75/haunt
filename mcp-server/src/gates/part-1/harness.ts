@@ -18,6 +18,8 @@ import {
   type HauntClient,
   connectInMemory,
 } from '../../test-support/mcp-client.js';
+import type { Signal } from '../part-2/contract.js';
+import { unplanted } from '../part-2/planted.js';
 import type {
   ActResult,
   Action,
@@ -56,6 +58,17 @@ export function gate(
 ): void {
   const run = PASSING.has(id) ? it : it.fails;
   run(`${id} [${requirements}] ${name}`, fn, timeoutMs);
+}
+
+// Part 2 (S2.3): the part 1 gate, run with signals collected, raises none
+// on a page that plants none. Checked on every session a gate test opens on
+// one of part 1's pages, when it ends or when the test does. Does nothing
+// while the engine collects no signals.
+function expectNoneUnplanted(signals: Signal[] | undefined): void {
+  const onPart1 = (signals ?? []).filter(
+    (signal) => !new URL(signal.url).pathname.startsWith('/sig'),
+  );
+  expect(unplanted(onPart1), 'signals a part 1 page did not plant').toEqual([]);
 }
 
 export class Session {
@@ -161,6 +174,7 @@ export class Session {
       sandbox_blocked_requests: string[];
     }>('haunt_end_session', { session_id: this.id });
     if (result.isError) throw new Error(result.text);
+    expectNoneUnplanted((result.data as { signals?: Signal[] }).signals);
     return result.data;
   }
 
@@ -256,6 +270,9 @@ export interface GateContext {
   ): Promise<Session>;
   openUrl(url: string, spawn?: Record<string, unknown>): Promise<Session>;
   haunt: HauntClient;
+  // Closes the open sessions without looking at what they produced: for a
+  // test that broke the engine on purpose.
+  discard(): Promise<void>;
 }
 
 // Call once at the top of a gate file's describe block.
@@ -279,11 +296,21 @@ export function useGauntlet(): GateContext {
     }) as HauntClient['call'];
   });
 
-  afterEach(async () => {
+  const closeAll = async (): Promise<Signal[]> => {
+    const signals: Signal[] = [];
     for (const session of manager.all()) {
+      signals.push(...((session as { signals?: Signal[] }).signals ?? []));
       await session.browser.close().catch(() => {});
       manager.delete(session.id);
     }
+    return signals;
+  };
+  context.discard = async () => {
+    await closeAll();
+  };
+
+  afterEach(async () => {
+    expectNoneUnplanted(await closeAll());
   });
 
   afterAll(async () => {
