@@ -258,6 +258,19 @@ describe('hauntAct', () => {
     );
   });
 
+  it('labels something that is not an action as invalid, and says what an action looks like', async () => {
+    await open();
+    const result = await hauntAct(manager, { session_id, actions: ['submit'] });
+    expect(result.results[0]).toMatchObject({
+      type: 'invalid',
+      ok: false,
+      error: { code: 'invalid_action', parameter: 'type' },
+    });
+    expect(result.results[0].error?.message).toContain(
+      'An action is an object',
+    );
+  });
+
   it('throws for an unknown session', async () => {
     await expect(
       hauntAct(new SessionManager(), {

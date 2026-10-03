@@ -39,7 +39,6 @@ export function decideActionParameters(): Record<string, unknown> {
     properties: {
       actions: {
         type: 'array',
-        minItems: 1,
         maxItems: MAX_ACTIONS_PER_STEP,
         description:
           'Usually one action. Several only when the later ones do not depend on what the earlier ones do to the page (filling the fields of one form, for instance).',
@@ -78,7 +77,7 @@ export function decideActionParameters(): Record<string, unknown> {
         },
       },
     },
-    required: ['actions'],
+    required: [],
   };
 }
 
@@ -86,14 +85,12 @@ export function decideActionParameters(): Record<string, unknown> {
 // both providers land on the same {actions, issues?} shape once parsed. The
 // actions themselves are checked by the engine when they run.
 export function parseDecideActionInput(input: unknown): ActionDecision {
-  const parsed = input as { actions?: unknown; issues?: Issue[] };
-  if (!Array.isArray(parsed.actions) || parsed.actions.length === 0) {
-    throw new Error(
-      `${DECIDE_ACTION_TOOL_NAME} tool call was missing "actions"`,
-    );
-  }
+  const parsed = (input ?? {}) as { actions?: unknown; issues?: unknown };
+  // No actions is a legitimate answer ("nothing more to do here"), and the
+  // only one expected at the end of a session.
+  const actions = Array.isArray(parsed.actions) ? parsed.actions : [];
   return {
-    actions: parsed.actions.slice(0, MAX_ACTIONS_PER_STEP) as Action[],
-    issues: parsed.issues ?? [],
+    actions: actions.slice(0, MAX_ACTIONS_PER_STEP) as Action[],
+    issues: Array.isArray(parsed.issues) ? (parsed.issues as Issue[]) : [],
   };
 }

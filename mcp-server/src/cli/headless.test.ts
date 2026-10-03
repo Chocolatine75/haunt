@@ -28,6 +28,7 @@ describe('parseArgs', () => {
       provider: undefined,
       model: undefined,
       headless: true,
+      verbose: false,
     });
   });
 
@@ -55,6 +56,13 @@ describe('parseArgs', () => {
     expect(opts.provider).toBe('mistral');
     expect(opts.model).toBe('mistral-small-latest');
     expect(opts.headless).toBe(false);
+  });
+
+  it('parses --verbose', () => {
+    expect(parseArgs(['http://localhost:3000']).verbose).toBe(false);
+    expect(parseArgs(['http://localhost:3000', '--verbose']).verbose).toBe(
+      true,
+    );
   });
 
   it('throws when no URL is given', () => {

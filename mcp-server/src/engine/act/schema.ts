@@ -176,6 +176,13 @@ export type Validation =
   | { ok: false; parameter: string; message: string };
 
 export function validateAction(input: unknown): Validation {
+  if (typeof input !== 'object' || input === null) {
+    return {
+      ok: false,
+      parameter: 'type',
+      message: `An action is an object such as {"type": "click", "ref": "e12"}; got ${JSON.stringify(input)}.`,
+    };
+  }
   const parsed = actionSchema.safeParse(input);
   if (parsed.success) return { ok: true, action: parsed.data };
   const issue = parsed.error.issues[0];

@@ -26,6 +26,7 @@ import type {
 import { hauntGenerateReport } from '../engine/report/generate-report.js';
 import { SessionManager } from '../engine/session/manager.js';
 import { hauntSpawn } from '../engine/spawn.js';
+import type { Issue } from '../engine/types.js';
 import type { ActResult } from '../gates/part-1/contract.js';
 import { authenticate } from './authenticate.js';
 import { createAnthropicDecider } from './providers/anthropic.js';
@@ -41,13 +42,15 @@ export interface CliOptions {
   provider?: Provider;
   model?: string;
   headless: boolean;
+  // Print each decision and what it did, to stderr.
+  verbose?: boolean;
   email?: string;
   password?: string;
   loginUrl?: string;
 }
 
 const USAGE =
-  'Usage: haunt-ci <url> [--personas p1,p2] [--steps N] [--provider anthropic|mistral] [--model id] [--headed] [--email addr --password pw] [--login-url url]';
+  'Usage: haunt-ci <url> [--personas p1,p2] [--steps N] [--provider anthropic|mistral] [--model id] [--headed] [--verbose] [--email addr --password pw] [--login-url url]';
 
 const VALUED_FLAGS = [
   'personas',
@@ -102,6 +105,7 @@ export function parseArgs(argv: string[]): CliOptions {
   }
 
   const headless = !argv.includes('--headed');
+  const verbose = argv.includes('--verbose');
 
   const email = getFlag('email');
   const password = getFlag('password');
@@ -116,6 +120,7 @@ export function parseArgs(argv: string[]): CliOptions {
     provider: providerFlag as Provider | undefined,
     model: getFlag('model'),
     headless,
+    verbose,
     email,
     password,
     loginUrl: getFlag('login-url'),
@@ -187,10 +192,22 @@ const SANDBOX_BLOCK_NOTE =
 
 const HOW_TO_ACT =
   'Elements are named by the reference in square brackets, e.g. [e12]. Use ' +
-  'that reference in your actions. A failed action is information about the ' +
-  'page (covered, disabled, gone), not necessarily a bug. An action that ' +
-  'changed nothing at all on a control that should do something is worth ' +
-  'reporting.';
+  'that reference in your actions; every action is an object with a "type". ' +
+  'A failed action is information about the page (covered, disabled, gone), ' +
+  'not necessarily a bug.\n' +
+  'Report an issue as soon as you have seen it — in this very answer, not ' +
+  'later. In particular, look at what your last actions did: a button or a ' +
+  'submit that changed nothing on the page, a server error in the console ' +
+  '(status 500, an exception), a form accepted or refused without any ' +
+  'message, private content shown without logging in. Each of those is an ' +
+  'issue a real user would hit.';
+
+// Asked once after the last step, so that what the last action revealed is
+// not lost: nothing would otherwise look at its result.
+const WRAP_UP =
+  'The session is over: no further action will be run, so leave "actions" ' +
+  'empty. Report in "issues" anything you have seen and not reported yet, ' +
+  'including what your last actions just revealed.';
 
 // What the last decision did, in a few lines the next decision can use.
 function describeOutcome(result: ActResult): string {
@@ -256,6 +273,7 @@ async function runPersonaSession(
   steps: number,
   headless: boolean,
   cookies?: Cookie[],
+  log: (line: string) => void = () => {},
 ): Promise<SessionResult> {
   const authenticated = Boolean(cookies && cookies.length > 0);
   const spawnResult = await hauntSpawn(manager, {
@@ -267,6 +285,7 @@ async function runPersonaSession(
     cookies,
   });
 
+  let finalIssues: Issue[] = [];
   try {
     let last: ActResult | undefined;
     for (let step = 1; step <= steps; step++) {
@@ -280,11 +299,39 @@ async function runPersonaSession(
         describeState(state.text, step, steps, authenticated, last),
       );
 
+      log(
+        `[${spawnResult.persona_name}] step ${step}: ${JSON.stringify(actions)}${issues.length > 0 ? ` (+${issues.length} issue(s))` : ''}`,
+      );
+      if (actions.length === 0) {
+        // Nothing it wants to do. Its issues still count.
+        manager.get(spawnResult.session_id).issues.push(...issues);
+        last = undefined;
+        continue;
+      }
       last = await hauntAct(manager, {
         session_id: spawnResult.session_id,
         actions,
         issues,
       });
+      log(describeOutcome(last).replace(/^/gm, '    '));
+    }
+
+    // One more question, no more actions: what did the last step show?
+    if (last) {
+      const state = await hauntCaptureState(manager, {
+        session_id: spawnResult.session_id,
+        format: 'text',
+      });
+      // If the model fumbles this last answer, the session's findings so far
+      // are worth more than the error.
+      const { issues } = await decide(
+        spawnResult.persona_description,
+        `${describeState(state.text, steps, steps, authenticated, last)}\n\n${WRAP_UP}`,
+      ).catch(() => ({ issues: [] as Issue[] }));
+      finalIssues = issues;
+      log(
+        `[${spawnResult.persona_name}] wrap-up: ${issues.length} more issue(s)`,
+      );
     }
   } catch (error) {
     // The browser must not outlive a session that failed half-way.
@@ -298,6 +345,7 @@ async function runPersonaSession(
 
   const endResult = await hauntEndSession(manager, {
     session_id: spawnResult.session_id,
+    issues: finalIssues,
   });
 
   return {
@@ -317,7 +365,10 @@ export interface HeadlessRunResult {
 export async function runHeadlessTest(
   decide: ActionDecider,
   manager: SessionManager,
-  options: Pick<CliOptions, 'targetUrl' | 'personas' | 'steps' | 'headless'> & {
+  options: Pick<
+    CliOptions,
+    'targetUrl' | 'personas' | 'steps' | 'headless' | 'verbose'
+  > & {
     cookies?: Cookie[];
   },
 ): Promise<HeadlessRunResult> {
@@ -331,6 +382,7 @@ export async function runHeadlessTest(
         options.steps,
         options.headless,
         options.cookies,
+        options.verbose ? (line) => console.error(line) : undefined,
       ),
     ),
   );

@@ -179,6 +179,12 @@ export const TOOLS: ToolDefinition[] = [
         .describe(
           "The orchestrator's summary of the session from the persona's perspective",
         ),
+      issues: z
+        .array(issueSchema)
+        .optional()
+        .describe(
+          'Issues found since the last haunt_act call, typically from the result of the last action',
+        ),
     }),
     run: (manager, input) => hauntEndSession(manager, input),
   }),

@@ -60,6 +60,12 @@ export async function hauntSpawn(
 
   const browser = await chromium.launch({
     headless: input.headless ?? personaConfig.browser.headless,
+    // Every response reaches the page through the sandbox's route handler,
+    // which makes Chromium treat the document as coming from a public
+    // address. Its local-network-access check then refuses the app's own
+    // WebSocket on localhost. The sandbox below is what decides where the
+    // session may connect, so that check is turned off.
+    args: ['--disable-features=LocalNetworkAccessChecks'],
   });
 
   const context = await browser.newContext({
@@ -93,6 +99,32 @@ export async function hauntSpawn(
   const allowedOrigins = new Set<string>();
   const sandboxBlockedRequests: string[] = [];
   let capturingAllowlist = true;
+
+  // WebSockets do not go through context.route, so they get the same rule
+  // here: the app's own origins connect, anything else is closed and
+  // recorded. (ws://host is the same origin as http://host for this purpose.)
+  await context.routeWebSocket(/.*/, (ws) => {
+    let origin: string;
+    let originAndPath: string;
+    try {
+      const parsed = new URL(ws.url());
+      const scheme = parsed.protocol === 'wss:' ? 'https:' : 'http:';
+      origin = `${scheme}//${parsed.host}`;
+      originAndPath = `${parsed.protocol}//${parsed.host}${parsed.pathname}`;
+    } catch {
+      sandboxBlockedRequests.push(`WS ${ws.url()} (unparseable URL)`);
+      ws.close({ code: 1008, reason: 'blocked by the haunt test sandbox' });
+      return;
+    }
+    if (capturingAllowlist) {
+      allowedOrigins.add(origin);
+    } else if (!allowedOrigins.has(origin)) {
+      sandboxBlockedRequests.push(`WS ${originAndPath}`);
+      ws.close({ code: 1008, reason: 'blocked by the haunt test sandbox' });
+      return;
+    }
+    ws.connectToServer();
+  });
 
   await context.route('**/*', async (route) => {
     const request = route.request();
