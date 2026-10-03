@@ -236,7 +236,11 @@ export function useEvidence(): EvidenceContext {
       .filter(Boolean)
       .join('&');
     const url = context.gauntlet.url(page, query);
-    const opened = await context.openUrl(url, { timeout: 400, ...spawn });
+    const opened = await context.openUrl(url, {
+      timeout: 400,
+      replay_budget_ms: 120_000,
+      ...spawn,
+    });
     const spawned = JSON.parse(
       context.transcript[context.transcript.length - 1],
     );

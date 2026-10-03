@@ -70,6 +70,7 @@ describe('E4 secrets', () => {
                 issues: session.ended?.issues_found ?? [],
                 rejected: session.ended?.rejected ?? [],
                 signals: session.ended?.signals ?? [],
+                signal_verification: session.ended?.signal_verification ?? {},
               },
             ],
           },

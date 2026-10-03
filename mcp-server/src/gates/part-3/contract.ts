@@ -81,8 +81,11 @@ export interface VerifiedIssue extends ClaimedIssue {
   verification: Verification;
 }
 
-// A signal no issue names, verified the same way (R-E10).
-export type VerifiedSignal = Signal & { verification: Verification };
+// How each signal of the session was verified (R-E10), by its id. Decided
+// here: kept beside the signals rather than in them, so that a signal is the
+// same object in an action's result, the session's and the report's (part
+// 2's S7.1).
+export type SignalVerifications = Record<string, Verification>;
 
 // haunt_spawn: how long a session's replays may take (R-E11), default
 // 120000. Decided here: the size a bundle of this session may reach (R-E16),
@@ -95,14 +98,15 @@ export interface SpawnEvidenceInput {
 
 // haunt_end_session (R-E17). Decided here: `issues_found` holds the issues
 // that were not rejected, confirmed, flaky or unverified, and `rejected`
-// the others; `signals` carries each signal's verification.
+// the others; `signal_verification` how each signal fared.
 export interface EndSessionEvidenceOutput {
   session_id: string;
   step_count: number;
   issues_found: VerifiedIssue[];
   rejected: VerifiedIssue[];
   sandbox_blocked_requests: string[];
-  signals: VerifiedSignal[];
+  signals: Signal[];
+  signal_verification: SignalVerifications;
 }
 
 // ---------------------------------------------------------------------------
@@ -113,15 +117,12 @@ export interface EndSessionEvidenceOutput {
 export interface Locator {
   role: string;
   name: string;
-  // Among the elements with this role and name, in document order.
+  // Among the elements with this role, name and path, in reading order.
   index: number;
-  // data-frame-free description of the frames and shadow roots on the way,
-  // outermost first: a frame by its URL path and index among frames with
-  // that path, a shadow root by its host's locator.
-  path: Array<
-    | { frame: string; index: number }
-    | { shadow: { role: string; name: string; tag: string; index: number } }
-  >;
+  // The frames and shadow roots on the way, outermost first: a frame by its
+  // URL path and its index among the frames beside it with that path, a
+  // shadow root by its index among the shadow roots beside it.
+  path: Array<{ frame: string; index: number } | { shadow: number }>;
 }
 
 // One action as recorded: the action with its references taken out, and a
@@ -210,7 +211,8 @@ export interface ReportEvidenceSession {
   overall_impression: string;
   issues: VerifiedIssue[];
   rejected?: VerifiedIssue[];
-  signals?: VerifiedSignal[];
+  signals?: Signal[];
+  signal_verification?: SignalVerifications;
 }
 
 export interface ReportEvidenceSidecar {
@@ -218,5 +220,6 @@ export interface ReportEvidenceSidecar {
   flaky: VerifiedIssue[];
   unverified: VerifiedIssue[];
   rejected: VerifiedIssue[];
-  signals: VerifiedSignal[];
+  signals: Signal[];
+  signal_verification: SignalVerifications;
 }
