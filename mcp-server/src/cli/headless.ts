@@ -28,6 +28,7 @@ import { SessionManager } from '../engine/session/manager.js';
 import { hauntSpawn } from '../engine/spawn.js';
 import type { Issue } from '../engine/types.js';
 import type { ActResult } from '../gates/part-1/contract.js';
+import type { ActSignalsResult, Signal } from '../gates/part-2/contract.js';
 import { authenticate } from './authenticate.js';
 import { isClaudeCodeAvailable, runViaClaudeCode } from './claude-code.js';
 import { createAnthropicDecider } from './providers/anthropic.js';
@@ -213,8 +214,23 @@ const WRAP_UP =
   'empty. Report in "issues" anything you have seen and not reported yet, ' +
   'including what your last actions just revealed.';
 
+// Signals in a few lines: the engine's own findings, which the decider
+// should turn into issues rather than have to notice.
+function describeSignals(title: string, signals: Signal[]): string[] {
+  if (signals.length === 0) return [];
+  return [
+    `${title} (found by the engine; report each as an issue naming its id in "signal"):`,
+    ...signals
+      .slice(0, 10)
+      .map(
+        (s) =>
+          `- ${s.id} [${s.severity}] ${s.message}${s.late ? ' (caused by an earlier step)' : ''}`,
+      ),
+  ];
+}
+
 // What the last decision did, in a few lines the next decision can use.
-function describeOutcome(result: ActResult): string {
+function describeOutcome(result: ActSignalsResult): string {
   const lines = result.results.map((step, i) => {
     if (!step.ok)
       return `${i + 1}. ${step.type}: FAILED — ${step.error?.message}`;
@@ -266,6 +282,7 @@ function describeOutcome(result: ActResult): string {
       `Failed requests: ${result.network_errors.slice(0, 5).join(' | ')}`,
     );
   }
+  lines.push(...describeSignals('What went wrong', result.signals));
   return `Your last actions:\n${lines.join('\n')}`;
 }
 
@@ -274,10 +291,16 @@ function describeState(
   step: number,
   steps: number,
   authenticated: boolean,
-  last?: ActResult,
+  last?: ActSignalsResult,
+  atLoad: Signal[] = [],
 ): string {
   const sections = [`Step ${step} of ${steps}\n\n${snapshot}`, HOW_TO_ACT];
   if (last) sections.push(describeOutcome(last));
+  const loaded = describeSignals(
+    'What went wrong while the page loaded',
+    atLoad,
+  );
+  if (loaded.length > 0) sections.push(loaded.join('\n'));
   if (!authenticated) sections.push(UNAUTHENTICATED_NOTE);
   if (last?.sandbox_blocked?.length) {
     sections.push(`${SANDBOX_BLOCK_NOTE}${last.sandbox_blocked.join('; ')}`);
@@ -307,7 +330,7 @@ async function runPersonaSession(
 
   let finalIssues: Issue[] = [];
   try {
-    let last: ActResult | undefined;
+    let last: ActSignalsResult | undefined;
     for (let step = 1; step <= steps; step++) {
       const state = await hauntCaptureState(manager, {
         session_id: spawnResult.session_id,
@@ -316,7 +339,14 @@ async function runPersonaSession(
 
       const { actions, issues } = await decide(
         spawnResult.persona_description,
-        describeState(state.text, step, steps, authenticated, last),
+        describeState(
+          state.text,
+          step,
+          steps,
+          authenticated,
+          last,
+          step === 1 ? spawnResult.signals : [],
+        ),
       );
 
       log(
@@ -374,12 +404,17 @@ async function runPersonaSession(
     overall_impression: endResult.overall_impression,
     issues: endResult.issues_found,
     sandbox_blocked_requests: endResult.sandbox_blocked_requests,
+    signals: endResult.signals,
   };
 }
 
 export interface HeadlessRunResult {
   report: GenerateReportOutput;
   failures: string[];
+  // 1 for a critical or major issue, or a major signal no issue took up
+  // (R-S22): a model that reports nothing cannot turn a server error into a
+  // passing build.
+  exitCode: 0 | 1;
 }
 
 export async function runHeadlessTest(
@@ -431,7 +466,11 @@ export async function runHeadlessTest(
     sessions,
   });
 
-  return { report, failures };
+  const blocking =
+    report.counts.critical > 0 ||
+    report.counts.major > 0 ||
+    report.signal_counts.major > 0;
+  return { report, failures, exitCode: blocking ? 1 : 0 };
 }
 
 // Invoked by bin.ts — the only module that calls it, so importing this file
@@ -532,17 +571,19 @@ export async function main() {
   }
 
   try {
-    const { report, failures } = await runHeadlessTest(decide, manager, {
-      ...options,
-      cookies,
-    });
+    const { report, failures, exitCode } = await runHeadlessTest(
+      decide,
+      manager,
+      {
+        ...options,
+        cookies,
+      },
+    );
     for (const failure of failures) {
       console.error(`skipped ${failure}`);
     }
     console.log(report.summary);
-
-    const blocking = report.counts.critical > 0 || report.counts.major > 0;
-    process.exit(blocking ? 1 : 0);
+    process.exit(exitCode);
   } catch (error) {
     console.error(
       'haunt-ci failed:',

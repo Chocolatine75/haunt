@@ -66,6 +66,11 @@ export function decideActionParameters(): Record<string, unknown> {
             description: { type: 'string' },
             page_url: { type: 'string' },
             recommendation: { type: 'string' },
+            signal: {
+              type: 'string',
+              description:
+                'The id of the detected signal this issue is about (s3), if any',
+            },
           },
           required: [
             'severity',

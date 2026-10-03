@@ -19,6 +19,9 @@ export interface Issue {
   page_url: string;
   screenshot_path?: string;
   recommendation: string;
+  // The id of the signal this issue is about (part 2, R-S21): the report
+  // shows the signal under the issue instead of on its own.
+  signal?: string;
 }
 
 export interface PersonaScenario {

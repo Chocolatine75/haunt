@@ -40992,6 +40992,7 @@ async function hauntEndSession(manager, input) {
 
 // src/engine/report/generate-report.ts
 import { existsSync as existsSync2, mkdirSync as mkdirSync2, readFileSync, writeFileSync } from "fs";
+var SIGNALS_HEADING = "Detected automatically";
 var SEVERITY_ORDER = [
   "critical",
   "major",
@@ -41053,7 +41054,11 @@ function compareIssues(oldIssues, newIssues, compareWith) {
     new_count: newIssues.filter((i) => !oldKeys.has(issueKey(i))).length
   };
 }
-function renderIssueBlock(issue, index, previousKeys) {
+function renderSignal(signal) {
+  const times = signal.count > 1 ? `, ${signal.count} times` : "";
+  return `- [${signal.severity.toUpperCase()}] ${signal.message} \u2014 \`${signal.url}\` (step ${signal.step}${times})`;
+}
+function renderIssueBlock(issue, index, previousKeys, signals = []) {
   const statusTag = previousKeys ? previousKeys.has(issueKey(issue)) ? " _(still present)_" : " _(new)_" : "";
   const lines = [
     `### ${index + 1}. [${issue.severity.toUpperCase()}] ${issue.description}${statusTag}`,
@@ -41065,6 +41070,9 @@ function renderIssueBlock(issue, index, previousKeys) {
     lines.push(
       `- **Likely file:** \`${file}\` *(AI estimate \u2014 verify before editing)*`
     );
+  }
+  for (const signal of signals) {
+    lines.push(`- **Detected:** ${renderSignal(signal).slice(2)}`);
   }
   return lines.join("\n");
 }
@@ -41091,13 +41099,19 @@ function renderComparisonSection(comparison) {
 function renderSandboxBlockedSection(blocked) {
   return blocked.map((entry) => `- ${entry}`).join("\n");
 }
-function renderSummary(sessions, sortedIssues, counts, topFix, reportPath, comparison) {
+function renderSummary(sessions, sortedIssues, counts, signalCounts, topFix, reportPath, comparison) {
   const rule = "-".repeat(40);
   const lines = [
     rule,
     `${sessions.length} areas tested \xB7 ${counts.total} issues`,
     ""
   ];
+  if (signalCounts.total > 0) {
+    lines.push(
+      `${signalCounts.total} more detected automatically (${signalCounts.major} major)`,
+      ""
+    );
+  }
   if (counts.critical > 0) lines.push(`[!!!] ${counts.critical} critical`);
   if (counts.major > 0) lines.push(` [!!] ${counts.major} major`);
   if (counts.minor > 0) lines.push(`  [!] ${counts.minor} minor`);
@@ -41134,6 +41148,24 @@ function hauntGenerateReport(input) {
   );
   const counts = countBySeverity(allIssues);
   const top_fix = sorted[0]?.recommendation ?? "";
+  const named = /* @__PURE__ */ new Map();
+  const unnamed = [];
+  for (const session of input.sessions) {
+    const taken = /* @__PURE__ */ new Set();
+    for (const issue of session.issues) {
+      const signal = session.signals?.find((s) => s.id === issue.signal);
+      if (!signal) continue;
+      named.set(issue, [signal]);
+      taken.add(signal.id);
+    }
+    unnamed.push(...(session.signals ?? []).filter((s) => !taken.has(s.id)));
+  }
+  const allSignals = input.sessions.flatMap((s) => s.signals ?? []);
+  const signal_counts = {
+    total: unnamed.length,
+    major: unnamed.filter((s) => s.severity === "major").length,
+    minor: unnamed.filter((s) => s.severity === "minor").length
+  };
   const personaSlug = input.personas.join("-").toLowerCase().replace(/[^a-z0-9-]+/g, "-");
   const report_path = `${REPORTS_DIR}/${date}-${personaSlug}.md`;
   let comparison;
@@ -41160,10 +41192,16 @@ function hauntGenerateReport(input) {
     `  critical: ${counts.critical}`,
     `  major: ${counts.major}`,
     `  minor: ${counts.minor}`,
+    "signals:",
+    `  total: ${signal_counts.total}`,
+    `  major: ${signal_counts.major}`,
+    `  minor: ${signal_counts.minor}`,
     `top_fix: "${top_fix.replace(/"/g, "'")}"`,
     "---"
   ].join("\n");
-  const issuesSection = sorted.length ? sorted.map((issue, i) => renderIssueBlock(issue, i, previousKeys)).join("\n\n") : "_No issues found._";
+  const issuesSection = sorted.length ? sorted.map(
+    (issue, i) => renderIssueBlock(issue, i, previousKeys, named.get(issue))
+  ).join("\n\n") : "_No issues found._";
   const impressionsSection = input.sessions.map((s) => `**${s.area} \u2014 ${s.persona}:** "${s.overall_impression}"`).join("\n");
   const forClaudeSection = sorted.length ? sorted.map(renderForClaudeLine).join("\n") : "_No issues found._";
   const bodySections = [
@@ -41174,12 +41212,21 @@ function hauntGenerateReport(input) {
     "",
     "## Issues",
     "",
-    issuesSection,
-    "",
-    "## Session Impressions",
-    "",
-    impressionsSection
+    issuesSection
   ];
+  if (unnamed.length > 0) {
+    bodySections.push(
+      "",
+      `## ${SIGNALS_HEADING}`,
+      "",
+      "Found by the engine itself, not by a tester: server errors, exceptions, failed and slow requests, dead controls, accessibility violations.",
+      "",
+      [...unnamed].sort(
+        (a, b) => a.severity === b.severity ? 0 : a.severity === "major" ? -1 : 1
+      ).map(renderSignal).join("\n")
+    );
+  }
+  bodySections.push("", "## Session Impressions", "", impressionsSection);
   if (counts.total > 0) {
     bodySections.push("", "## Top Fix", "", top_fix);
   }
@@ -41205,6 +41252,7 @@ function hauntGenerateReport(input) {
     "The following issues were found by Haunt. Fix them in order of severity.",
     "",
     forClaudeSection,
+    ...unnamed.length > 0 ? ["", `Then fix what is listed under "${SIGNALS_HEADING}".`] : [],
     "",
     `After fixing, run \`/haunt:haunt-test ${input.target_url}\` again to verify.`
   );
@@ -41228,7 +41276,11 @@ function hauntGenerateReport(input) {
         target_url: input.target_url,
         date,
         personas: input.personas,
-        issues: sorted
+        issues: sorted.map(
+          (issue) => named.has(issue) ? { ...issue, signals: named.get(issue) } : issue
+        ),
+        signals: allSignals,
+        signal_counts
       },
       null,
       2
@@ -41239,6 +41291,7 @@ function hauntGenerateReport(input) {
     input.sessions,
     sorted,
     counts,
+    signal_counts,
     top_fix,
     report_path,
     comparison
@@ -41248,6 +41301,7 @@ function hauntGenerateReport(input) {
     markdown,
     summary,
     counts,
+    signal_counts,
     top_fix,
     comparison,
     comparison_error
