@@ -86,7 +86,8 @@ function expectNoneUnplanted(signals: Signal[] | undefined): void {
   )?.[1];
   const onPart1 = (signals ?? []).filter(
     (signal) =>
-      !new URL(signal.url).pathname.startsWith('/sig') &&
+      // Part 2's and part 3's pages plant their signals on purpose.
+      !/^\/(sig|ev)[-/]/.test(new URL(signal.url).pathname) &&
       !caused?.includes(signal.kind),
   );
   expect(unplanted(onPart1), 'signals a part 1 page did not plant').toEqual([]);
