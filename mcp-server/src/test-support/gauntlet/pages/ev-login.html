@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — ev-login</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<!--
+  A failure behind a login: a replay reaches it only if it types the email
+  and password again, which a bundle must not hold.
+-->
+<h1>Reports</h1>
+{{#out}}
+<form data-g="login" method="post" action="/ev/api/login?variant={{VARIANT}}">
+  <p><label>Email <input data-g="email" name="email" type="email" autocomplete="username"></label></p>
+  <p><label>Password <input data-g="password" name="password" type="password" autocomplete="current-password"></label></p>
+  <p><button data-g="sign-in" type="submit">Sign in</button></p>
+</form>
+{{/out}}
+{{#in}}
+<p><button data-g="export" type="button">Export reports</button></p>
+<p id="result" role="status"></p>
+<script>
+  window.__gauntlet.find('export').addEventListener('click', async () => {
+    const res = await fetch('/ev/api/export?variant={{VARIANT}}');
+    document.getElementById('result').textContent = res.ok ? 'Exported' : 'Export failed';
+  });
+</script>
+{{/in}}
+</body>
+</html>

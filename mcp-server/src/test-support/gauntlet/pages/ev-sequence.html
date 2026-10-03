@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — ev-sequence</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<!--
+  An order that fails with a 500 only when it is named and sent express:
+  three steps, and no two of them are enough.
+-->
+<h1>Order</h1>
+<form data-g="order" id="order">
+  <p><label>Name <input data-g="name" name="name" type="text"></label></p>
+  <p><label>Shipping
+    <select data-g="shipping" name="shipping">
+      <option value="standard">Standard</option>
+      <option value="express">Express</option>
+    </select>
+  </label></p>
+  <p><button data-g="submit" type="submit">Place order</button></p>
+</form>
+<p id="result" role="status"></p>
+<script>
+  const G = window.__gauntlet;
+  G.find('order').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const res = await fetch('/ev/api/order?variant={{VARIANT}}', {
+      method: 'POST',
+      body: new URLSearchParams(new FormData(event.target)),
+    });
+    document.getElementById('result').textContent = res.ok ? 'Order placed' : 'Something went wrong';
+  });
+</script>
+</body>
+</html>

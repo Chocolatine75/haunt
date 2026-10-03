@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — ev-flaky</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<!--
+  A save that fails on the first request of a run and then on one in five,
+  counted by the server per run (?run= in this page's address): a session
+  sees it fail, and ten replays see it fail exactly twice.
+-->
+<h1>Draft</h1>
+<p><button data-g="save" type="button">Save draft</button></p>
+<p id="result" role="status"></p>
+<script>
+  const run = new URLSearchParams(location.search).get('run') || '';
+  window.__gauntlet.find('save').addEventListener('click', async () => {
+    const res = await fetch(`/ev/api/save?variant={{VARIANT}}&run=${encodeURIComponent(run)}`, { method: 'POST' });
+    document.getElementById('result').textContent = res.ok ? 'Draft saved' : 'Could not save';
+  });
+</script>
+</body>
+</html>
