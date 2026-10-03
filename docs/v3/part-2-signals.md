@@ -43,7 +43,7 @@ missing `alt` against a crashed checkout beyond a default severity.
   | `unhandled_rejection` | A promise was rejected with nothing handling it | reason, stack |
   | `console_error` | The page called `console.error` | the text |
   | `long_task` | The main thread was blocked longer than the long-task threshold | how long |
-  | `dead_control` | A click on a button, link, tab or menu item changed nothing observable | the element's reference, role and name |
+  | `dead_control` | A click on a button, link, tab or menu item changed nothing observable and caused nothing else: no request, no other signal | the element's reference, role and name |
   | `a11y` | An accessibility rule is violated on the page (axe-core) | rule id, impact, the elements' references, help text |
 
 - **R-S3 Default severity.** `critical` is never assigned by the engine.
@@ -65,8 +65,10 @@ missing `alt` against a crashed checkout beyond a default severity.
 
 - **R-S6 By cause, not by arrival.** A signal belongs to the action during or
   after which its cause started: a request to the action that was running
-  when it was sent, an exception to the action running (or last run) when it
-  was thrown. Signals from the initial load belong to step 0.
+  when it was sent, an exception to the action that started what threw it
+  (the handler, the timer, the request whose answer it was handling), and to
+  the action running or last run only when that cannot be known. Signals
+  from the initial load belong to step 0.
 - **R-S7 Late signals are not lost and not misfiled.** A signal that arrives
   after its action's result was returned (an exception thrown later, a slow
   response still in flight) is delivered with the next result, still
@@ -88,8 +90,9 @@ missing `alt` against a crashed checkout beyond a default severity.
 - **R-S13 One fact, one signal.** The browser's own console line about a
   failed resource is the same fact as the `http_error`; a rejection that also
   reaches `console.error` is the same fact as the `unhandled_rejection`. Each
-  fact is reported once. A signal that repeats (the same kind, URL and
-  message) is one signal with a `count`.
+  fact is reported once. A signal that repeats within a step (the same kind,
+  URL and message) is one signal with a `count`; the same failure caused by
+  two different actions is two signals, one per step.
 - **R-S14 Expected statuses.** A 401 or 403 answering a request while the
   session is not logged in is still reported (as `minor`), since it may be a
   real defect, but is marked `while_logged_out` so that a tester or a report
@@ -116,8 +119,9 @@ missing `alt` against a crashed checkout beyond a default severity.
 
 ## F. Where signals go
 
-- **R-S19 In the action's result.** `haunt_act` returns the signals delivered
-  with it; `haunt_capture_state` can list those of the current page.
+- **R-S19 In the action's result.** `haunt_spawn` returns the signals of the
+  initial load; `haunt_act` returns the signals delivered with it;
+  `haunt_capture_state` can list those of the current page.
 - **R-S20 In the session's result.** `haunt_end_session` returns all of them,
   de-duplicated, with their counts.
 - **R-S21 In the report.** `haunt_generate_report` takes the sessions'
@@ -157,8 +161,8 @@ not produce.
 | Page | Planted |
 |---|---|
 | `sig-http` | A `fetch` answered 500, one answered 404, a missing image, a missing stylesheet, a form post answered 422, a document link answered 503, the same failing request made 20 times, a request answered 401 |
-| `sig-exceptions` | An exception on click, one 800 ms after a click, one at load, one inside a promise, one in an event handler of a frame, a `console.error`, a rejection the page also logs with `console.error` |
-| `sig-network` | A request whose connection is dropped, one that never answers, one that takes 4 s, one that takes 2 s (below the threshold), one cancelled by the page itself, one cancelled by navigating away, a download |
+| `sig-exceptions` | An exception on click, one 800 ms after a click, one at load, one inside a promise, one 2.5 s after a click (after the action has stopped waiting for the page), one in an event handler of a frame, a `console.error`, a rejection the page also logs with `console.error` |
+| `sig-network` | A request whose connection is dropped, one that never answers, one that takes 4 s, one that takes 6.5 s (longer than the settle cap), one that takes 2 s (below the threshold), one cancelled by the page itself, one cancelled by navigating away, a download |
 | `sig-blocking` | A 600 ms main-thread block on click, a 120 ms one (below the threshold) |
 | `sig-dead` | A button wired to nothing, a link going nowhere (`href="#"` with no handler), a tab that does not switch — and working ones beside them |
 | `sig-a11y` | Twelve violations, one per rule: image without `alt`, button without a name, link without a name, input without a label, select without a name, low contrast text, missing `lang`, empty page title, ARIA role without its required attribute, invalid ARIA attribute value, list item outside a list, frame without a title. Two of them a second time, inside an open shadow root and inside the frame |
@@ -195,13 +199,14 @@ not produce.
 
 1. Each signal of S1 carries the step of the action that caused it; load-time
    ones carry step 0.
-2. The exception thrown 800 ms after a click is attributed to that click,
-   whether it is delivered with that click's result or, when a second action
-   is issued at once, with the next result marked `late`.
+2. The exception thrown 800 ms after a click is attributed to that click
+   and delivered with its result. The one thrown 2.5 s after a click, once
+   the action has returned, is attributed to that click whatever was done in
+   between, and delivered with the next result, marked `late`.
 3. Two clicks 50 ms apart, each triggering its own failing request: each
    signal is attributed to its own click, over 30 repetitions.
-4. A 4 s response started by action 1 and finishing during action 3 is
-   attributed to step 1.
+4. A response slower than the settle cap, started by action 1 and finishing
+   during action 3, is attributed to step 1.
 5. An exception and a hung request caused by the last action, never followed
    by another, are in `haunt_end_session`'s result.
 
