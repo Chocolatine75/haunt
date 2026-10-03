@@ -10,6 +10,7 @@ import type {
   SnapshotContainer,
   SnapshotDiff,
   SnapshotElement,
+  TextChanges,
 } from '../../gates/part-1/contract.js';
 import { currentSabotage } from '../sabotage.js';
 import type { HauntSession } from '../types.js';
@@ -46,6 +47,8 @@ export interface SnapshotState {
   previous?: {
     comparable: Map<string, string>;
     textHash: string;
+    // The page's text lines, for telling what appeared or went away.
+    texts: string[];
     snapshot: Snapshot;
     elements: SnapshotElement[];
     containers: SnapshotContainer[];
@@ -129,6 +132,32 @@ export function diffBetween(
   }
   for (const ref of before.keys()) if (!now.has(ref)) diff.removed.push(ref);
   return diff;
+}
+
+const MAX_TEXT_CHANGES = 20;
+
+// Which lines of text are new and which are gone, between two readings of a
+// page. A line that merely moved is neither.
+export function textChanges(before: string[], after: string[]): TextChanges {
+  const count = (lines: string[]) => {
+    const counts = new Map<string, number>();
+    for (const line of lines) counts.set(line, (counts.get(line) ?? 0) + 1);
+    return counts;
+  };
+  const only = (lines: string[], other: Map<string, number>) => {
+    const left = new Map(other);
+    const result: string[] = [];
+    for (const line of lines) {
+      const n = left.get(line) ?? 0;
+      if (n > 0) left.set(line, n - 1);
+      else result.push(clip(line, MAX_TEXT_LINE_CHARS));
+    }
+    return result.slice(0, MAX_TEXT_CHANGES);
+  };
+  return {
+    added: only(after, count(before)),
+    removed: only(before, count(after)),
+  };
 }
 
 // The reference of an element known only by where it lives in its frame,
@@ -551,6 +580,7 @@ export async function takeSnapshot(
   // --- diff against the previous snapshot of this session
   const now = new Map(elements.map((e) => [e.ref, comparable(e)]));
   if (options.diff) {
+    snapshot.text_changes = textChanges(state.previous?.texts ?? [], textParts);
     snapshot.diff = diffBetween(
       state.previous?.comparable ?? new Map<string, string>(),
       elements,
@@ -569,6 +599,7 @@ export async function takeSnapshot(
     state.previous = {
       comparable: now,
       textHash: textParts.join('\n'),
+      texts: textParts,
       snapshot: { ...snapshot, elements: undefined, containers: undefined },
       elements,
       containers,

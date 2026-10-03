@@ -648,6 +648,28 @@ function diffBetween(before, elements) {
   for (const ref2 of before.keys()) if (!now.has(ref2)) diff.removed.push(ref2);
   return diff;
 }
+var MAX_TEXT_CHANGES = 20;
+function textChanges(before, after) {
+  const count = (lines) => {
+    const counts = /* @__PURE__ */ new Map();
+    for (const line of lines) counts.set(line, (counts.get(line) ?? 0) + 1);
+    return counts;
+  };
+  const only = (lines, other) => {
+    const left = new Map(other);
+    const result = [];
+    for (const line of lines) {
+      const n = left.get(line) ?? 0;
+      if (n > 0) left.set(line, n - 1);
+      else result.push(clip(line, MAX_TEXT_LINE_CHARS));
+    }
+    return result.slice(0, MAX_TEXT_CHANGES);
+  };
+  return {
+    added: only(after, count(before)),
+    removed: only(before, count(after))
+  };
+}
 function refOfLocal(session, frame, doc, local) {
   const state = session.snapshot;
   const id = frame === frame.page().mainFrame() ? "" : frameIdOf(state, frame);
@@ -986,6 +1008,7 @@ async function takeSnapshot(session, options = {}, internal = false) {
   if (!internal) render(snapshot, body, options.page);
   const now = new Map(elements.map((e) => [e.ref, comparable(e)]));
   if (options.diff) {
+    snapshot.text_changes = textChanges(state.previous?.texts ?? [], textParts);
     snapshot.diff = diffBetween(
       state.previous?.comparable ?? /* @__PURE__ */ new Map(),
       elements
@@ -1000,6 +1023,7 @@ async function takeSnapshot(session, options = {}, internal = false) {
     state.previous = {
       comparable: now,
       textHash: textParts.join("\n"),
+      texts: textParts,
       snapshot: { ...snapshot, elements: void 0, containers: void 0 },
       elements,
       containers,
@@ -6299,6 +6323,7 @@ async function hauntAct(manager, input) {
   }
   if (!current2) await takeSnapshot(session, { format: "json" }, true);
   const before = new Map(session.snapshot.previous?.comparable ?? []);
+  const textsBefore = [...session.snapshot.previous?.texts ?? []];
   const results = [];
   let stopped;
   for (let i = 0; i < input.actions.length; i++) {
@@ -6325,6 +6350,10 @@ async function hauntAct(manager, input) {
     url: page.isClosed() ? "" : page.url(),
     title: session.runtime.dialog ? "" : await withTimeout2(page.title(), 1e3) ?? "",
     diff: diffBetween(before, session.snapshot.previous?.elements ?? []),
+    text_changes: textChanges(
+      textsBefore,
+      session.snapshot.previous?.texts ?? []
+    ),
     console_errors: session.console_errors.splice(0),
     network_errors: session.network_errors.splice(0),
     step: session.step_count,

@@ -9,7 +9,7 @@ import {
   hauntGetCookies,
   hauntSpawn,
   zodToJsonSchema
-} from "./chunk-FBGX7WZF.js";
+} from "./chunk-L45QSF4Z.js";
 import {
   Anthropic
 } from "./chunk-MMWLM6BK.js";
@@ -34530,6 +34530,16 @@ function describeOutcome(result) {
   if (result.requested > result.executed) {
     lines.push(
       `(${result.requested - result.executed} further action(s) were not run)`
+    );
+  }
+  if (result.text_changes.added.length > 0) {
+    lines.push(
+      `Text that appeared: ${result.text_changes.added.slice(0, 8).map((t) => JSON.stringify(t)).join(", ")}`
+    );
+  }
+  if (result.text_changes.removed.length > 0) {
+    lines.push(
+      `Text that went away: ${result.text_changes.removed.slice(0, 8).map((t) => JSON.stringify(t)).join(", ")}`
     );
   }
   if (result.console_errors.length > 0) {

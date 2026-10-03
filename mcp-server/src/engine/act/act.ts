@@ -22,6 +22,7 @@ import {
   refOfLocal,
   similarTo,
   takeSnapshot,
+  textChanges,
 } from '../snapshot/snapshot.js';
 import type { HauntSession, Issue } from '../types.js';
 import {
@@ -1119,6 +1120,7 @@ export async function hauntAct(
   }
   if (!current) await takeSnapshot(session, { format: 'json' }, true);
   const before = new Map(session.snapshot.previous?.comparable ?? []);
+  const textsBefore = [...(session.snapshot.previous?.texts ?? [])];
 
   const results: StepResult[] = [];
   let stopped: StopReason | undefined;
@@ -1150,6 +1152,10 @@ export async function hauntAct(
       ? ''
       : ((await withTimeout(page.title(), 1_000)) ?? ''),
     diff: diffBetween(before, session.snapshot.previous?.elements ?? []),
+    text_changes: textChanges(
+      textsBefore,
+      session.snapshot.previous?.texts ?? [],
+    ),
     console_errors: session.console_errors.splice(0),
     network_errors: session.network_errors.splice(0),
     step: session.step_count,
