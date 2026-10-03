@@ -372,12 +372,18 @@ export function focusedElement(): Element | null {
   }
 }
 
-// Whether the page has stopped a timer or an interval that was still to run
-// since `since` (epoch ms).
-export function clearedSince(since: number): boolean {
-  const state = (window as unknown as { __haunt?: { lastCleared?: number } })
-    .__haunt;
-  return (state?.lastCleared ?? 0) >= since;
+// Whether the page did anything since `since` (epoch ms): changed its DOM,
+// even to what it already showed (a status line set to the same text), or
+// stopped a timer or an interval that was still to run.
+export function reactedSince(since: number): boolean {
+  const state = (
+    window as unknown as {
+      __haunt?: { lastCleared?: number; lastMutation?: number };
+    }
+  ).__haunt;
+  return (
+    (state?.lastCleared ?? 0) >= since || (state?.lastMutation ?? 0) >= since
+  );
 }
 
 // Milliseconds since this document last changed (a large number if never).

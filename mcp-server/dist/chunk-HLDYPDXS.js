@@ -1404,9 +1404,9 @@ function focusedElement() {
     active = inner;
   }
 }
-function clearedSince(since) {
+function reactedSince(since) {
   const state = window.__haunt;
-  return (state?.lastCleared ?? 0) >= since;
+  return (state?.lastCleared ?? 0) >= since || (state?.lastMutation ?? 0) >= since;
 }
 function sinceMutation() {
   const state = window.__haunt;
@@ -6530,7 +6530,7 @@ async function runStep(session, input) {
     const focusElsewhere = focusAfter > 0 && focusAfter !== focusBefore && !(target?.frame === page.mainFrame() && target.local === focusAfter);
     const nothing = !domChanged && !dialog && !download && !runtime.dialog && changes.tabs_opened.length === 0 && changes.tabs_closed.length === 0 && withoutFragment(changes.url_after) === withoutFragment(urlBefore) && !focusElsewhere && !scrolled(readBefore, after);
     if (nothing && element && CONTROL_ROLES.has(element.role) && !collector.causedAnything(stepNumber) && target && !target.frame.isDetached() && !await withTimeout2(
-      target.frame.evaluate(clearedSince, startedAt),
+      target.frame.evaluate(reactedSince, startedAt),
       1e3
     )) {
       collector.raiseDeadControl(stepNumber, page.url(), {

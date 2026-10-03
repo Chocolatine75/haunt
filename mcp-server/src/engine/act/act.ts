@@ -29,7 +29,6 @@ import {
 import type { HauntSession, Issue } from '../types.js';
 import {
   type Probe,
-  clearedSince,
   credentialField,
   fileInputFor,
   focusedElement,
@@ -38,6 +37,7 @@ import {
   listOptions,
   locate,
   probe,
+  reactedSince,
   scrollBy,
   scrollToText,
   sinceMutation,
@@ -1138,8 +1138,9 @@ async function runStep(
 
   // A click on a control that changed nothing a user could notice and set
   // nothing in motion (R-S2). Moving the focus elsewhere, scrolling
-  // something or stopping something that was running (a pause button) is an
-  // effect; landing on "#" of the same page is not.
+  // something, rewriting the DOM even to the same thing (opening what was
+  // already open) or stopping something that was running (a pause button)
+  // is an effect; landing on "#" of the same page is not.
   if (outcome.clicked && !error && !switched && !page.isClosed()) {
     const ref = outcome.clicked;
     const element = readBefore?.elements.find((el) => el.ref === ref);
@@ -1166,7 +1167,7 @@ async function runStep(
       target &&
       !target.frame.isDetached() &&
       !(await withTimeout(
-        target.frame.evaluate(clearedSince, startedAt),
+        target.frame.evaluate(reactedSince, startedAt),
         1_000,
       ))
     ) {
