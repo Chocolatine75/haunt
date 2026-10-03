@@ -585,6 +585,61 @@ export class SignalCollector {
     });
   }
 
+  // What an accessibility audit of the page at `url` found (R-S15, R-S16).
+  // A violation the session already knows on that page, the same elements
+  // included, is that signal again, not a new one.
+  fromAudit(
+    url: string,
+    step: number,
+    violations: Array<{
+      rule: string;
+      impact: 'minor' | 'moderate' | 'serious' | 'critical';
+      help: string;
+      nodes: number;
+      refs: string[];
+    }>,
+    options: { again?: boolean } = {},
+  ): Signal[] {
+    const page = withoutQuery(url);
+    const out: Signal[] = [];
+    for (const v of violations) {
+      const known = options.again
+        ? undefined
+        : this.signals.find(
+            (signal) =>
+              signal.kind === 'a11y' &&
+              signal.url === page &&
+              signal.rule === v.rule &&
+              signal.nodes === v.nodes &&
+              signal.refs.join() === v.refs.join(),
+          );
+      const signal =
+        known ??
+        this.raise({
+          kind: 'a11y',
+          url: page,
+          step,
+          rule: v.rule,
+          impact: v.impact,
+          nodes: v.nodes,
+          refs: v.refs,
+          help: v.help,
+          message: `${v.help} (${v.nodes} element${v.nodes === 1 ? '' : 's'})`,
+          severity:
+            v.impact === 'critical' || v.impact === 'serious'
+              ? 'major'
+              : 'minor',
+        });
+      if (signal) out.push(signal);
+    }
+    return out;
+  }
+
+  // Signals handed over now, outside the order of steps (an explicit audit).
+  handOverNow(signals: Signal[]): Signal[] {
+    return this.handOver(signals, this.currentStep + 1);
+  }
+
   // A value typed into a credential field (R-S18).
   addSecret(text: string): void {
     if (text.length >= MIN_SECRET_LENGTH && !this.secrets.includes(text)) {

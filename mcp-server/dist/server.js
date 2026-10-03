@@ -10,7 +10,7 @@ import {
   hauntGetCookies,
   hauntSpawn,
   zodToJsonSchema
-} from "./chunk-HLDYPDXS.js";
+} from "./chunk-3CS4KTMS.js";
 import {
   _enum,
   _null,
@@ -10661,7 +10661,10 @@ var TOOLS = [
       include_attributes: external_exports.array(external_exports.string()).optional().describe("Attributes to report for each element, e.g. data-testid"),
       include_screenshot: external_exports.boolean().optional().describe("Also save a screenshot. Default: false"),
       signals: external_exports.boolean().optional().describe(
-        "Also list every signal raised so far on the current page: HTTP errors, exceptions, failed, hung and slow requests, dead controls"
+        "Also list every signal raised so far on the current page: HTTP errors, exceptions, failed, hung and slow requests, dead controls, accessibility violations"
+      ),
+      audit: external_exports.boolean().optional().describe(
+        "Run the accessibility audit (axe-core, WCAG 2 A and AA) on the page as it is now and list its violations with the other signals of the page. Each page is already audited once, when first reached; ask again after the page has changed"
       )
     }),
     run: (manager, input) => hauntCaptureState(manager, input)

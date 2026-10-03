@@ -19,6 +19,7 @@ import type { ActSignalsResult } from '../../gates/part-2/contract.js';
 import { SESSION_TTL_MS } from '../constants.js';
 import { sabotaged } from '../sabotage.js';
 import type { SessionManager } from '../session/manager.js';
+import { auditIfNew } from '../signals/audit.js';
 import {
   diffBetween,
   refOfLocal,
@@ -1271,6 +1272,9 @@ export async function hauntAct(
     session.step_count++;
     const step = await runStep(session, input.actions[i]);
     results.push(step);
+    // A page reached for the first time is audited once it has settled,
+    // outside the step's own time (R-S15, R-S17).
+    await auditIfNew(session, session.step_count);
     const reason = stopAfter(step);
     // Whatever stops a sequence only matters if something was left to run.
     if (reason && (reason === 'failed' || i < input.actions.length - 1)) {

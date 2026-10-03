@@ -4,6 +4,7 @@ import type { Snapshot } from '../gates/part-1/contract.js';
 import type { Signal } from '../gates/part-2/contract.js';
 import { SCREENSHOTS_DIR, SESSION_TTL_MS } from './constants.js';
 import type { SessionManager } from './session/manager.js';
+import { auditNow } from './signals/audit.js';
 import { type SnapshotOptions, takeSnapshot } from './snapshot/snapshot.js';
 
 export interface CaptureInput extends SnapshotOptions {
@@ -11,6 +12,9 @@ export interface CaptureInput extends SnapshotOptions {
   include_screenshot?: boolean;
   // Also list every signal raised so far on the current page.
   signals?: boolean;
+  // Audit the page as it is now (R-S15). Implies `signals`, with this
+  // audit's findings in place of earlier ones.
+  audit?: boolean;
 }
 
 export type CaptureOutput = Snapshot & {
@@ -28,9 +32,20 @@ export async function hauntCaptureState(
   const session = manager.get(input.session_id);
   await manager.reapStale(SESSION_TTL_MS);
 
-  const { session_id, include_screenshot, signals, ...options } = input;
+  const { session_id, include_screenshot, signals, audit, ...options } = input;
   const output: CaptureOutput = await takeSnapshot(session, options);
-  if (signals) output.signals = session.collector.onPage(session.page.url());
+  if (audit) {
+    const { collector } = session;
+    const found = await auditNow(session, collector.currentStep);
+    output.signals = [
+      ...collector
+        .onPage(session.page.url())
+        .filter((signal) => signal.kind !== 'a11y'),
+      ...collector.handOverNow(found),
+    ];
+  } else if (signals) {
+    output.signals = session.collector.onPage(session.page.url());
+  }
 
   // A page frozen by a dialog cannot be photographed.
   if (include_screenshot && !session.runtime.dialog) {

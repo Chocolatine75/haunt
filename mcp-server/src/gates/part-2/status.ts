@@ -37,4 +37,14 @@ export const PASSING: ReadonlySet<string> = new Set<string>([
   'S7.1b',
   'S8.1',
   'S8.4',
+  // The accessibility audit.
+  'S1.1b',
+  'S1.2b',
+  'S2.1b',
+  'S2.2b',
+  'S5.1',
+  'S5.2',
+  'S5.3',
+  'S5.4',
+  'S8.1b',
 ]);
