@@ -169,10 +169,25 @@ reason), the regex grammar and its four verbs, errors arriving one step late,
 failed actions filed as app bugs, and the browser `haunt-ci` leaked when its
 decider threw.
 
+### October 3 — first live runs
+
+`/haunt-test` and `haunt-ci` were run for real against `demo/` after part 1.
+Fixed from what they showed: the app's own WebSockets were being refused
+(the sandbox made Chromium treat the page as public); `haunt-ci` never looked
+at the result of its last action; a message that appeared was invisible in an
+action's result, which produced false "no error message" issues
+(`text_changes` now reports it); the browser's validation bubble could not be
+read.
+
+`haunt-ci` now runs the real command through a headless Claude Code session
+by default, on the machine's Claude Code account, and keeps the API-key loop
+as a fallback.
+
 ## Decisions worth remembering
 
-- **The host LLM is the brain.** The server executes; it does not decide. Only
-  `haunt-ci` and `haunt-benchmark` call an LLM API themselves.
+- **The host LLM is the brain.** The server executes; it does not decide.
+  `haunt-ci` uses a headless Claude Code session by default; only its
+  API-key fallback and `haunt-benchmark` call an LLM API themselves.
 - **`dist/` and Playwright are committed.** About 14 MB, accepted so that
   installing the plugin needs no `npm install`. A stale `dist/` has shipped
   more than once; `distribution.test.ts` now fails when its tool list differs

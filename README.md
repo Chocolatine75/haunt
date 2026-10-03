@@ -185,44 +185,40 @@ No AI vision. No magic. A real browser, a snapshot of every element a user could
 
 ## 🤖 Run it in CI
 
-`/haunt-test` needs an interactive Claude Code session — it's not something a pipeline
-can invoke. `haunt-ci` is a standalone binary that runs the same phantom-user loop
-without one, calling an LLM API directly for the per-step reasoning. Anthropic and
-Mistral both work — pick whichever key you have, `haunt-ci` auto-detects which one is
-set (`--provider` forces it explicitly if both are):
+`/haunt-test` needs an interactive Claude Code session. `haunt-ci` is a
+standalone binary that runs the same thing without one, and exits like a test
+suite: `1` if any critical or major issue was found, `0` otherwise, `2` if it
+could not run.
 
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...   # or: export MISTRAL_API_KEY=...
 npx --package @haunt/mcp-server haunt-ci https://staging.example.com \
   --personas confused-beginner,malicious-user \
   --steps 3
 ```
 
-A `.env` file in the working directory (`mcp-server/.env` in this repo) is loaded
-automatically — put `ANTHROPIC_API_KEY=` or `MISTRAL_API_KEY=` there instead of
-exporting it. It's gitignored; never commit it.
-
-Add `--verbose` to see, on stderr, each action the model decided and what it did.
-
-Exits `1` if any critical or major issue was found (`0` otherwise), so it fails a
-build the way a test suite does:
+**With Claude Code installed (the default).** `haunt-ci` hands the real
+`/haunt-test` command to a headless Claude Code session, on the account that
+machine is logged into. No API key, the same route discovery and login as the
+interactive command, and only haunt's own tools are allowed in that session.
+On a CI runner, install Claude Code and give it a token created with
+`claude setup-token`. Runs count against that account's usage.
 
 ```yaml
 # .github/workflows/haunt.yml
 - run: npx --package @haunt/mcp-server haunt-ci ${{ env.STAGING_URL }}
   env:
-    ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 ```
 
-Default models: `claude-opus-5` for Anthropic, `mistral-small-latest` for Mistral —
-override either with `--model` or `HAUNT_CI_MODEL`.
-
-Scope, honestly stated: `haunt-ci` tests exactly the URL you give it, across the
-personas you name, run in parallel — it does not do `/haunt-test`'s Phase 1 route
-discovery (scouting up to 4 areas from real links on the page). Point it at each route
-you care about explicitly. Unlike the interactive command, this mode needs its own
-API key and spends real tokens per run — a cost the interactive command, riding your
-existing Claude Code session, doesn't have.
+**With an API key instead.** Without Claude Code, or with `--provider
+anthropic|mistral`, `haunt-ci` runs its own smaller loop and calls the API
+directly. Set `ANTHROPIC_API_KEY` or `MISTRAL_API_KEY` (a `.env` file in the
+working directory is loaded automatically; it is gitignored, never commit
+it). Default models: `claude-opus-5` for Anthropic, `mistral-small-latest`
+for Mistral — override with `--model` or `HAUNT_CI_MODEL`. This mode tests
+exactly the URL you give it, without route discovery, and its results depend
+heavily on the model: a small one finds little. `--verbose` prints each
+action the model decided and what it did.
 
 ---
 

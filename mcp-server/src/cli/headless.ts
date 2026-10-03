@@ -29,6 +29,7 @@ import { hauntSpawn } from '../engine/spawn.js';
 import type { Issue } from '../engine/types.js';
 import type { ActResult } from '../gates/part-1/contract.js';
 import { authenticate } from './authenticate.js';
+import { isClaudeCodeAvailable, runViaClaudeCode } from './claude-code.js';
 import { createAnthropicDecider } from './providers/anthropic.js';
 import { createMistralDecider } from './providers/mistral.js';
 import { type ActionDecider, MAX_ACTIONS_PER_STEP } from './providers/types.js';
@@ -39,7 +40,9 @@ export interface CliOptions {
   targetUrl: string;
   personas: string[];
   steps: number;
-  provider?: Provider;
+  // 'claude-code' runs the real command in a headless Claude Code session,
+  // on the account set up on this machine; the others call an API with a key.
+  provider?: Provider | 'claude-code';
   model?: string;
   headless: boolean;
   // Print each decision and what it did, to stderr.
@@ -50,7 +53,7 @@ export interface CliOptions {
 }
 
 const USAGE =
-  'Usage: haunt-ci <url> [--personas p1,p2] [--steps N] [--provider anthropic|mistral] [--model id] [--headed] [--verbose] [--email addr --password pw] [--login-url url]';
+  'Usage: haunt-ci <url> [--personas p1,p2] [--steps N] [--provider claude-code|anthropic|mistral] [--model id] [--headed] [--verbose] [--email addr --password pw] [--login-url url]';
 
 const VALUED_FLAGS = [
   'personas',
@@ -96,11 +99,12 @@ export function parseArgs(argv: string[]): CliOptions {
   const providerFlag = getFlag('provider');
   if (
     providerFlag &&
+    providerFlag !== 'claude-code' &&
     providerFlag !== 'anthropic' &&
     providerFlag !== 'mistral'
   ) {
     throw new Error(
-      `--provider must be "anthropic" or "mistral", got: ${providerFlag}`,
+      `--provider must be "claude-code", "anthropic" or "mistral", got: ${providerFlag}`,
     );
   }
 
@@ -117,7 +121,7 @@ export function parseArgs(argv: string[]): CliOptions {
     targetUrl,
     personas,
     steps,
-    provider: providerFlag as Provider | undefined,
+    provider: providerFlag as CliOptions['provider'],
     model: getFlag('model'),
     headless,
     verbose,
@@ -141,7 +145,7 @@ export interface ResolvedProvider {
 // one place that reads the environment, and it's where a missing/mismatched API
 // key turns into a clear error instead of an opaque SDK auth failure downstream.
 export function resolveProvider(
-  options: Pick<CliOptions, 'provider' | 'model'>,
+  options: { provider?: Provider; model?: string },
   env: NodeJS.ProcessEnv,
 ): ResolvedProvider {
   let provider = options.provider;
@@ -432,6 +436,32 @@ export async function runHeadlessTest(
 
 // Invoked by bin.ts — the only module that calls it, so importing this file
 // (from tests, or from benchmark/run.ts) never starts a run.
+export type Runner = 'claude-code' | 'api';
+
+// Which way to run. The Claude Code account is the default wherever Claude
+// Code is installed: no key to manage, and the same command as interactive
+// use. An API key is the fallback, or an explicit choice.
+export function chooseRunner(
+  options: Pick<CliOptions, 'provider'>,
+  env: NodeJS.ProcessEnv,
+  claudeCodeAvailable: boolean,
+): Runner {
+  if (options.provider === 'claude-code') {
+    if (!claudeCodeAvailable) {
+      throw new Error(
+        '--provider claude-code needs the `claude` command on the PATH. Install Claude Code, or use --provider anthropic|mistral with an API key.',
+      );
+    }
+    return 'claude-code';
+  }
+  if (options.provider) return 'api';
+  if (claudeCodeAvailable) return 'claude-code';
+  if (env.ANTHROPIC_API_KEY || env.MISTRAL_API_KEY) return 'api';
+  throw new Error(
+    'Nothing to run with. Install Claude Code (haunt-ci then uses its account), or set ANTHROPIC_API_KEY or MISTRAL_API_KEY (a .env file is loaded automatically).',
+  );
+}
+
 export async function main() {
   let options: CliOptions;
   try {
@@ -441,9 +471,32 @@ export async function main() {
     process.exit(2);
   }
 
+  let runner: Runner;
+  try {
+    runner = chooseRunner(options, process.env, isClaudeCodeAvailable());
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(2);
+  }
+
+  if (runner === 'claude-code') {
+    console.error(
+      '[haunt-ci] running /haunt-test through Claude Code, on its account',
+    );
+    const run = await runViaClaudeCode(options);
+    (run.exitCode === 2 ? console.error : console.log)(run.output);
+    process.exit(run.exitCode);
+  }
+
   let resolved: ResolvedProvider;
   try {
-    resolved = resolveProvider(options, process.env);
+    resolved = resolveProvider(
+      {
+        provider: options.provider as Provider | undefined,
+        model: options.model,
+      },
+      process.env,
+    );
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(2);
