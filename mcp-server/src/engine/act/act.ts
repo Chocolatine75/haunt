@@ -42,8 +42,9 @@ import { type ValidatedAction, validateAction } from './schema.js';
 
 // However busy the page stays, an action returns within this long.
 export const SETTLE_CAP_MS = 5_000;
-// How long the page must have been still to count as settled.
-const QUIET_MS = 60;
+// How long the page must have been still to count as settled. Requests, short timers and a drawn frame are tracked explicitly; this only
+// has to cover what is not (a task queued by a framework's scheduler).
+const QUIET_MS = 30;
 // How long an action waits for its target to become usable before failing.
 const ACTIONABLE_MS = 1_700;
 const NAVIGATION_MS = 15_000;
@@ -159,6 +160,40 @@ interface Ready extends Resolved {
   y: number;
 }
 
+// Where to point for this element, in the tab's viewport. In the top frame
+// the probe already knows; asking the browser again costs a round trip that
+// can wait behind a repaint on a large page. Inside a frame the browser has
+// to do the sum, and may need to bring the frame itself on screen.
+async function pointOf(
+  session: HauntSession,
+  handle: ElementHandle<Element>,
+  frame: Frame,
+  state: Probe,
+): Promise<{ x: number; y: number } | undefined> {
+  if (
+    frame === session.page.mainFrame() &&
+    state.x !== undefined &&
+    state.y !== undefined
+  ) {
+    return { x: state.x, y: state.y };
+  }
+  let box = await handle.boundingBox();
+  const view = session.page.viewportSize();
+  const cx = box ? box.x + box.width / 2 : -1;
+  const cy = box ? box.y + box.height / 2 : -1;
+  if (
+    box &&
+    view &&
+    (cx < 0 || cy < 0 || cx > view.width || cy > view.height)
+  ) {
+    await handle.scrollIntoViewIfNeeded({ timeout: 1_000 }).catch(() => {});
+    box = await handle.boundingBox();
+  }
+  return box
+    ? { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+    : undefined;
+}
+
 // Waits until the element can take the action, the way a user would have to:
 // there, visible, enabled, still, and (for pointer actions) not covered.
 async function ready(
@@ -224,39 +259,17 @@ async function ready(
           );
         }
       } else if (state.stable) {
-        let box = await handle.boundingBox();
-        const view = session.page.viewportSize();
-        const cx = box ? box.x + box.width / 2 : -1;
-        const cy = box ? box.y + box.height / 2 : -1;
-        if (
-          box &&
-          view &&
-          (cx < 0 || cy < 0 || cx > view.width || cy > view.height)
-        ) {
-          // In view inside its frame, but the frame itself is not on screen.
-          await handle
-            .scrollIntoViewIfNeeded({ timeout: 1_000 })
-            .catch(() => {});
-          box = await handle.boundingBox();
-        }
-        if (box) {
-          return {
-            handle,
-            frame,
-            probe: state,
-            x: box.x + box.width / 2,
-            y: box.y + box.height / 2,
-          };
-        }
+        const point = await pointOf(session, handle, frame, state);
+        if (point) return { handle, frame, probe: state, ...point };
       }
     } else {
-      const box = await handle.boundingBox();
+      const point = await pointOf(session, handle, frame, state);
       return {
         handle,
         frame,
         probe: state,
-        x: box ? box.x + box.width / 2 : 0,
-        y: box ? box.y + box.height / 2 : 0,
+        x: point?.x ?? 0,
+        y: point?.y ?? 0,
       };
     }
     await sleep(40);

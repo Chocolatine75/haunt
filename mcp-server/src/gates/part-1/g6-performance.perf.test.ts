@@ -66,6 +66,8 @@ describe('G6 performance', () => {
       };
 
       const start = performance.now();
+      let acting = 0;
+      let settling = 0;
       for (let i = 0; i < 50; i++) {
         // Spread over the whole page, so most need scrolling into view.
         const record = 1 + ((i * 97) % 500);
@@ -78,7 +80,14 @@ describe('G6 performance', () => {
                 text: `note ${i}`,
               });
         expect(result.results[0].ok, `action ${i}`).toBe(true);
+        acting += result.results[0].action_ms;
+        settling += result.results[0].settle_ms;
       }
+      // Where the time went, for when a slower machine misses the budget.
+      const total = performance.now() - start;
+      console.info(
+        `50 actions: ${Math.round(total)} ms — acting ${acting}, settling ${settling}, reading the page and the rest ${Math.round(total - acting - settling)}`,
+      );
       expect(performance.now() - start).toBeLessThan(30_000);
       expect((await s.state()).clicks).toBeGreaterThanOrEqual(25);
     },

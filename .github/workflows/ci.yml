@@ -20,8 +20,10 @@ jobs:
       fail-fast: false
       matrix:
         # Pull requests run macOS only, to keep the loop short. Linux and
-        # Windows run when the change lands: on a push to v2 or master.
-        os: ${{ fromJSON(github.event_name == 'push' && '["ubuntu-latest","macos-latest","windows-latest"]' || '["macos-latest"]') }}
+        # Windows run when the change lands: on a push to v2 or master. A PR
+        # whose branch name ends in "-all-os" runs all three, for changes
+        # that are about one of the other systems.
+        os: ${{ fromJSON((github.event_name == 'push' || endsWith(github.head_ref, '-all-os')) && '["ubuntu-latest","macos-latest","windows-latest"]' || '["macos-latest"]') }}
     defaults:
       run:
         working-directory: mcp-server

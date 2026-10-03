@@ -1128,9 +1128,13 @@ async function probe(el, centre = false) {
     });
   }
   const before = el.getBoundingClientRect();
-  await new Promise(
-    (resolve3) => requestAnimationFrame(() => requestAnimationFrame(() => resolve3()))
-  );
+  const frames = document.getAnimations().length > 0 ? 2 : 1;
+  await new Promise((resolve3) => {
+    let left = frames;
+    const next = () => --left <= 0 ? resolve3() : requestAnimationFrame(next);
+    requestAnimationFrame(next);
+    (state.native?.setTimeout ?? setTimeout)(resolve3, 150);
+  });
   if (!el.isConnected) {
     result.connected = false;
     return result;
@@ -1149,12 +1153,16 @@ async function probe(el, centre = false) {
     return false;
   })();
   result.stable = !animating && Math.abs(rect.left - before.left) < 0.5 && Math.abs(rect.top - before.top) < 0.5 && Math.abs(rect.width - before.width) < 0.5 && Math.abs(rect.height - before.height) < 0.5;
+  result.x = rect.left + rect.width / 2;
+  result.y = rect.top + rect.height / 2;
   if (style.pointerEvents === "none") {
     result.ignores_pointer = true;
     return result;
   }
   const x = Math.min(Math.max(rect.left + rect.width / 2, 0), innerWidth - 1);
   const y = Math.min(Math.max(rect.top + rect.height / 2, 0), innerHeight - 1);
+  result.x = rect.left + rect.width / 2;
+  result.y = rect.top + rect.height / 2;
   let top = document.elementFromPoint(x, y);
   for (; ; ) {
     const inner = top ? shadowOf(top)?.elementFromPoint(x, y) : null;
@@ -5492,7 +5500,7 @@ function validateAction(input) {
 
 // src/engine/act/act.ts
 var SETTLE_CAP_MS = 5e3;
-var QUIET_MS = 60;
+var QUIET_MS = 30;
 var ACTIONABLE_MS = 1700;
 var NAVIGATION_MS = 15e3;
 var ActionFailure = class extends Error {
@@ -5562,6 +5570,21 @@ async function resolve(session, ref2) {
     { similar_ref: similar }
   );
 }
+async function pointOf(session, handle, frame, state) {
+  if (frame === session.page.mainFrame() && state.x !== void 0 && state.y !== void 0) {
+    return { x: state.x, y: state.y };
+  }
+  let box = await handle.boundingBox();
+  const view = session.page.viewportSize();
+  const cx = box ? box.x + box.width / 2 : -1;
+  const cy = box ? box.y + box.height / 2 : -1;
+  if (box && view && (cx < 0 || cy < 0 || cx > view.width || cy > view.height)) {
+    await handle.scrollIntoViewIfNeeded({ timeout: 1e3 }).catch(() => {
+    });
+    box = await handle.boundingBox();
+  }
+  return box ? { x: box.x + box.width / 2, y: box.y + box.height / 2 } : void 0;
+}
 async function ready(session, ref2, options) {
   const deadline = Date.now() + ACTIONABLE_MS;
   let centre = false;
@@ -5617,33 +5640,17 @@ async function ready(session, ref2, options) {
           );
         }
       } else if (state.stable) {
-        let box = await handle.boundingBox();
-        const view = session.page.viewportSize();
-        const cx = box ? box.x + box.width / 2 : -1;
-        const cy = box ? box.y + box.height / 2 : -1;
-        if (box && view && (cx < 0 || cy < 0 || cx > view.width || cy > view.height)) {
-          await handle.scrollIntoViewIfNeeded({ timeout: 1e3 }).catch(() => {
-          });
-          box = await handle.boundingBox();
-        }
-        if (box) {
-          return {
-            handle,
-            frame,
-            probe: state,
-            x: box.x + box.width / 2,
-            y: box.y + box.height / 2
-          };
-        }
+        const point = await pointOf(session, handle, frame, state);
+        if (point) return { handle, frame, probe: state, ...point };
       }
     } else {
-      const box = await handle.boundingBox();
+      const point = await pointOf(session, handle, frame, state);
       return {
         handle,
         frame,
         probe: state,
-        x: box ? box.x + box.width / 2 : 0,
-        y: box ? box.y + box.height / 2 : 0
+        x: point?.x ?? 0,
+        y: point?.y ?? 0
       };
     }
     await sleep(40);

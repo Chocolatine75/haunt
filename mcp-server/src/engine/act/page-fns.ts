@@ -42,6 +42,9 @@ export interface Probe {
   // Local id of the element that would take a click aimed at this one.
   covered_by?: number;
   checked?: boolean;
+  // Its centre, in the coordinates of its own frame's viewport.
+  x?: number;
+  y?: number;
 }
 
 // Everything that decides whether an element can take an action right now.
@@ -176,9 +179,16 @@ export async function probe(
   }
 
   const before = el.getBoundingClientRect();
-  await new Promise<void>((resolve) =>
-    requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
-  );
+  // One frame later, has it moved? Two frames when something in the document
+  // is being animated, since an animation's first frame can leave it where
+  // it was. A frame that never comes (a hidden tab) must not hang the action.
+  const frames = document.getAnimations().length > 0 ? 2 : 1;
+  await new Promise<void>((resolve) => {
+    let left = frames;
+    const next = () => (--left <= 0 ? resolve() : requestAnimationFrame(next));
+    requestAnimationFrame(next);
+    (state.native?.setTimeout ?? setTimeout)(resolve, 150);
+  });
   if (!el.isConnected) {
     result.connected = false;
     return result;
@@ -211,6 +221,8 @@ export async function probe(
     Math.abs(rect.width - before.width) < 0.5 &&
     Math.abs(rect.height - before.height) < 0.5;
 
+  result.x = rect.left + rect.width / 2;
+  result.y = rect.top + rect.height / 2;
   if (style.pointerEvents === 'none') {
     result.ignores_pointer = true;
     return result;
@@ -218,6 +230,8 @@ export async function probe(
 
   const x = Math.min(Math.max(rect.left + rect.width / 2, 0), innerWidth - 1);
   const y = Math.min(Math.max(rect.top + rect.height / 2, 0), innerHeight - 1);
+  result.x = rect.left + rect.width / 2;
+  result.y = rect.top + rect.height / 2;
   let top = document.elementFromPoint(x, y);
   for (;;) {
     const inner: Element | null | undefined = top
