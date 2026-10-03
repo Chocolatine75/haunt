@@ -20,14 +20,17 @@ const SERVER_DIR = resolve(__dirname, '..');
 const REPO_ROOT = resolve(SERVER_DIR, '..');
 const DIST = join(SERVER_DIR, 'dist');
 
-// No provider keys, and a cwd with no .env for dotenv to pick one up from.
+// No provider keys, a cwd with no .env for dotenv to pick one up from, and
+// no `claude` command in reach: these tests must never start a real Claude
+// Code session.
 function cleanEnv(): Record<string, string> {
   const env: Record<string, string> = {};
   for (const [key, value] of Object.entries(process.env)) {
     if (value === undefined) continue;
-    if (/^(ANTHROPIC|MISTRAL)_API_KEY$|^HAUNT_/.test(key)) continue;
+    if (/^(ANTHROPIC|MISTRAL)_API_KEY$|^HAUNT_|^PATH$/i.test(key)) continue;
     env[key] = value;
   }
+  env.PATH = '';
   return env;
 }
 
@@ -114,10 +117,11 @@ describe('shipped bundle', () => {
       expect(result.stdout).toBe('');
     });
 
-    it('exits 2 with a clear message when no API key is available', () => {
+    it('exits 2 and says what to install or set when there is nothing to run with', () => {
       const result = run('cli.js', ['http://localhost:3000']);
       expect(result.status).toBe(2);
-      expect(result.stderr).toContain('No API key found');
+      expect(result.stderr).toContain('Install Claude Code');
+      expect(result.stderr).toContain('ANTHROPIC_API_KEY');
     });
 
     it('exits 2 on an invalid flag value before doing any work', () => {
@@ -134,6 +138,15 @@ describe('shipped bundle', () => {
       ]);
       expect(result.status).toBe(2);
       expect(result.stderr).toContain('requires MISTRAL_API_KEY');
+    });
+    it('exits 2 when Claude Code is asked for and is not installed', () => {
+      const result = run('cli.js', [
+        'http://localhost:3000',
+        '--provider',
+        'claude-code',
+      ]);
+      expect(result.status).toBe(2);
+      expect(result.stderr).toContain('needs the `claude` command');
     });
   });
 

@@ -81,7 +81,7 @@ describe('parseArgs', () => {
   it('throws on an unknown --provider value', () => {
     expect(() =>
       parseArgs(['http://localhost:3000', '--provider', 'openai']),
-    ).toThrow(/--provider must be "anthropic" or "mistral"/);
+    ).toThrow(/--provider must be "claude-code", "anthropic" or "mistral"/);
   });
 
   it('parses --email, --password, and --login-url', () => {

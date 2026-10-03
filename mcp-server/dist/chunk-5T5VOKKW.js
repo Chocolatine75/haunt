@@ -1456,7 +1456,7 @@ function retryIntervalFromResponse(res) {
   return 0;
 }
 async function delay(delay2) {
-  return new Promise((resolve) => setTimeout(resolve, delay2));
+  return new Promise((resolve2) => setTimeout(resolve2, delay2));
 }
 
 // node_modules/@mistralai/mistralai/esm/lib/sdks.js
@@ -34203,7 +34203,7 @@ var Mistral = class extends ClientSDK {
 // src/cli/authenticate.ts
 var RETRY_PAUSE_MS = 1500;
 var MAX_ATTEMPTS = 2;
-var sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+var sleep = (ms) => new Promise((resolve2) => setTimeout(resolve2, ms));
 var USER_FIELD = /e-?mail|user(name)?|login|identifiant/i;
 function samePage(a, b) {
   try {
@@ -34285,6 +34285,133 @@ async function authenticate(manager, options) {
 }
 async function cookiesOf(manager, session_id) {
   return (await hauntGetCookies(manager, { session_id })).cookies;
+}
+
+// src/cli/claude-code.ts
+import { spawn } from "child_process";
+import { existsSync, readFileSync } from "fs";
+import { delimiter, join, resolve } from "path";
+import { fileURLToPath } from "url";
+var ALLOWED_TOOLS = ["mcp__plugin_haunt_haunt", "mcp__haunt"];
+var RUN_TIMEOUT_MS = 20 * 60 * 1e3;
+function isClaudeCodeAvailable(env2 = process.env) {
+  const names = process.platform === "win32" ? ["claude.cmd", "claude.exe", "claude"] : ["claude"];
+  return (env2.PATH ?? "").split(delimiter).filter(Boolean).some((dir) => names.some((name) => existsSync(join(dir, name))));
+}
+function pluginRoot() {
+  const here = fileURLToPath(new URL(".", import.meta.url));
+  for (const candidate of [resolve(here, "../.."), resolve(here, "../../..")]) {
+    if (existsSync(join(candidate, ".claude-plugin", "plugin.json"))) {
+      return candidate;
+    }
+  }
+  return resolve(here, "../..");
+}
+function commandFor(options) {
+  const parts = [
+    `/haunt:haunt-test ${options.targetUrl}`,
+    "--yes",
+    `--steps ${options.steps}`,
+    `--personas ${options.personas.join(",")}`
+  ];
+  if (!options.headless) parts.push("--headed");
+  if (options.verbose) parts.push("--verbose");
+  if (options.email && options.password) {
+    parts.push(`--email ${options.email}`, `--password ${options.password}`);
+  }
+  return parts.join(" ");
+}
+function claudeArgs(options, plugin) {
+  const args = [
+    "-p",
+    commandFor(options),
+    "--plugin-dir",
+    plugin,
+    "--allowedTools",
+    ...ALLOWED_TOOLS,
+    "--output-format",
+    "json"
+  ];
+  if (options.model) args.push("--model", options.model);
+  return args;
+}
+function interpret(stdout, cwd) {
+  let parsed;
+  try {
+    parsed = JSON.parse(stdout);
+  } catch {
+    return {
+      exitCode: 2,
+      output: `Claude Code did not return a result:
+${stdout.slice(0, 2e3)}`
+    };
+  }
+  const text = parsed.result ?? "";
+  if (parsed.is_error)
+    return { exitCode: 2, output: text || "Claude Code reported an error." };
+  const reportPath = text.match(/^report:\s*(\S+\.md)\s*$/m)?.[1];
+  if (!reportPath) {
+    return {
+      exitCode: 2,
+      output: `The run ended without a report.
+${text}`
+    };
+  }
+  const sidecar = resolve(cwd, reportPath.replace(/\.md$/, ".json"));
+  let issues;
+  try {
+    issues = JSON.parse(readFileSync(sidecar, "utf-8")).issues;
+  } catch {
+    return {
+      exitCode: 2,
+      output: `The report's data could not be read at ${sidecar}.
+${text}`,
+      reportPath
+    };
+  }
+  const blocking = issues.some(
+    (issue) => issue.severity === "critical" || issue.severity === "major"
+  );
+  return { exitCode: blocking ? 1 : 0, output: text, reportPath };
+}
+function runViaClaudeCode(options, env2 = process.env, cwd = process.cwd()) {
+  return new Promise((done) => {
+    const child = spawn("claude", claudeArgs(options, pluginRoot()), {
+      cwd,
+      env: env2,
+      // No stdin: the CLI would otherwise wait for it.
+      stdio: ["ignore", "pipe", "pipe"],
+      shell: process.platform === "win32"
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk;
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk;
+    });
+    const timer = setTimeout(() => child.kill(), RUN_TIMEOUT_MS);
+    child.on("error", (error) => {
+      clearTimeout(timer);
+      done({
+        exitCode: 2,
+        output: `Claude Code could not be started: ${error.message}`
+      });
+    });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      if (code !== 0 && !stdout.trim()) {
+        done({
+          exitCode: 2,
+          output: `Claude Code exited with code ${code}.
+${stderr.slice(0, 2e3)}`
+        });
+        return;
+      }
+      done(interpret(stdout, cwd));
+    });
+  });
 }
 
 // src/cli/providers/types.ts
@@ -34414,7 +34541,7 @@ function createMistralDecider(client, model) {
 }
 
 // src/cli/headless.ts
-var USAGE = "Usage: haunt-ci <url> [--personas p1,p2] [--steps N] [--provider anthropic|mistral] [--model id] [--headed] [--verbose] [--email addr --password pw] [--login-url url]";
+var USAGE = "Usage: haunt-ci <url> [--personas p1,p2] [--steps N] [--provider claude-code|anthropic|mistral] [--model id] [--headed] [--verbose] [--email addr --password pw] [--login-url url]";
 var VALUED_FLAGS = [
   "personas",
   "steps",
@@ -34446,9 +34573,9 @@ function parseArgs(argv) {
     );
   }
   const providerFlag = getFlag("provider");
-  if (providerFlag && providerFlag !== "anthropic" && providerFlag !== "mistral") {
+  if (providerFlag && providerFlag !== "claude-code" && providerFlag !== "anthropic" && providerFlag !== "mistral") {
     throw new Error(
-      `--provider must be "anthropic" or "mistral", got: ${providerFlag}`
+      `--provider must be "claude-code", "anthropic" or "mistral", got: ${providerFlag}`
     );
   }
   const headless = !argv.includes("--headed");
@@ -34676,6 +34803,22 @@ async function runHeadlessTest(decide, manager, options) {
   });
   return { report, failures };
 }
+function chooseRunner(options, env2, claudeCodeAvailable) {
+  if (options.provider === "claude-code") {
+    if (!claudeCodeAvailable) {
+      throw new Error(
+        "--provider claude-code needs the `claude` command on the PATH. Install Claude Code, or use --provider anthropic|mistral with an API key."
+      );
+    }
+    return "claude-code";
+  }
+  if (options.provider) return "api";
+  if (claudeCodeAvailable) return "claude-code";
+  if (env2.ANTHROPIC_API_KEY || env2.MISTRAL_API_KEY) return "api";
+  throw new Error(
+    "Nothing to run with. Install Claude Code (haunt-ci then uses its account), or set ANTHROPIC_API_KEY or MISTRAL_API_KEY (a .env file is loaded automatically)."
+  );
+}
 async function main() {
   let options;
   try {
@@ -34684,9 +34827,30 @@ async function main() {
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(2);
   }
+  let runner;
+  try {
+    runner = chooseRunner(options, process.env, isClaudeCodeAvailable());
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(2);
+  }
+  if (runner === "claude-code") {
+    console.error(
+      "[haunt-ci] running /haunt-test through Claude Code, on its account"
+    );
+    const run = await runViaClaudeCode(options);
+    (run.exitCode === 2 ? console.error : console.log)(run.output);
+    process.exit(run.exitCode);
+  }
   let resolved;
   try {
-    resolved = resolveProvider(options, process.env);
+    resolved = resolveProvider(
+      {
+        provider: options.provider,
+        model: options.model
+      },
+      process.env
+    );
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(2);
