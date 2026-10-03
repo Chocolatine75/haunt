@@ -100,6 +100,9 @@ when a reference is stale.
 Detect what can be detected without asking a model, so those findings are
 never hallucinated and never missed.
 
+Full specification and gate: [`v3/part-2-signals.md`](v3/part-2-signals.md).
+The summary below is superseded by it where they differ.
+
 Scope: HTTP 4xx/5xx on any request; uncaught exceptions and unhandled
 rejections with stack traces; requests that never settle; accessibility
 violations via axe-core; slow responses and long tasks; errors raised after
