@@ -15,13 +15,29 @@ function issue(overrides: Partial<Issue>): Issue {
   };
 }
 
+// Only the reports this file wrote: other files run at the same time and
+// write their own under .haunt-reports. Removing the whole directory pulled
+// files from under them (ENOENT in E4.4) and raced their writes (ENOTEMPTY
+// here).
+const written: string[] = [];
+function generate(
+  input: Parameters<typeof hauntGenerateReport>[0],
+): ReturnType<typeof hauntGenerateReport> {
+  const result = hauntGenerateReport(input);
+  written.push(
+    result.report_path,
+    result.report_path.replace(/\.md$/, '.json'),
+  );
+  return result;
+}
+
 afterAll(() => {
-  rmSync(REPORTS_DIR, { recursive: true, force: true });
+  for (const path of written) rmSync(path, { force: true });
 });
 
 describe('hauntGenerateReport', () => {
   it('counts issues by severity and sorts critical first', () => {
-    const result = hauntGenerateReport({
+    const result = generate({
       target_url: 'http://localhost:3000',
       personas: ['confused-beginner'],
       date: '2026-01-01',
@@ -60,7 +76,7 @@ describe('hauntGenerateReport', () => {
   });
 
   it("picks the highest-severity issue's recommendation as top_fix", () => {
-    const result = hauntGenerateReport({
+    const result = generate({
       target_url: 'http://localhost:3000',
       personas: ['confused-beginner'],
       date: '2026-01-01',
@@ -81,7 +97,7 @@ describe('hauntGenerateReport', () => {
   });
 
   it('maps page_url to a likely file using the Next.js App Router heuristic', () => {
-    const result = hauntGenerateReport({
+    const result = generate({
       target_url: 'http://localhost:3000',
       personas: ['confused-beginner'],
       date: '2026-01-01',
@@ -113,7 +129,7 @@ describe('hauntGenerateReport', () => {
   });
 
   it('omits Likely file rather than guessing when page_url is unparseable', () => {
-    const result = hauntGenerateReport({
+    const result = generate({
       target_url: 'http://localhost:3000',
       personas: ['confused-beginner'],
       date: '2026-01-01',
@@ -131,7 +147,7 @@ describe('hauntGenerateReport', () => {
   });
 
   it('omits Top Fix and prints "no critical issues" when there are no issues', () => {
-    const result = hauntGenerateReport({
+    const result = generate({
       target_url: 'http://localhost:3000',
       personas: ['confused-beginner'],
       date: '2026-01-01',
@@ -151,7 +167,7 @@ describe('hauntGenerateReport', () => {
   });
 
   it('builds the report path from date and persona names, and writes the file', () => {
-    const result = hauntGenerateReport({
+    const result = generate({
       target_url: 'http://localhost:3000',
       personas: ['confused-beginner', 'malicious-user'],
       date: '2026-03-14',
@@ -172,7 +188,7 @@ describe('hauntGenerateReport', () => {
   });
 
   it('formats the terminal summary with right-aligned severity brackets and critical lines', () => {
-    const result = hauntGenerateReport({
+    const result = generate({
       target_url: 'http://localhost:3000',
       personas: ['confused-beginner'],
       date: '2026-01-01',
@@ -182,7 +198,7 @@ describe('hauntGenerateReport', () => {
       ],
       // 2 sessions above are just for areas_tested; issues live on a 3rd
     });
-    const withIssues = hauntGenerateReport({
+    const withIssues = generate({
       target_url: 'http://localhost:3000',
       personas: ['confused-beginner'],
       date: '2026-01-01',
@@ -210,7 +226,7 @@ describe('hauntGenerateReport', () => {
   });
 
   it('writes a JSON sidecar with the sorted issues alongside the markdown', () => {
-    const result = hauntGenerateReport({
+    const result = generate({
       target_url: 'http://localhost:3000',
       personas: ['confused-beginner'],
       date: '2026-02-02',
@@ -232,7 +248,7 @@ describe('hauntGenerateReport', () => {
 
   describe('compare_with', () => {
     it('tags issues as still present vs. new, and lists resolved ones', () => {
-      const first = hauntGenerateReport({
+      const first = generate({
         target_url: 'http://localhost:3000',
         personas: ['confused-beginner'],
         date: '2026-04-01',
@@ -259,7 +275,7 @@ describe('hauntGenerateReport', () => {
         ],
       });
 
-      const second = hauntGenerateReport({
+      const second = generate({
         target_url: 'http://localhost:3000',
         personas: ['confused-beginner'],
         date: '2026-04-08',
@@ -304,7 +320,7 @@ describe('hauntGenerateReport', () => {
     });
 
     it('reports comparison_error instead of failing when the target is missing', () => {
-      const result = hauntGenerateReport({
+      const result = generate({
         target_url: 'http://localhost:3000',
         personas: ['confused-beginner'],
         date: '2026-04-01',
@@ -321,7 +337,7 @@ describe('hauntGenerateReport', () => {
   });
 
   it('renders a Sandbox-Blocked Requests section when any session has blocked requests', () => {
-    const result = hauntGenerateReport({
+    const result = generate({
       target_url: 'http://localhost:3000',
       personas: ['malicious-user'],
       date: '2026-01-01',
@@ -343,7 +359,7 @@ describe('hauntGenerateReport', () => {
   });
 
   it('omits the Sandbox-Blocked Requests section when nothing was blocked', () => {
-    const result = hauntGenerateReport({
+    const result = generate({
       target_url: 'http://localhost:3000',
       personas: ['confused-beginner'],
       date: '2026-01-01',
@@ -377,7 +393,7 @@ describe('hauntGenerateReport', () => {
     });
 
     it('lists the signals no issue names in a section of their own, and counts them', () => {
-      const result = hauntGenerateReport({
+      const result = generate({
         target_url: 'http://localhost:3000',
         personas: ['signals'],
         date: '2026-01-02',
@@ -432,7 +448,7 @@ describe('hauntGenerateReport', () => {
     });
 
     it('has no such section, and says nothing of signals, when there are none', () => {
-      const result = hauntGenerateReport({
+      const result = generate({
         target_url: 'http://localhost:3000',
         personas: ['no-signals'],
         date: '2026-01-03',
