@@ -35311,12 +35311,58 @@ async function auditFrame(args) {
         if (rule.pageLevel) rules[rule.id] = { enabled: false };
       }
     }
+    const CONTRAST = "color-contrast";
+    const holders = [];
+    const seen = /* @__PURE__ */ new Set();
+    const walker = document.createTreeWalker(
+      document.body ?? document.documentElement,
+      NodeFilter.SHOW_TEXT
+    );
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const el = node.parentElement;
+      if (!el || seen.has(el) || !node.nodeValue?.trim()) continue;
+      if (/^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE)$/.test(el.tagName)) continue;
+      seen.add(el);
+      holders.push(el);
+    }
+    const sampled = holders.length > args.contrastCap;
+    if (sampled) rules[CONTRAST] = { enabled: false };
     const results = await axe2.run(document, {
       ...args.options,
       iframes: false,
       elementRef: true,
       rules
     });
+    let sample = { checked: holders.length, of: holders.length };
+    if (sampled) {
+      const above = /* @__PURE__ */ new Set();
+      for (const el of holders) {
+        for (let up = el.parentElement; up && !above.has(up); ) {
+          above.add(up);
+          up = up.parentElement;
+        }
+      }
+      const leaves = holders.filter((el) => !above.has(el));
+      const onScreen = (el) => {
+        const r = el.getBoundingClientRect();
+        return r.width > 0 && r.height > 0 && r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth;
+      };
+      const chosen = [
+        ...leaves.filter(onScreen),
+        ...leaves.filter((el) => !onScreen(el))
+      ].slice(0, args.contrastCap);
+      const contrast = await axe2.run(
+        { include: chosen },
+        {
+          runOnly: { type: "rule", values: [CONTRAST] },
+          resultTypes: ["violations"],
+          iframes: false,
+          elementRef: true
+        }
+      );
+      results.violations.push(...contrast.violations);
+      sample = { checked: chosen.length, of: holders.length };
+    }
     const localOf = (el) => {
       let id = state.ids.get(el);
       if (!id) {
@@ -35330,6 +35376,7 @@ async function auditFrame(args) {
       rule: v.id,
       impact: v.impact,
       help: v.help,
+      ...v.id === CONTRAST ? { sample } : {},
       nodes: v.nodes.length,
       elements: v.nodes.map((n) => n.element).filter((el) => el instanceof Element).map(localOf)
     }));
@@ -35355,6 +35402,7 @@ var OPTIONS = {
   resultTypes: ["violations"]
 };
 var IMPACTS = ["minor", "moderate", "serious", "critical"];
+var CONTRAST_CAP = 200;
 var FRAME_MS = 6e4;
 var LOAD = `(() => {
   const state = window.__haunt;
@@ -35384,7 +35432,11 @@ async function auditOne(session, frame, top) {
   try {
     await withTimeout2(frame.evaluate(LOAD), FRAME_MS);
     const found = await withTimeout2(
-      frame.evaluate(auditFrame, { options: OPTIONS, top }),
+      frame.evaluate(auditFrame, {
+        options: OPTIONS,
+        top,
+        contrastCap: CONTRAST_CAP
+      }),
       FRAME_MS
     );
     return (found ?? []).map((v) => ({
@@ -35392,6 +35444,7 @@ async function auditOne(session, frame, top) {
       impact: v.impact,
       help: v.help,
       nodes: v.nodes,
+      ...v.sample ? { sample: v.sample } : {},
       refs: v.elements.map(([doc, local]) => knownRef(session, frame, doc, local)).filter((ref2) => ref2 !== void 0)
     }));
   } finally {
@@ -35416,6 +35469,12 @@ async function audit(session) {
       }
       known.nodes += v.nodes;
       known.refs.push(...v.refs);
+      if (v.sample) {
+        known.sample = {
+          checked: (known.sample?.checked ?? 0) + v.sample.checked,
+          of: (known.sample?.of ?? 0) + v.sample.of
+        };
+      }
       if (IMPACTS.indexOf(v.impact) > IMPACTS.indexOf(known.impact)) {
         known.impact = v.impact;
       }
@@ -44960,7 +45019,7 @@ var SignalCollector = class {
         nodes: v.nodes,
         refs: v.refs,
         help: v.help,
-        message: `${v.help} (${v.nodes} element${v.nodes === 1 ? "" : "s"})`,
+        message: `${v.help} (${v.nodes} element${v.nodes === 1 ? "" : "s"}${v.sample && v.sample.checked < v.sample.of ? `, among ${v.sample.checked} checked of ${v.sample.of}` : ""})`,
         severity: v.impact === "critical" || v.impact === "serious" ? "major" : "minor"
       });
       if (signal) out.push(signal);
