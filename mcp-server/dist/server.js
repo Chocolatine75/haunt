@@ -10,7 +10,7 @@ import {
   hauntGetCookies,
   hauntSpawn,
   zodToJsonSchema
-} from "./chunk-THIBBAMW.js";
+} from "./chunk-K6S3BOMJ.js";
 import {
   _enum,
   _null,
@@ -10567,6 +10567,20 @@ function hauntEstimateCost(input) {
   return { browser_calls, session_size, summary_line };
 }
 
+// src/gates/part-2/contract.ts
+var SIGNAL_KINDS = [
+  "http_error",
+  "request_failed",
+  "request_hung",
+  "slow_response",
+  "js_exception",
+  "unhandled_rejection",
+  "console_error",
+  "long_task",
+  "dead_control",
+  "a11y"
+];
+
 // src/mcp/tools.ts
 var issueSchema = external_exports.object({
   severity: external_exports.enum(["critical", "major", "minor", "suggestion"]),
@@ -10579,8 +10593,20 @@ var issueSchema = external_exports.object({
   ]),
   description: external_exports.string(),
   page_url: external_exports.string(),
-  recommendation: external_exports.string()
+  recommendation: external_exports.string(),
+  signal: external_exports.string().optional().describe(
+    "The id of the signal this issue is about (s3): the report shows the signal under the issue instead of on its own"
+  )
 });
+var signalSchema = external_exports.object({
+  id: external_exports.string(),
+  kind: external_exports.enum(SIGNAL_KINDS),
+  url: external_exports.string(),
+  step: external_exports.number().int().min(0),
+  message: external_exports.string(),
+  severity: external_exports.enum(["major", "minor"]),
+  count: external_exports.number().int().positive()
+}).passthrough();
 var cookieSchema = external_exports.object({
   name: external_exports.string(),
   value: external_exports.string(),
@@ -10607,6 +10633,13 @@ var TOOLS = [
       timeout: external_exports.number().optional().describe("Maximum navigation steps for this session. Default: 30"),
       cookies: external_exports.array(cookieSchema).optional().describe(
         "Session cookies to inject before navigation (for authenticated testing)"
+      ),
+      signal_thresholds: external_exports.object({
+        slow_response_ms: external_exports.number().positive().optional(),
+        long_task_ms: external_exports.number().positive().optional(),
+        hung_request_ms: external_exports.number().positive().optional()
+      }).strict().optional().describe(
+        "Above which a response is reported as slow (default 3000), a main-thread task as long (500), a request as hung (10000)"
       )
     }),
     run: (manager, input) => hauntSpawn(manager, input)
@@ -10652,7 +10685,13 @@ var TOOLS = [
       actionable_only: external_exports.boolean().optional().describe("Leave out the surrounding text, keep only elements"),
       page: external_exports.number().optional().describe("Which page of a text snapshot that did not fit in one"),
       include_attributes: external_exports.array(external_exports.string()).optional().describe("Attributes to report for each element, e.g. data-testid"),
-      include_screenshot: external_exports.boolean().optional().describe("Also save a screenshot. Default: false")
+      include_screenshot: external_exports.boolean().optional().describe("Also save a screenshot. Default: false"),
+      signals: external_exports.boolean().optional().describe(
+        "Also list every signal raised so far on the current page: HTTP errors, exceptions, failed, hung and slow requests, dead controls, accessibility violations"
+      ),
+      audit: external_exports.boolean().optional().describe(
+        "Run the accessibility audit (axe-core, WCAG 2 A and AA) on the page as it is now and list its violations with the other signals of the page. Each page is already audited once, when first reached; ask again after the page has changed"
+      )
     }),
     run: (manager, input) => hauntCaptureState(manager, input)
   }),
@@ -10693,6 +10732,9 @@ var TOOLS = [
           issues: external_exports.array(issueSchema).describe("This session's EndSessionOutput.issues_found"),
           sandbox_blocked_requests: external_exports.array(external_exports.string()).optional().describe(
             "This session's EndSessionOutput.sandbox_blocked_requests"
+          ),
+          signals: external_exports.array(signalSchema).optional().describe(
+            "This session's EndSessionOutput.signals, as returned: those no issue names get a section of their own"
           )
         })
       ).describe("One entry per ended session"),

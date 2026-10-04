@@ -1,5 +1,7 @@
 import type { Browser, Page } from 'playwright';
+import type { Signal } from '../gates/part-2/contract.js';
 import type { SessionRuntime } from './act/runtime.js';
+import type { SignalCollector } from './signals/collector.js';
 import type { SnapshotState } from './snapshot/snapshot.js';
 
 export type IssueSeverity = 'critical' | 'major' | 'minor' | 'suggestion';
@@ -17,6 +19,9 @@ export interface Issue {
   page_url: string;
   screenshot_path?: string;
   recommendation: string;
+  // The id of the signal this issue is about (part 2, R-S21): the report
+  // shows the signal under the issue instead of on its own.
+  signal?: string;
 }
 
 export interface PersonaScenario {
@@ -63,4 +68,8 @@ export interface HauntSession {
   snapshot: SnapshotState;
   // Tabs, requests in flight, downloads and the open dialog.
   runtime: SessionRuntime;
+  // What the page did wrong that needs no judgement (part 2). `signals` is
+  // the collector's own list, as raised.
+  collector: SignalCollector;
+  signals: Signal[];
 }

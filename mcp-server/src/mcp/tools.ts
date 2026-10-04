@@ -17,6 +17,7 @@ import { hauntEstimateCost } from '../engine/report/estimate-cost.js';
 import { hauntGenerateReport } from '../engine/report/generate-report.js';
 import type { SessionManager } from '../engine/session/manager.js';
 import { hauntSpawn } from '../engine/spawn.js';
+import { SIGNAL_KINDS } from '../gates/part-2/contract.js';
 
 const issueSchema = z.object({
   severity: z.enum(['critical', 'major', 'minor', 'suggestion']),
@@ -30,7 +31,27 @@ const issueSchema = z.object({
   description: z.string(),
   page_url: z.string(),
   recommendation: z.string(),
+  signal: z
+    .string()
+    .optional()
+    .describe(
+      'The id of the signal this issue is about (s3): the report shows the signal under the issue instead of on its own',
+    ),
 });
+
+// A signal as haunt_act, haunt_end_session and the others return it, passed
+// back to the report as it came: its other fields go to the sidecar.
+const signalSchema = z
+  .object({
+    id: z.string(),
+    kind: z.enum(SIGNAL_KINDS),
+    url: z.string(),
+    step: z.number().int().min(0),
+    message: z.string(),
+    severity: z.enum(['major', 'minor']),
+    count: z.number().int().positive(),
+  })
+  .passthrough();
 
 const cookieSchema = z.object({
   name: z.string(),
@@ -88,6 +109,17 @@ export const TOOLS: ToolDefinition[] = [
         .optional()
         .describe(
           'Session cookies to inject before navigation (for authenticated testing)',
+        ),
+      signal_thresholds: z
+        .object({
+          slow_response_ms: z.number().positive().optional(),
+          long_task_ms: z.number().positive().optional(),
+          hung_request_ms: z.number().positive().optional(),
+        })
+        .strict()
+        .optional()
+        .describe(
+          'Above which a response is reported as slow (default 3000), a main-thread task as long (500), a request as hung (10000)',
         ),
     }),
     run: (manager, input) => hauntSpawn(manager, input),
@@ -164,6 +196,18 @@ export const TOOLS: ToolDefinition[] = [
         .boolean()
         .optional()
         .describe('Also save a screenshot. Default: false'),
+      signals: z
+        .boolean()
+        .optional()
+        .describe(
+          'Also list every signal raised so far on the current page: HTTP errors, exceptions, failed, hung and slow requests, dead controls, accessibility violations',
+        ),
+      audit: z
+        .boolean()
+        .optional()
+        .describe(
+          'Run the accessibility audit (axe-core, WCAG 2 A and AA) on the page as it is now and list its violations with the other signals of the page. Each page is already audited once, when first reached; ask again after the page has changed',
+        ),
     }),
     run: (manager, input) => hauntCaptureState(manager, input),
   }),
@@ -225,6 +269,12 @@ export const TOOLS: ToolDefinition[] = [
               .optional()
               .describe(
                 "This session's EndSessionOutput.sandbox_blocked_requests",
+              ),
+            signals: z
+              .array(signalSchema)
+              .optional()
+              .describe(
+                "This session's EndSessionOutput.signals, as returned: those no issue names get a section of their own",
               ),
           }),
         )

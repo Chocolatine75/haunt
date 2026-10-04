@@ -1,6 +1,6 @@
 // mcp-server/src/engine/sabotage.ts
 //
-// Deliberate breakages of the engine, for the gate's own tests (G7.1). Each
+// Deliberate breakages of the engine, for the gates' own tests (G7.1, S8.1). Each
 // one removes a property the gate is supposed to verify; the gate must then
 // fail. A breakage that leaves the gate green is a hole in the gate.
 //
@@ -16,6 +16,20 @@ export const SABOTAGES = [
   'reference_reused',
   'redaction_by_label_only',
   'new_tab_unsandboxed',
+  // Part 2, signals.
+  'signals_late_dropped',
+  'signals_latest_step',
+  'signals_sandbox_blocks',
+  'signals_no_dedup',
+  'signals_console_line',
+  'signals_ignore_4xx',
+  'signals_secrets_kept',
+  'signals_end_dropped',
+  'signals_no_audit',
+  'signals_audit_every_action',
+  // Not a breakage: nothing collected at all, to measure what collecting
+  // costs (S8.4).
+  'signals_off',
 ] as const;
 
 export type Sabotage = (typeof SABOTAGES)[number];

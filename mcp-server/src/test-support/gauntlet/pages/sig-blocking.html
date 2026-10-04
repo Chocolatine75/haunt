@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — sig-blocking</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<!--
+  Two handlers that hold the main thread: one long enough to be felt, one
+  under the default threshold. Nothing else on the page takes time.
+-->
+<h1>Blocking</h1>
+<p><button data-g="block-600" type="button">Sort 50,000 rows</button></p>
+<p><button data-g="block-120" type="button">Sort 5,000 rows</button></p>
+<p id="result" role="status"></p>
+
+<script>
+  const G = window.__gauntlet;
+  const BUGGY = '{{VARIANT}}' === 'buggy';
+  const say = (text) => { document.getElementById('result').textContent = text; };
+
+  // Wall-clock, so the block lasts the same on a fast and a slow machine,
+  // and a little over, so that it never measures under what it is named.
+  const block = (ms) => {
+    const end = performance.now() + ms + 20;
+    while (performance.now() < end);
+  };
+  G.find('block-600').addEventListener('click', () => {
+    if (BUGGY) block(600);
+    say('50,000 rows sorted');
+  });
+  G.find('block-120').addEventListener('click', () => {
+    if (BUGGY) block(120);
+    say('5,000 rows sorted');
+  });
+</script>
+</body>
+</html>

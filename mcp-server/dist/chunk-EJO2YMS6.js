@@ -9,7 +9,7 @@ import {
   hauntGetCookies,
   hauntSpawn,
   zodToJsonSchema
-} from "./chunk-THIBBAMW.js";
+} from "./chunk-K6S3BOMJ.js";
 import {
   Anthropic
 } from "./chunk-MMWLM6BK.js";
@@ -34452,7 +34452,11 @@ function decideActionParameters() {
             },
             description: { type: "string" },
             page_url: { type: "string" },
-            recommendation: { type: "string" }
+            recommendation: { type: "string" },
+            signal: {
+              type: "string",
+              description: "The id of the detected signal this issue is about (s3), if any"
+            }
           },
           required: [
             "severity",
@@ -34633,6 +34637,15 @@ var UNAUTHENTICATED_NOTE = "Note: you are NOT logged in for this session. If thi
 var SANDBOX_BLOCK_NOTE = "Note: your last action was blocked by the haunt test sandbox because it targeted an origin outside the app under test. This is NOT an app bug \u2014 do not report it as an issue. Blocked: ";
 var HOW_TO_ACT = 'Elements are named by the reference in square brackets, e.g. [e12]. Use that reference in your actions; every action is an object with a "type". A failed action is information about the page (covered, disabled, gone), not necessarily a bug.\nReport an issue as soon as you have seen it \u2014 in this very answer, not later. In particular, look at what your last actions did: a button or a submit that changed nothing on the page, a server error in the console (status 500, an exception), a form accepted or refused without any message, private content shown without logging in. Each of those is an issue a real user would hit.';
 var WRAP_UP = 'The session is over: no further action will be run, so leave "actions" empty. Report in "issues" anything you have seen and not reported yet, including what your last actions just revealed.';
+function describeSignals(title, signals) {
+  if (signals.length === 0) return [];
+  return [
+    `${title} (found by the engine; report each as an issue naming its id in "signal"):`,
+    ...signals.slice(0, 10).map(
+      (s) => `- ${s.id} [${s.severity}] ${s.message}${s.late ? " (caused by an earlier step)" : ""}`
+    )
+  ];
+}
 function describeOutcome(result) {
   const lines = result.results.map((step, i) => {
     if (!step.ok)
@@ -34679,14 +34692,20 @@ function describeOutcome(result) {
       `Failed requests: ${result.network_errors.slice(0, 5).join(" | ")}`
     );
   }
+  lines.push(...describeSignals("What went wrong", result.signals));
   return `Your last actions:
 ${lines.join("\n")}`;
 }
-function describeState(snapshot, step, steps, authenticated, last) {
+function describeState(snapshot, step, steps, authenticated, last, atLoad = []) {
   const sections = [`Step ${step} of ${steps}
 
 ${snapshot}`, HOW_TO_ACT];
   if (last) sections.push(describeOutcome(last));
+  const loaded = describeSignals(
+    "What went wrong while the page loaded",
+    atLoad
+  );
+  if (loaded.length > 0) sections.push(loaded.join("\n"));
   if (!authenticated) sections.push(UNAUTHENTICATED_NOTE);
   if (last?.sandbox_blocked?.length) {
     sections.push(`${SANDBOX_BLOCK_NOTE}${last.sandbox_blocked.join("; ")}`);
@@ -34714,7 +34733,14 @@ async function runPersonaSession(decide, manager, personaName, targetUrl, steps,
       });
       const { actions, issues } = await decide(
         spawnResult.persona_description,
-        describeState(state.text, step, steps, authenticated, last)
+        describeState(
+          state.text,
+          step,
+          steps,
+          authenticated,
+          last,
+          step === 1 ? spawnResult.signals : []
+        )
       );
       log(
         `[${spawnResult.persona_name}] step ${step}: ${JSON.stringify(actions)}${issues.length > 0 ? ` (+${issues.length} issue(s))` : ""}`
@@ -34765,7 +34791,8 @@ ${WRAP_UP}`
     persona: spawnResult.persona_name,
     overall_impression: endResult.overall_impression,
     issues: endResult.issues_found,
-    sandbox_blocked_requests: endResult.sandbox_blocked_requests
+    sandbox_blocked_requests: endResult.sandbox_blocked_requests,
+    signals: endResult.signals
   };
 }
 async function runHeadlessTest(decide, manager, options) {
@@ -34801,7 +34828,8 @@ async function runHeadlessTest(decide, manager, options) {
     personas: options.personas,
     sessions
   });
-  return { report, failures };
+  const blocking = report.counts.critical > 0 || report.counts.major > 0 || report.signal_counts.major > 0;
+  return { report, failures, exitCode: blocking ? 1 : 0 };
 }
 function chooseRunner(options, env2, claudeCodeAvailable) {
   if (options.provider === "claude-code") {
@@ -34881,16 +34909,19 @@ async function main() {
     }
   }
   try {
-    const { report, failures } = await runHeadlessTest(decide, manager, {
-      ...options,
-      cookies
-    });
+    const { report, failures, exitCode } = await runHeadlessTest(
+      decide,
+      manager,
+      {
+        ...options,
+        cookies
+      }
+    );
     for (const failure of failures) {
       console.error(`skipped ${failure}`);
     }
     console.log(report.summary);
-    const blocking = report.counts.critical > 0 || report.counts.major > 0;
-    process.exit(blocking ? 1 : 0);
+    process.exit(exitCode);
   } catch (error) {
     console.error(
       "haunt-ci failed:",

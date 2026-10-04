@@ -359,4 +359,97 @@ describe('hauntGenerateReport', () => {
 
     expect(result.markdown).not.toContain('## Sandbox-Blocked Requests');
   });
+
+  describe('signals', () => {
+    const signal = (
+      id: string,
+      severity: 'major' | 'minor',
+      message: string,
+    ) => ({
+      id,
+      kind: 'http_error',
+      url: 'http://localhost:3000/orders',
+      step: 2,
+      message,
+      severity,
+      count: id === 's2' ? 3 : 1,
+      status: 500,
+    });
+
+    it('lists the signals no issue names in a section of their own, and counts them', () => {
+      const result = hauntGenerateReport({
+        target_url: 'http://localhost:3000',
+        personas: ['signals'],
+        date: '2026-01-02',
+        sessions: [
+          {
+            area: '/orders',
+            persona: 'Tester',
+            overall_impression: 'ok',
+            issues: [
+              issue({
+                severity: 'critical',
+                description: 'Orders never load',
+                signal: 's1',
+              }),
+            ],
+            signals: [
+              signal('s1', 'major', 'GET /api/orders answered 500'),
+              signal('s2', 'minor', 'GET /api/logo.png answered 404'),
+              signal('s3', 'major', 'GET /api/export answered 503'),
+            ],
+          },
+        ],
+      });
+      const section = result.markdown.split('## Detected automatically')[1];
+      expect(section).toContain(
+        '- [MAJOR] GET /api/export answered 503 — `http://localhost:3000/orders` (step 2)',
+      );
+      expect(section).toContain(
+        'answered 404 — `http://localhost:3000/orders` (step 2, 3 times)',
+      );
+      // The named one is under its issue, and only there.
+      expect(result.markdown.split('/api/orders').length - 1).toBe(1);
+      expect(result.markdown).toContain(
+        '- **Detected:** [MAJOR] GET /api/orders answered 500',
+      );
+      expect(result.signal_counts).toEqual({ total: 2, major: 1, minor: 1 });
+      expect(result.markdown).toContain('signals:\n  total: 2\n  major: 1');
+      expect(result.summary).toContain(
+        '2 more detected automatically (1 major)',
+      );
+
+      const sidecar = JSON.parse(
+        readFileSync(result.report_path.replace(/\.md$/, '.json'), 'utf-8'),
+      );
+      expect(sidecar.signals).toHaveLength(3);
+      // Fields the report does not use go to the sidecar as they came.
+      expect(sidecar.signals[0].status).toBe(500);
+      expect(
+        sidecar.issues[0].signals.map((s: { id: string }) => s.id),
+      ).toEqual(['s1']);
+      expect(sidecar.signal_counts).toEqual(result.signal_counts);
+    });
+
+    it('has no such section, and says nothing of signals, when there are none', () => {
+      const result = hauntGenerateReport({
+        target_url: 'http://localhost:3000',
+        personas: ['no-signals'],
+        date: '2026-01-03',
+        sessions: [
+          {
+            area: '/',
+            persona: 'Tester',
+            overall_impression: 'ok',
+            // An id that names nothing is ignored.
+            issues: [issue({ signal: 's9' })],
+          },
+        ],
+      });
+      expect(result.markdown).not.toContain('Detected automatically');
+      expect(result.markdown).not.toContain('**Detected:**');
+      expect(result.summary).not.toContain('detected automatically');
+      expect(result.signal_counts).toEqual({ total: 0, major: 0, minor: 0 });
+    });
+  });
 });

@@ -181,6 +181,20 @@ export function refOfLocal(
   return ref;
 }
 
+// The reference an element already has, if the snapshot ever issued it one.
+// Unlike refOfLocal, never issues one: an element nobody can act on (an
+// image) stays without.
+export function knownRef(
+  session: HauntSession,
+  frame: Frame,
+  doc: string,
+  local: number,
+): string | undefined {
+  const state = session.snapshot;
+  const id = frame === frame.page().mainFrame() ? '' : frameIdOf(state, frame);
+  return state.refByKey.get(`${id}:${doc}:${local}`);
+}
+
 // For a reference whose node is gone: the one element in the current page
 // that is the same thing and did not exist when that reference was issued.
 // An element that was already there (another "Delete" button) is not it.
