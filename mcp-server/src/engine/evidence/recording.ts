@@ -33,7 +33,7 @@ export function newRecording(
   viewport: { width: number; height: number },
   spawn: Record<string, unknown>,
 ): Recording {
-  const { cookies: _cookies, ...kept } = spawn;
+  const { cookies: _cookies, secrets: _secrets, ...kept } = spawn;
   return { start_url, viewport, spawn: kept, steps: [], secrets: new Map() };
 }
 

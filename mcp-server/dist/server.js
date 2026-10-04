@@ -11,7 +11,7 @@ import {
   hauntReplay,
   hauntSpawn,
   zodToJsonSchema
-} from "./chunk-LFYHXP5Y.js";
+} from "./chunk-LIYN2BPN.js";
 import {
   _enum,
   _null,
@@ -10665,6 +10665,9 @@ var TOOLS = [
       timeout: external_exports.number().optional().describe("Maximum navigation steps for this session. Default: 30"),
       cookies: external_exports.array(cookieSchema).optional().describe(
         "Session cookies to inject before navigation (for authenticated testing)"
+      ),
+      secrets: external_exports.array(external_exports.string()).optional().describe(
+        "Values to keep out of everything haunt returns or writes, though this session never types them: the email and password it was signed in with. Pass them with the cookies of that login."
       ),
       signal_thresholds: external_exports.object({
         slow_response_ms: external_exports.number().positive().optional(),

@@ -88,5 +88,6 @@ export interface HauntSession {
     bundle_cap_bytes: number;
     // Kept in memory for the replays, never written.
     cookies?: SpawnCookies;
+    secrets?: string[];
   };
 }

@@ -144,7 +144,12 @@ async function verifyClaim(
     const started = Array.from({ length: count }, () => {
       const evidenceDir = mkdtempSync(join(tmpdir(), 'haunt-replay-'));
       scratch.push(evidenceDir);
-      return replay(file, { secrets, cookies, evidenceDir }).catch(
+      return replay(file, {
+        secrets,
+        cookies,
+        known: session.evidence.secrets,
+        evidenceDir,
+      }).catch(
         (): ReplayRun => ({ outcome: 'not_replayable', reproduced: false }),
       );
     });

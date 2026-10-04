@@ -26,6 +26,7 @@ export const PASSING: ReadonlySet<string> = new Set<string>([
   'E4.1',
   'E4.2',
   'E4.3',
+  'E4.4',
   'E5.1',
   'E5.2',
   'E6.1',

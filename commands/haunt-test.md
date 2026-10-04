@@ -162,7 +162,7 @@ Print: `logging in as <email>...`
 
 Print: `authenticated  —  cookies captured`
 
-Store the cookies. Pass them to every `haunt_spawn` call in Phase 2 via the `cookies` parameter.
+Store the cookies. Pass them to every `haunt_spawn` call in Phase 2 via the `cookies` parameter, with `secrets: [<email>, <password>]`: the session never types them, and haunt keeps them out of every bundle only if it knows them.
 
 If login fails (still on login page after submit, or error visible):
 - If `--debug-auth`: print `  · login failed — session not detected`
@@ -226,7 +226,7 @@ Run all sessions yourself — do NOT spawn sub-agents or agents.
 A "step" is one decision per session: one `haunt_act` call, which may carry
 several actions. Spawn each session with `timeout` set to `steps × 5`.
 
-1. `haunt_spawn` for every area in a single message (all in parallel). If auth cookies were captured in Phase 0.5, pass them via the `cookies` parameter to every `haunt_spawn` call.
+1. `haunt_spawn` for every area in a single message (all in parallel). If auth cookies were captured in Phase 0.5, pass them via the `cookies` parameter to every `haunt_spawn` call, and the email and password via `secrets`.
    Keep track of which area each returned `session_id` belongs to — Phase 3 needs it.
 2. `haunt_capture_state` for all sessions — all in parallel.
 3. Reason as each persona with a **corner-case mindset — NOT the happy path** (silently unless `--verbose`):

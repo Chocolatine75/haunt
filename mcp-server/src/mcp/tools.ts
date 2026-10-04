@@ -162,6 +162,12 @@ export const TOOLS: ToolDefinition[] = [
         .describe(
           'Session cookies to inject before navigation (for authenticated testing)',
         ),
+      secrets: z
+        .array(z.string())
+        .optional()
+        .describe(
+          'Values to keep out of everything haunt returns or writes, though this session never types them: the email and password it was signed in with. Pass them with the cookies of that login.',
+        ),
       signal_thresholds: z
         .object({
           slow_response_ms: z.number().positive().optional(),
