@@ -75,8 +75,11 @@ describe('E2 confidence', () => {
           'unverified',
         ]);
         // A signal no issue names is not confirmed either.
+        expect(ended.signals.length).toBeGreaterThan(0);
         for (const signal of ended.signals) {
-          expect(signal.verification.status).not.toBe('confirmed');
+          expect(ended.signal_verification[signal.id]?.status).not.toBe(
+            'confirmed',
+          );
         }
       },
     );
@@ -93,7 +96,7 @@ describe('E2 confidence', () => {
         // Filed without its issue: the signal stays on its own.
         const ended = await session.end([]);
         const failing = ended.signals.find((s) => s.kind === 'http_error');
-        expect(failing?.verification).toMatchObject({
+        expect(failing && ended.signal_verification[failing.id]).toMatchObject({
           status: 'confirmed',
           attempts: 3,
         });

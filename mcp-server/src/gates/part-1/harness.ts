@@ -363,6 +363,9 @@ export function useGauntlet(): GateContext {
         persona: PERSONA,
         target_url: url,
         timeout: 5_000,
+        // Part 3 replays every issue and signal when a session ends: not
+        // what the earlier gates are about, and minutes per session.
+        replay_budget_ms: 0,
         ...spawn,
       },
     );

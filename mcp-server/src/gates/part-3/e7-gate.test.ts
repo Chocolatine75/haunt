@@ -38,6 +38,10 @@ const SABOTAGES: Record<string, (ctx: EvidenceContext) => Promise<void>> = {
     await s.play();
     const [issue] = (await s.end()).issues_found;
     const bundle = issue.verification.bundle as string;
+    // A static page numbers its elements the same way in every session, so
+    // a replay by reference can work by chance: what is written is checked.
+    const steps = readJson<StepsFile>(join(bundle, 'steps.json'));
+    expect(JSON.stringify(steps.steps)).not.toMatch(/"e\d+"/);
     expect((await ctx.replay({ bundle })).outcome).toBe('reproduced');
   },
   // An action that failed in the session replayed anyway.

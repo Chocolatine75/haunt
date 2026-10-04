@@ -35,6 +35,7 @@ describe('E6 where it goes', () => {
     issues: session.ended?.issues_found ?? [],
     rejected: session.ended?.rejected ?? [],
     signals: session.ended?.signals ?? [],
+    signal_verification: session.ended?.signal_verification ?? {},
   });
 
   describe('E6.1 the session result', () => {
