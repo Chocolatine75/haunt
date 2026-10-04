@@ -291,5 +291,7 @@ describe('S8 the gate itself', () => {
   });
 });
 
+// Updated once since part 2 started, for G1.2 waiting on its late frame
+// rather than on a fixed second (#37): the assertions did not change.
 const PART_1_HASH =
-  '3912b2be87ff227958095629be32a1c4601227bb4f2b2581f39d04b4f40f1ef0';
+  '5fdb1b72f30ba98661a02f7d58d698b1b6e26edcad5c004badada82e3cfc59b9';

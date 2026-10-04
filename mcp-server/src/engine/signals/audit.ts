@@ -22,6 +22,9 @@ export interface Violation {
   help: string;
   nodes: number;
   refs: string[];
+  // color-contrast on a long page: how many text elements it was checked
+  // on, of how many.
+  sample?: { checked: number; of: number };
 }
 
 const OPTIONS = {
@@ -30,6 +33,9 @@ const OPTIONS = {
 };
 
 const IMPACTS = ['minor', 'moderate', 'serious', 'critical'];
+
+// Text elements a frame's color-contrast check covers before it samples.
+const CONTRAST_CAP = 200;
 
 // A frame that takes longer than this is left out rather than hold the
 // session for ever.
@@ -74,7 +80,11 @@ async function auditOne(
   try {
     await withTimeout(frame.evaluate(LOAD), FRAME_MS);
     const found = await withTimeout(
-      frame.evaluate(auditFrame, { options: OPTIONS, top }),
+      frame.evaluate(auditFrame, {
+        options: OPTIONS,
+        top,
+        contrastCap: CONTRAST_CAP,
+      }),
       FRAME_MS,
     );
     return (found ?? []).map((v) => ({
@@ -82,6 +92,7 @@ async function auditOne(
       impact: v.impact as Violation['impact'],
       help: v.help,
       nodes: v.nodes,
+      ...(v.sample ? { sample: v.sample } : {}),
       refs: v.elements
         .map(([doc, local]) => knownRef(session, frame, doc, local))
         .filter((ref): ref is string => ref !== undefined),
@@ -111,6 +122,12 @@ export async function audit(session: HauntSession): Promise<Violation[]> {
       }
       known.nodes += v.nodes;
       known.refs.push(...v.refs);
+      if (v.sample) {
+        known.sample = {
+          checked: (known.sample?.checked ?? 0) + v.sample.checked,
+          of: (known.sample?.of ?? 0) + v.sample.of,
+        };
+      }
       if (IMPACTS.indexOf(v.impact) > IMPACTS.indexOf(known.impact)) {
         known.impact = v.impact;
       }
