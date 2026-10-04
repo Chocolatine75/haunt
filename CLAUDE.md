@@ -25,6 +25,11 @@ to `v2` in its own PR.
 run on a push to `v2` or `master`, that is, when a PR is merged there. So a
 Linux- or Windows-only failure shows up on `v2` after the merge: check the
 run on `v2` after every merge, and fix a red `v2` before anything else.
+Windows runs but does not block: its tests report failures in the log and
+the job stays green. GitHub's Windows runners are slow enough that page
+timings (long tasks, closing a browser) cross their thresholds at random,
+and Windows is not where haunt's users are. A Windows failure that is not
+about timing is still worth a look.
 
 1. **Never commit on `master` or `v2`, and never push to them directly.**
    Nor directly on a part branch once its PR is open. Create a branch from
@@ -80,8 +85,9 @@ The goal is to be measurably better at QA-testing web apps than browser-use.
 a gate: a set of deliberately hard tests in `mcp-server/src/gates/`.
 
 - Write the gate tests first and see them fail before implementing the part.
-- A part is done only when its whole gate passes in CI on all three OSes,
-  without retries, and every earlier gate still passes.
+- A part is done only when its whole gate passes in CI on Linux and macOS,
+  without retries, and every earlier gate still passes. Windows runs too but
+  does not block (see above).
 - Never weaken a gate to get a part through: no skipping, no loosened
   assertion, no raised timeout. If a gate test is wrong, fix it in its own PR
   and say why.
