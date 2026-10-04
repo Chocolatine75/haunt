@@ -264,13 +264,16 @@ describe('E7 the gate itself', () => {
       'R-E19',
       'the part 1 and part 2 gates’ tests, contracts and statuses are what they were when part 3 started',
       async () => {
+        // Updated once since part 3 started, when v2 brought in G1.2 waiting
+        // on its late frame and S8.3's matching fingerprint (#37): no
+        // assertion of either gate changed.
         expect(hashOf(resolve(HERE, '../part-1'))).toEqual({
           files: 10,
-          hash: '3912b2be87ff227958095629be32a1c4601227bb4f2b2581f39d04b4f40f1ef0',
+          hash: '5fdb1b72f30ba98661a02f7d58d698b1b6e26edcad5c004badada82e3cfc59b9',
         });
         expect(hashOf(resolve(HERE, '../part-2'))).toEqual({
           files: 12,
-          hash: '33b25556926148c60a75b5cbc9c82d4153df3e5d978e61ee7f38ccd15f964c98',
+          hash: 'd20206083b8162df76aa6ebc602eea0cbdd760a46e97bb6a028735cf64c0aee4',
         });
       },
     );

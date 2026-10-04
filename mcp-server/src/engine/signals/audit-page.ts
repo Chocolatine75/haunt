@@ -13,12 +13,14 @@
 export async function auditFrame(args: {
   options: Record<string, unknown>;
   top: boolean;
+  contrastCap: number;
 }): Promise<Array<{
   rule: string;
   impact: string;
   help: string;
   nodes: number;
   elements: Array<[string, number]>;
+  sample?: { checked: number; of: number };
 }> | null> {
   interface AuditState {
     doc: string;
@@ -47,12 +49,74 @@ export async function auditFrame(args: {
         if (rule.pageLevel) rules[rule.id] = { enabled: false };
       }
     }
+    // color-contrast is nearly all of an audit's time on a long page: 26 of
+    // 30 s on the gauntlet's 2,000-element page, paid at every spawn. Past
+    // a number of text elements it is checked on a sample of them, those on
+    // screen first, then in document order. A contrast defect comes from a
+    // style, repeated: a sample finds it.
+    const CONTRAST = 'color-contrast';
+    const holders: Element[] = [];
+    const seen = new Set<Element>();
+    const walker = document.createTreeWalker(
+      document.body ?? document.documentElement,
+      NodeFilter.SHOW_TEXT,
+    );
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const el = node.parentElement;
+      if (!el || seen.has(el) || !node.nodeValue?.trim()) continue;
+      if (/^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE)$/.test(el.tagName)) continue;
+      seen.add(el);
+      holders.push(el);
+    }
+    const sampled = holders.length > args.contrastCap;
+    if (sampled) rules[CONTRAST] = { enabled: false };
     const results = await axe.run(document, {
       ...args.options,
       iframes: false,
       elementRef: true,
       rules,
     });
+    // Said of every frame, so that a page whose frames were checked whole
+    // and in part counts both.
+    let sample = { checked: holders.length, of: holders.length };
+    if (sampled) {
+      // Only elements with no other text element inside: checking one
+      // checks what is under it, and the sample has to stay a sample.
+      const above = new Set<Element>();
+      for (const el of holders) {
+        for (let up = el.parentElement; up && !above.has(up); ) {
+          above.add(up);
+          up = up.parentElement;
+        }
+      }
+      const leaves = holders.filter((el) => !above.has(el));
+      const onScreen = (el: Element) => {
+        const r = el.getBoundingClientRect();
+        return (
+          r.width > 0 &&
+          r.height > 0 &&
+          r.bottom > 0 &&
+          r.right > 0 &&
+          r.top < innerHeight &&
+          r.left < innerWidth
+        );
+      };
+      const chosen = [
+        ...leaves.filter(onScreen),
+        ...leaves.filter((el) => !onScreen(el)),
+      ].slice(0, args.contrastCap);
+      const contrast = await axe.run(
+        { include: chosen },
+        {
+          runOnly: { type: 'rule', values: [CONTRAST] },
+          resultTypes: ['violations'],
+          iframes: false,
+          elementRef: true,
+        },
+      );
+      results.violations.push(...contrast.violations);
+      sample = { checked: chosen.length, of: holders.length };
+    }
     const localOf = (el: Element): [string, number] => {
       let id = state.ids.get(el);
       if (!id) {
@@ -67,6 +131,7 @@ export async function auditFrame(args: {
       rule: v.id,
       impact: v.impact,
       help: v.help,
+      ...(v.id === CONTRAST ? { sample } : {}),
       nodes: v.nodes.length,
       elements: v.nodes
         // biome-ignore lint/suspicious/noExplicitAny: axe-core's result
