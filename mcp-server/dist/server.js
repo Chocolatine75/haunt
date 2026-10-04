@@ -8,9 +8,10 @@ import {
   hauntEndSession,
   hauntGenerateReport,
   hauntGetCookies,
+  hauntReplay,
   hauntSpawn,
   zodToJsonSchema
-} from "./chunk-P5WB3YY5.js";
+} from "./chunk-FTUARXDH.js";
 import {
   _enum,
   _null,
@@ -10595,8 +10596,37 @@ var issueSchema = external_exports.object({
   page_url: external_exports.string(),
   recommendation: external_exports.string(),
   signal: external_exports.string().optional().describe(
-    "The id of the signal this issue is about (s3): the report shows the signal under the issue instead of on its own"
+    "The id of the signal this issue is about (s3). An issue must name a signal or carry an observation, or it is rejected"
+  ),
+  observed: external_exports.object({
+    step: external_exports.number().int().min(0).optional().describe("The step after which it holds. Default: the last step"),
+    text_present: external_exports.string().optional(),
+    text_absent: external_exports.string().optional(),
+    url: external_exports.string().optional().describe("A string the page URL contains"),
+    element: external_exports.object({
+      ref: external_exports.string(),
+      state: external_exports.enum(["visible", "hidden", "disabled", "enabled", "gone"])
+    }).optional()
+  }).strict().refine(
+    (o) => [o.text_present, o.text_absent, o.url, o.element].filter(
+      (v) => v !== void 0
+    ).length === 1,
+    "An observation states exactly one of text_present, text_absent, url, element"
+  ).optional().describe(
+    "For an issue no signal shows: the fact about the page the engine checks by replaying the steps (a message that is or is not there, an address, an element\u2019s state)"
   )
+});
+var verificationSchema = external_exports.object({
+  status: external_exports.enum(["confirmed", "flaky", "rejected", "unverified"]),
+  attempts: external_exports.number().int().min(0),
+  reproduced: external_exports.number().int().min(0),
+  rate: external_exports.number().min(0).max(1),
+  reason: external_exports.string().optional(),
+  failed_step: external_exports.number().int().optional(),
+  bundle: external_exports.string().optional()
+}).passthrough();
+var reportIssueSchema = issueSchema.extend({
+  verification: verificationSchema.optional()
 });
 var signalSchema = external_exports.object({
   id: external_exports.string(),
@@ -10610,6 +10640,8 @@ var signalSchema = external_exports.object({
 var cookieSchema = external_exports.object({
   name: external_exports.string(),
   value: external_exports.string(),
+  // Instead of domain and path, as Playwright takes either.
+  url: external_exports.string().optional(),
   domain: external_exports.string().optional(),
   path: external_exports.string().optional(),
   expires: external_exports.number().optional(),
@@ -10634,12 +10666,21 @@ var TOOLS = [
       cookies: external_exports.array(cookieSchema).optional().describe(
         "Session cookies to inject before navigation (for authenticated testing)"
       ),
+      secrets: external_exports.array(external_exports.string()).optional().describe(
+        "Values to keep out of everything haunt returns or writes, though this session never types them: the email and password it was signed in with. Pass them with the cookies of that login."
+      ),
       signal_thresholds: external_exports.object({
         slow_response_ms: external_exports.number().positive().optional(),
         long_task_ms: external_exports.number().positive().optional(),
         hung_request_ms: external_exports.number().positive().optional()
       }).strict().optional().describe(
         "Above which a response is reported as slow (default 3000), a main-thread task as long (500), a request as hung (10000)"
+      ),
+      replay_budget_ms: external_exports.number().int().min(0).optional().describe(
+        "How long haunt_end_session may spend replaying the issues to verify them. Default: 120000"
+      ),
+      bundle_cap_bytes: external_exports.number().int().positive().optional().describe(
+        "How large one evidence bundle may grow before its trace, then its screenshot, are dropped. Default: 5 MB"
       )
     }),
     run: (manager, input) => hauntSpawn(manager, input)
@@ -10697,7 +10738,7 @@ var TOOLS = [
   }),
   defineTool({
     name: "haunt_end_session",
-    description: "Close the browser session and return the structured report of all issues found.",
+    description: "Close the browser session, replay every issue in a fresh browser to verify it, and return them: confirmed, flaky (with the rate a replay reproduced it) or unverified in issues_found, each with its evidence bundle; rejected ones apart, with why.",
     input: external_exports.object({
       session_id: external_exports.string(),
       overall_impression: external_exports.string().optional().describe(
@@ -10729,12 +10770,18 @@ var TOOLS = [
           area: external_exports.string().describe("The route/area this session tested, e.g. /signup"),
           persona: external_exports.string(),
           overall_impression: external_exports.string(),
-          issues: external_exports.array(issueSchema).describe("This session's EndSessionOutput.issues_found"),
+          issues: external_exports.array(reportIssueSchema).describe(
+            "This session's EndSessionOutput.issues_found, as returned (with their verification)"
+          ),
+          rejected: external_exports.array(reportIssueSchema).optional().describe("This session's EndSessionOutput.rejected"),
           sandbox_blocked_requests: external_exports.array(external_exports.string()).optional().describe(
             "This session's EndSessionOutput.sandbox_blocked_requests"
           ),
           signals: external_exports.array(signalSchema).optional().describe(
             "This session's EndSessionOutput.signals, as returned: those no issue names get a section of their own"
+          ),
+          signal_verification: external_exports.record(verificationSchema).optional().describe(
+            "This session's EndSessionOutput.signal_verification: only confirmed major signals count in haunt-ci's verdict"
           )
         })
       ).describe("One entry per ended session"),
@@ -10743,6 +10790,18 @@ var TOOLS = [
       )
     }),
     run: (_manager, input) => hauntGenerateReport(input)
+  }),
+  defineTool({
+    name: "haunt_replay",
+    description: "Replay an evidence bundle (its directory, or its steps.json) in a fresh browser and say whether its issue happens again. Needs nothing but the bundle, and the secrets it names if any.",
+    input: external_exports.object({
+      bundle: external_exports.string().describe("A bundle directory or a steps.json path"),
+      secrets: external_exports.record(external_exports.string()).optional().describe(
+        "The value of each placeholder of the bundle ({{secret:1}}), typed where the session typed it"
+      ),
+      cookies: external_exports.array(cookieSchema).optional()
+    }),
+    run: (_manager, input) => hauntReplay(input)
   })
 ];
 function toolInputJsonSchema(tool) {

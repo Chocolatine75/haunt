@@ -26,6 +26,9 @@ export const REPORT_BINDING = '__hauntReport';
 const REDACTED = '[redacted]';
 // A typed value shorter than this would be found in half the messages.
 const MIN_SECRET_LENGTH = 4;
+// A cookie that holds "dark" or "1" is no one's secret, and rewriting every
+// "1" would garble a trace; a session token is longer than this.
+const MIN_TOKEN_LENGTH = 8;
 const MAX_MESSAGE = 500;
 const MAX_STACK = 4_000;
 // A page can call the binding as often as it likes.
@@ -650,6 +653,16 @@ export class SignalCollector {
     if (text.length >= MIN_SECRET_LENGTH && !this.secrets.includes(text)) {
       this.secrets.push(text);
     }
+  }
+
+  // A cookie value or bearer token the session sent or was sent (R-E15).
+  addToken(value: string): void {
+    if (value.length >= MIN_TOKEN_LENGTH) this.addSecret(value);
+  }
+
+  // Whether a text was typed into a credential field.
+  isSecret(text: string): boolean {
+    return this.secrets.includes(text);
   }
 
   // A text with nothing in it that was typed into a credential field. Also

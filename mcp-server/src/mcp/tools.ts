@@ -12,6 +12,7 @@ import { hauntAct } from '../engine/act/act.js';
 import { actionSchema } from '../engine/act/schema.js';
 import { hauntCaptureState } from '../engine/capture.js';
 import { hauntEndSession } from '../engine/end-session.js';
+import { hauntReplay } from '../engine/evidence/replay.js';
 import { hauntGetCookies } from '../engine/get-cookies.js';
 import { hauntEstimateCost } from '../engine/report/estimate-cost.js';
 import { hauntGenerateReport } from '../engine/report/generate-report.js';
@@ -35,8 +36,57 @@ const issueSchema = z.object({
     .string()
     .optional()
     .describe(
-      'The id of the signal this issue is about (s3): the report shows the signal under the issue instead of on its own',
+      'The id of the signal this issue is about (s3). An issue must name a signal or carry an observation, or it is rejected',
     ),
+  observed: z
+    .object({
+      step: z
+        .number()
+        .int()
+        .min(0)
+        .optional()
+        .describe('The step after which it holds. Default: the last step'),
+      text_present: z.string().optional(),
+      text_absent: z.string().optional(),
+      url: z.string().optional().describe('A string the page URL contains'),
+      element: z
+        .object({
+          ref: z.string(),
+          state: z.enum(['visible', 'hidden', 'disabled', 'enabled', 'gone']),
+        })
+        .optional(),
+    })
+    .strict()
+    .refine(
+      (o) =>
+        [o.text_present, o.text_absent, o.url, o.element].filter(
+          (v) => v !== undefined,
+        ).length === 1,
+      'An observation states exactly one of text_present, text_absent, url, element',
+    )
+    .optional()
+    .describe(
+      'For an issue no signal shows: the fact about the page the engine checks by replaying the steps (a message that is or is not there, an address, an element’s state)',
+    ),
+});
+
+// How an issue or a signal fared when replayed (part 3), passed back to the
+// report as haunt_end_session returned it.
+const verificationSchema = z
+  .object({
+    status: z.enum(['confirmed', 'flaky', 'rejected', 'unverified']),
+    attempts: z.number().int().min(0),
+    reproduced: z.number().int().min(0),
+    rate: z.number().min(0).max(1),
+    reason: z.string().optional(),
+    failed_step: z.number().int().optional(),
+    bundle: z.string().optional(),
+  })
+  .passthrough();
+
+// An issue as haunt_end_session returns it.
+const reportIssueSchema = issueSchema.extend({
+  verification: verificationSchema.optional(),
 });
 
 // A signal as haunt_act, haunt_end_session and the others return it, passed
@@ -56,6 +106,8 @@ const signalSchema = z
 const cookieSchema = z.object({
   name: z.string(),
   value: z.string(),
+  // Instead of domain and path, as Playwright takes either.
+  url: z.string().optional(),
   domain: z.string().optional(),
   path: z.string().optional(),
   expires: z.number().optional(),
@@ -110,6 +162,12 @@ export const TOOLS: ToolDefinition[] = [
         .describe(
           'Session cookies to inject before navigation (for authenticated testing)',
         ),
+      secrets: z
+        .array(z.string())
+        .optional()
+        .describe(
+          'Values to keep out of everything haunt returns or writes, though this session never types them: the email and password it was signed in with. Pass them with the cookies of that login.',
+        ),
       signal_thresholds: z
         .object({
           slow_response_ms: z.number().positive().optional(),
@@ -120,6 +178,22 @@ export const TOOLS: ToolDefinition[] = [
         .optional()
         .describe(
           'Above which a response is reported as slow (default 3000), a main-thread task as long (500), a request as hung (10000)',
+        ),
+      replay_budget_ms: z
+        .number()
+        .int()
+        .min(0)
+        .optional()
+        .describe(
+          'How long haunt_end_session may spend replaying the issues to verify them. Default: 120000',
+        ),
+      bundle_cap_bytes: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe(
+          'How large one evidence bundle may grow before its trace, then its screenshot, are dropped. Default: 5 MB',
         ),
     }),
     run: (manager, input) => hauntSpawn(manager, input),
@@ -214,7 +288,7 @@ export const TOOLS: ToolDefinition[] = [
   defineTool({
     name: 'haunt_end_session',
     description:
-      'Close the browser session and return the structured report of all issues found.',
+      'Close the browser session, replay every issue in a fresh browser to verify it, and return them: confirmed, flaky (with the rate a replay reproduced it) or unverified in issues_found, each with its evidence bundle; rejected ones apart, with why.',
     input: z.object({
       session_id: z.string(),
       overall_impression: z
@@ -262,8 +336,14 @@ export const TOOLS: ToolDefinition[] = [
             persona: z.string(),
             overall_impression: z.string(),
             issues: z
-              .array(issueSchema)
-              .describe("This session's EndSessionOutput.issues_found"),
+              .array(reportIssueSchema)
+              .describe(
+                "This session's EndSessionOutput.issues_found, as returned (with their verification)",
+              ),
+            rejected: z
+              .array(reportIssueSchema)
+              .optional()
+              .describe("This session's EndSessionOutput.rejected"),
             sandbox_blocked_requests: z
               .array(z.string())
               .optional()
@@ -276,6 +356,12 @@ export const TOOLS: ToolDefinition[] = [
               .describe(
                 "This session's EndSessionOutput.signals, as returned: those no issue names get a section of their own",
               ),
+            signal_verification: z
+              .record(verificationSchema)
+              .optional()
+              .describe(
+                "This session's EndSessionOutput.signal_verification: only confirmed major signals count in haunt-ci's verdict",
+              ),
           }),
         )
         .describe('One entry per ended session'),
@@ -287,6 +373,22 @@ export const TOOLS: ToolDefinition[] = [
         ),
     }),
     run: (_manager, input) => hauntGenerateReport(input),
+  }),
+  defineTool({
+    name: 'haunt_replay',
+    description:
+      'Replay an evidence bundle (its directory, or its steps.json) in a fresh browser and say whether its issue happens again. Needs nothing but the bundle, and the secrets it names if any.',
+    input: z.object({
+      bundle: z.string().describe('A bundle directory or a steps.json path'),
+      secrets: z
+        .record(z.string())
+        .optional()
+        .describe(
+          'The value of each placeholder of the bundle ({{secret:1}}), typed where the session typed it',
+        ),
+      cookies: z.array(cookieSchema).optional(),
+    }),
+    run: (_manager, input) => hauntReplay(input),
   }),
 ];
 

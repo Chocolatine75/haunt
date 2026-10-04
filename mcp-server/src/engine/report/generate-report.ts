@@ -3,6 +3,17 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { REPORTS_DIR } from '../constants.js';
 import type { Issue, IssueSeverity } from '../types.js';
 
+// What the report needs of a verification (gates/part-3/contract.ts has the
+// whole shape).
+export interface ReportVerification {
+  status: 'confirmed' | 'flaky' | 'rejected' | 'unverified';
+  attempts: number;
+  reproduced: number;
+  rate: number;
+  bundle?: string;
+  reason?: string;
+}
+
 // What the report needs of a signal (gates/part-2/contract.ts has the whole
 // shape); the rest of its fields go to the sidecar as they came.
 export interface ReportSignal {
@@ -15,14 +26,23 @@ export interface ReportSignal {
   count: number;
 }
 
+// An issue as haunt_end_session returns it: with its verification (part 3).
+// One without is taken as it comes, as before part 3.
+export type ReportIssue = Issue & { verification?: ReportVerification };
+
 export interface SessionResult {
   area: string;
   persona: string;
   overall_impression: string;
-  issues: Issue[];
+  issues: ReportIssue[];
+  // Issues verification rejected: in the sidecar only.
+  rejected?: ReportIssue[];
   sandbox_blocked_requests?: string[];
-  // Every signal of the session (haunt_end_session's), part 2.
+  // Every signal of the session (haunt_end_session's), part 2, and how each
+  // fared when replayed, by id (part 3). A signal without is taken as
+  // confirmed, as before part 3.
   signals?: ReportSignal[];
+  signal_verification?: Record<string, ReportVerification>;
 }
 
 export interface GenerateReportInput {
@@ -62,6 +82,20 @@ export interface SignalCounts {
 
 // The heading of the signals no issue names (R-S21).
 export const SIGNALS_HEADING = 'Detected automatically';
+// The headings of issues a replay reproduced only sometimes, or that could
+// not be replayed in time (R-E12).
+export const FLAKY_HEADING = 'Flaky';
+export const UNVERIFIED_HEADING = 'Unverified';
+
+const statusOf = (item: { verification?: ReportVerification }) =>
+  item.verification?.status ?? 'confirmed';
+
+// "reproduced 2 of 10 replays (20%)"
+function replays(verification: ReportVerification | undefined): string {
+  if (!verification) return '';
+  const { reproduced, attempts } = verification;
+  return `reproduced ${reproduced} of ${attempts} replays (${Math.round((attempts ? reproduced / attempts : 0) * 100)}%)`;
+}
 
 export interface GenerateReportOutput {
   report_path: string;
@@ -69,6 +103,9 @@ export interface GenerateReportOutput {
   summary: string;
   counts: IssueCounts;
   signal_counts: SignalCounts;
+  // Major signals no issue names that a replay confirmed (R-E12): what
+  // haunt-ci's verdict counts along with the issues.
+  confirmed_major_signals: number;
   top_fix: string;
   comparison?: ComparisonResult;
   comparison_error?: string;
@@ -192,6 +229,12 @@ function renderIssueBlock(
   for (const signal of signals) {
     lines.push(`- **Detected:** ${renderSignal(signal).slice(2)}`);
   }
+  const verification = (issue as ReportIssue).verification;
+  if (verification?.bundle) {
+    lines.push(
+      `- **Evidence:** \`${verification.bundle}\` — ${replays(verification)}`,
+    );
+  }
   return lines.join('\n');
 }
 
@@ -277,7 +320,15 @@ export function hauntGenerateReport(
   input: GenerateReportInput,
 ): GenerateReportOutput {
   const date = input.date ?? todayISODate();
-  const allIssues = input.sessions.flatMap((s) => s.issues);
+  const filed = input.sessions.flatMap((s) => s.issues);
+  // Only what a replay confirmed is an issue of the report (R-E12).
+  const allIssues = filed.filter((i) => statusOf(i) === 'confirmed');
+  const flaky = filed.filter((i) => statusOf(i) === 'flaky');
+  const unverified = filed.filter((i) => statusOf(i) === 'unverified');
+  const rejectedIssues = [
+    ...filed.filter((i) => statusOf(i) === 'rejected'),
+    ...input.sessions.flatMap((s) => s.rejected ?? []),
+  ];
   const allBlockedRequests = input.sessions.flatMap(
     (s) => s.sandbox_blocked_requests ?? [],
   );
@@ -294,7 +345,9 @@ export function hauntGenerateReport(
   const unnamed: ReportSignal[] = [];
   for (const session of input.sessions) {
     const taken = new Set<string>();
-    for (const issue of session.issues) {
+    for (const issue of session.issues.filter(
+      (i) => statusOf(i) !== 'rejected',
+    )) {
       const signal = session.signals?.find((s) => s.id === issue.signal);
       if (!signal) continue;
       named.set(issue, [signal]);
@@ -308,6 +361,20 @@ export function hauntGenerateReport(
     major: unnamed.filter((s) => s.severity === 'major').length,
     minor: unnamed.filter((s) => s.severity === 'minor').length,
   };
+  const confirmed_major_signals = input.sessions.flatMap((session) => {
+    const taken = new Set(
+      session.issues
+        .filter((i) => statusOf(i) !== 'rejected')
+        .map((i) => i.signal),
+    );
+    return (session.signals ?? []).filter(
+      (s) =>
+        !taken.has(s.id) &&
+        s.severity === 'major' &&
+        (session.signal_verification?.[s.id]?.status ?? 'confirmed') ===
+          'confirmed',
+    );
+  }).length;
 
   const personaSlug = input.personas
     .join('-')
@@ -393,6 +460,29 @@ export function hauntGenerateReport(
     );
   }
 
+  const listed = (issue: ReportIssue) =>
+    `- [${issue.severity.toUpperCase()}] ${issue.description} (\`${issue.page_url}\`)${issue.verification?.bundle ? ` — evidence: \`${issue.verification.bundle}\`` : ''} — ${replays(issue.verification)}`;
+  if (flaky.length > 0) {
+    bodySections.push(
+      '',
+      `## ${FLAKY_HEADING}`,
+      '',
+      'Replayed in a fresh browser, these happened only some of the time: real, but not every time.',
+      '',
+      flaky.map(listed).join('\n'),
+    );
+  }
+  if (unverified.length > 0) {
+    bodySections.push(
+      '',
+      `## ${UNVERIFIED_HEADING}`,
+      '',
+      'Not replayed within the time the session had: not confirmed, and not counted.',
+      '',
+      unverified.map(listed).join('\n'),
+    );
+  }
+
   bodySections.push('', '## Session Impressions', '', impressionsSection);
 
   if (counts.total > 0) {
@@ -454,6 +544,9 @@ export function hauntGenerateReport(
         issues: sorted.map((issue) =>
           named.has(issue) ? { ...issue, signals: named.get(issue) } : issue,
         ),
+        flaky,
+        unverified,
+        rejected: rejectedIssues,
         signals: allSignals,
         signal_counts,
       },
@@ -479,6 +572,7 @@ export function hauntGenerateReport(
     summary,
     counts,
     signal_counts,
+    confirmed_major_signals,
     top_fix,
     comparison,
     comparison_error,

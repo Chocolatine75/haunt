@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — ev quote</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<button data-g="quote" type="button">Get a quote</button>
+<p id="result" role="status"></p>
+<script>
+  window.__gauntlet.find('quote').addEventListener('click', async () => {
+    const res = await fetch('/ev/api/quote?variant={{VARIANT}}');
+    document.getElementById('result').textContent = res.ok ? 'Quote: 12' : 'No quote';
+  });
+</script>
+</body>
+</html>

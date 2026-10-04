@@ -34168,6 +34168,84 @@ function sabotaged(name) {
   return current === name;
 }
 
+// src/engine/evidence/recording.ts
+var REF_FIELDS = ["ref", "from_ref", "to_ref"];
+var REF_PLACEHOLDER = "@ref";
+function newRecording(start_url, viewport, spawn) {
+  const { cookies: _cookies, secrets: _secrets, ...kept } = spawn;
+  return { start_url, viewport, spawn: kept, steps: [], secrets: /* @__PURE__ */ new Map() };
+}
+function containerStep(containers, id) {
+  const container = containers.find((c) => c.id === id);
+  if (!container) return void 0;
+  const parent = JSON.stringify(container.path);
+  const beside = containers.filter(
+    (c) => c.kind === container.kind && JSON.stringify(c.path) === parent
+  );
+  if (container.kind === "shadow") {
+    return { shadow: beside.indexOf(container) };
+  }
+  const pathOf3 = (url = "") => {
+    try {
+      return new URL(url).pathname;
+    } catch {
+      return url;
+    }
+  };
+  const same = beside.filter((c) => pathOf3(c.url) === pathOf3(container.url));
+  return { frame: pathOf3(container.url), index: same.indexOf(container) };
+}
+function pathOf(containers, element) {
+  const path = [];
+  for (const id of element.path) {
+    const step = containerStep(containers, id);
+    if (!step) return void 0;
+    path.push(step);
+  }
+  return path;
+}
+function locatorOf(elements, containers, ref2) {
+  const element = elements.find((e) => e.ref === ref2);
+  if (!element) return void 0;
+  const path = pathOf(containers, element);
+  if (!path) return void 0;
+  const key = JSON.stringify(path);
+  const same = elements.filter(
+    (e) => e.role === element.role && e.name === element.name && JSON.stringify(pathOf(containers, e)) === key
+  );
+  return {
+    role: element.role,
+    name: element.name,
+    index: same.indexOf(element),
+    path
+  };
+}
+function refFor(elements, containers, locator) {
+  const key = JSON.stringify(locator.path);
+  const same = elements.filter(
+    (e) => e.role === locator.role && e.name === locator.name && JSON.stringify(pathOf(containers, e)) === key
+  );
+  return same[locator.index]?.ref;
+}
+function record(recording, step, action, locators, typedSecret) {
+  const kept = { ...action };
+  if (!sabotaged("evidence_refs_not_locators")) {
+    for (const field of REF_FIELDS) {
+      if (typeof kept[field] === "string") kept[field] = REF_PLACEHOLDER;
+    }
+  }
+  if (typedSecret && typeof kept.text === "string") {
+    const text = kept.text;
+    let placeholder = recording.secrets.get(text);
+    if (!placeholder) {
+      placeholder = `{{secret:${recording.secrets.size + 1}}}`;
+      recording.secrets.set(text, placeholder);
+    }
+    kept.text = placeholder;
+  }
+  recording.steps.push({ step, action: kept, locators });
+}
+
 // src/engine/signals/audit.ts
 var import_axe_core = __toESM(require_axe(), 1);
 
@@ -34299,7 +34377,7 @@ function installHooks() {
   const logged = /* @__PURE__ */ new WeakMap();
   const escaped = /* @__PURE__ */ new WeakSet();
   const isObject = (value) => typeof value === "object" && value !== null || typeof value === "function";
-  const textOf = (value) => {
+  const textOf2 = (value) => {
     if (typeof value === "string") return value;
     if (value instanceof Error) return String(value);
     try {
@@ -34332,7 +34410,7 @@ function installHooks() {
     const reason = event.reason;
     const payload = {
       k: "rejection",
-      message: reason instanceof Error ? reason.message : textOf(reason),
+      message: reason instanceof Error ? reason.message : textOf2(reason),
       stack: reason instanceof Error ? reason.stack : void 0
     };
     if (isObject(reason)) {
@@ -34347,7 +34425,7 @@ function installHooks() {
       if (!args.some((arg) => isObject(arg) && escaped.has(arg))) {
         const n = report({
           k: "console",
-          message: args.map(textOf).join(" "),
+          message: args.map(textOf2).join(" "),
           cause: state.running
         });
         for (const arg of args) if (isObject(arg)) logged.set(arg, n);
@@ -35148,7 +35226,7 @@ async function takeSnapshot(session, options = {}, internal = false) {
   const textParts = [];
   const previousRefs = state.previous?.comparable;
   const positional = /* @__PURE__ */ new Map();
-  const refFor = (capture, local) => {
+  const refFor2 = (capture, local) => {
     const key = `${capture.id}:${capture.raw.doc}:${local}`;
     if (flag === "reference_reused") {
       let reused = positional.get(key);
@@ -35211,7 +35289,7 @@ async function takeSnapshot(session, options = {}, internal = false) {
     const built = capture.raw.elements.map(
       (raw) => {
         const { local, shadow, covered_by, ...fields } = raw;
-        const ref2 = refFor(capture, local);
+        const ref2 = refFor2(capture, local);
         const element = {
           ref: ref2,
           ...fields,
@@ -35221,7 +35299,7 @@ async function takeSnapshot(session, options = {}, internal = false) {
           ]
         };
         if (covered_by !== void 0)
-          element.covered_by = refFor(capture, covered_by);
+          element.covered_by = refFor2(capture, covered_by);
         if (previousRefs && !previousRefs.has(ref2)) element.is_new = true;
         state.described.set(ref2, identity(element));
         return element;
@@ -35511,7 +35589,7 @@ async function auditNow(session, step, options = {}) {
 }
 async function auditIfNew(session, step) {
   if (sabotaged("signals_no_audit") || sabotaged("signals_off")) return;
-  if (session.page.isClosed()) return;
+  if (!session.evidence.audit || session.page.isClosed()) return;
   const key = pageKey(session.page.url());
   if (!key) return;
   const again = sabotaged("signals_audit_every_action");
@@ -40705,7 +40783,7 @@ async function execute(session, action) {
     }
   }
 }
-var pathOf = (url) => {
+var pathOf2 = (url) => {
   try {
     const parsed = new URL(url);
     return `${parsed.origin}${parsed.pathname}`;
@@ -40743,10 +40821,10 @@ async function settle(session, since, from, ignoreMutations) {
     timers = readings.flatMap((r) => r?.timers ?? []);
     if (quiet && started.length === 0) return { settled: true };
     if (Date.now() >= deadline) {
-      const recent = runtime.recent.filter((r) => r.at >= since).map((r) => pathOf(r.url));
+      const recent = runtime.recent.filter((r) => r.at >= since).map((r) => pathOf2(r.url));
       const pending = [
         .../* @__PURE__ */ new Set([
-          ...started.map((r) => pathOf(r.url)),
+          ...started.map((r) => pathOf2(r.url)),
           ...recent.slice(-5),
           ...timers
         ])
@@ -40804,6 +40882,20 @@ async function runStep(session, input) {
   let outcome = {};
   const validation = validateAction(input);
   if (validation.ok) type2 = validation.action.type;
+  const locators = {};
+  if (validation.ok && readBefore) {
+    const fields = validation.action;
+    for (const field of REF_FIELDS) {
+      const ref2 = fields[field];
+      if (typeof ref2 !== "string") continue;
+      const locator = locatorOf(
+        readBefore.elements,
+        readBefore.containers,
+        ref2
+      );
+      if (locator) locators[field] = locator;
+    }
+  }
   if (!validation.ok) {
     error = {
       code: "invalid_action",
@@ -40892,6 +40984,24 @@ async function runStep(session, input) {
   if (settled.pending) step.pending = settled.pending;
   if (outcome.options) step.options = outcome.options;
   if (outcome.text !== void 0) step.text = outcome.text;
+  if (validation.ok && !error && !sabotaged("evidence_off")) {
+    const typed = validation.action.text;
+    record(
+      session.recording,
+      stepNumber,
+      validation.action,
+      locators,
+      typeof typed === "string" && collector.isSecret(typed)
+    );
+  } else if (validation.ok && error && sabotaged("evidence_failed_replayed")) {
+    record(
+      session.recording,
+      stepNumber,
+      validation.action,
+      locators,
+      false
+    );
+  }
   return step;
 }
 function stopAfter(step) {
@@ -40975,6 +41085,29 @@ async function hauntAct(manager, input) {
 
 // src/engine/capture.ts
 import { mkdirSync } from "fs";
+
+// src/engine/evidence/screenshot.ts
+async function credentialFields(page) {
+  const found = [];
+  for (const frame of page.frames()) {
+    if (frame.isDetached()) continue;
+    const inputs = frame.locator("input");
+    const count = await inputs.count().catch(() => 0);
+    for (let i = 0; i < count; i++) {
+      const input = inputs.nth(i);
+      if (await input.evaluate(credentialField).catch(() => false)) {
+        found.push(input);
+      }
+    }
+  }
+  return found;
+}
+async function maskedScreenshot(page, path) {
+  const mask = sabotaged("evidence_screenshots_unmasked") ? [] : await credentialFields(page);
+  return page.screenshot({ path, mask, maskColor: "#888888" });
+}
+
+// src/engine/capture.ts
 async function hauntCaptureState(manager, input) {
   const session = manager.get(input.session_id);
   await manager.reapStale(SESSION_TTL_MS);
@@ -40993,382 +41126,16 @@ async function hauntCaptureState(manager, input) {
   if (include_screenshot && !session.runtime.dialog) {
     mkdirSync(SCREENSHOTS_DIR, { recursive: true });
     output.screenshot_path = `${session.id}-capture-${Date.now()}.png`;
-    await session.page.screenshot({
-      path: `${SCREENSHOTS_DIR}/${output.screenshot_path}`
-    });
+    await maskedScreenshot(
+      session.page,
+      `${SCREENSHOTS_DIR}/${output.screenshot_path}`
+    );
   }
   return output;
-}
-
-// src/engine/end-session.ts
-var sleep2 = (ms) => new Promise((r) => setTimeout(r, ms));
-async function lastEffects(session) {
-  if (sabotaged("signals_off")) return;
-  const { collector } = session;
-  const deadline = Date.now() + SETTLE_CAP_MS;
-  for (; ; ) {
-    let timers = 0;
-    if (!session.runtime.dialog && !session.page.isClosed()) {
-      const counts = await Promise.all(
-        session.page.frames().map(
-          (frame) => frame.evaluate(pendingTimers, collector.lastStepStart).catch(() => 0)
-        )
-      );
-      timers = counts.reduce((sum, count) => sum + count, 0);
-    }
-    if (timers === 0 && collector.awaited() === 0) return;
-    if (Date.now() >= deadline) return;
-    await sleep2(50);
-  }
-}
-async function hauntEndSession(manager, input) {
-  const session = manager.get(input.session_id);
-  const known = new Set(session.issues.map((issue) => JSON.stringify(issue)));
-  for (const issue of input.issues ?? []) {
-    if (!known.has(JSON.stringify(issue))) session.issues.push(issue);
-  }
-  await lastEffects(session);
-  const signals = session.collector.all();
-  await session.browser.close();
-  manager.delete(input.session_id);
-  await manager.reapStale(SESSION_TTL_MS);
-  const duration_seconds = Math.round(
-    (Date.now() - session.start_time) / 1e3
-  );
-  const output = {
-    session_id: session.id,
-    persona: session.persona.name,
-    duration_seconds,
-    pages_visited: session.pages_visited.length,
-    step_count: session.step_count,
-    issues_found: session.issues,
-    sandbox_blocked_requests: session.sandbox_blocked_requests,
-    signals,
-    overall_impression: input.overall_impression ?? `Completed ${session.step_count} steps across ${session.pages_visited.length} pages.`
-  };
-  return output;
-}
-
-// src/engine/report/generate-report.ts
-import { existsSync as existsSync2, mkdirSync as mkdirSync2, readFileSync, writeFileSync } from "fs";
-var SIGNALS_HEADING = "Detected automatically";
-var SEVERITY_ORDER = [
-  "critical",
-  "major",
-  "minor",
-  "suggestion"
-];
-function likelyFile(pageUrl2) {
-  let path;
-  try {
-    path = new URL(pageUrl2).pathname;
-  } catch {
-    if (!pageUrl2.startsWith("/")) return void 0;
-    path = pageUrl2;
-  }
-  if (!path) return void 0;
-  if (/\/(login|sign-?in|sign-?up|register|auth|session)(\/|$)/i.test(path)) {
-    return "lib/auth.ts";
-  }
-  if (path === "/") return "app/page.tsx";
-  if (path.startsWith("/api/")) return `app${path}/route.ts`;
-  return `app${path}/page.tsx`;
-}
-function todayISODate() {
-  return (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-}
-function countBySeverity(issues) {
-  return {
-    total: issues.length,
-    critical: issues.filter((i) => i.severity === "critical").length,
-    major: issues.filter((i) => i.severity === "major").length,
-    minor: issues.filter((i) => i.severity === "minor").length,
-    suggestion: issues.filter((i) => i.severity === "suggestion").length
-  };
-}
-function issueKey(issue) {
-  return `${issue.page_url}||${issue.category}||${issue.severity}`;
-}
-function sidecarPathFor(reportPath) {
-  return reportPath.endsWith(".md") ? `${reportPath.slice(0, -3)}.json` : `${reportPath}.json`;
-}
-function loadPreviousIssues(compareWith) {
-  const sidecarPath = compareWith.endsWith(".json") ? compareWith : sidecarPathFor(compareWith);
-  if (!existsSync2(sidecarPath)) {
-    throw new Error(`No sidecar data found at ${sidecarPath}`);
-  }
-  const parsed = JSON.parse(readFileSync(sidecarPath, "utf-8"));
-  if (!Array.isArray(parsed.issues)) {
-    throw new Error(`${sidecarPath} does not contain an issues array`);
-  }
-  return parsed.issues;
-}
-function compareIssues(oldIssues, newIssues, compareWith) {
-  const oldKeys = new Set(oldIssues.map(issueKey));
-  const newKeys = new Set(newIssues.map(issueKey));
-  return {
-    compared_with: compareWith,
-    resolved: oldIssues.filter((i) => !newKeys.has(issueKey(i))),
-    still_present_count: newIssues.filter((i) => oldKeys.has(issueKey(i))).length,
-    new_count: newIssues.filter((i) => !oldKeys.has(issueKey(i))).length
-  };
-}
-function renderSignal(signal) {
-  const times = signal.count > 1 ? `, ${signal.count} times` : "";
-  return `- [${signal.severity.toUpperCase()}] ${signal.message} \u2014 \`${signal.url}\` (step ${signal.step}${times})`;
-}
-function renderIssueBlock(issue, index, previousKeys, signals = []) {
-  const statusTag = previousKeys ? previousKeys.has(issueKey(issue)) ? " _(still present)_" : " _(new)_" : "";
-  const lines = [
-    `### ${index + 1}. [${issue.severity.toUpperCase()}] ${issue.description}${statusTag}`,
-    `- **Page:** \`${issue.page_url}\``,
-    `- **Fix:** ${issue.recommendation}`
-  ];
-  const file = likelyFile(issue.page_url);
-  if (file) {
-    lines.push(
-      `- **Likely file:** \`${file}\` *(AI estimate \u2014 verify before editing)*`
-    );
-  }
-  for (const signal of signals) {
-    lines.push(`- **Detected:** ${renderSignal(signal).slice(2)}`);
-  }
-  return lines.join("\n");
-}
-function renderForClaudeLine(issue, index) {
-  const file = likelyFile(issue.page_url);
-  const fileSuffix = file ? ` Likely in \`${file}\`.` : "";
-  return `${index + 1}. [${issue.severity.toUpperCase()}] \`${issue.page_url}\` \u2014 ${issue.recommendation}.${fileSuffix}`;
-}
-function renderComparisonSection(comparison) {
-  const lines = [
-    `Compared with \`${comparison.compared_with}\`: ${comparison.still_present_count} still present, ${comparison.new_count} new, ${comparison.resolved.length} resolved.`
-  ];
-  if (comparison.resolved.length > 0) {
-    lines.push("");
-    lines.push("Resolved since then:");
-    for (const issue of comparison.resolved) {
-      lines.push(
-        `- [${issue.severity.toUpperCase()}] ${issue.description} (\`${issue.page_url}\`)`
-      );
-    }
-  }
-  return lines.join("\n");
-}
-function renderSandboxBlockedSection(blocked) {
-  return blocked.map((entry) => `- ${entry}`).join("\n");
-}
-function renderSummary(sessions, sortedIssues, counts, signalCounts, topFix, reportPath, comparison) {
-  const rule = "-".repeat(40);
-  const lines = [
-    rule,
-    `${sessions.length} areas tested \xB7 ${counts.total} issues`,
-    ""
-  ];
-  if (signalCounts.total > 0) {
-    lines.push(
-      `${signalCounts.total} more detected automatically (${signalCounts.major} major)`,
-      ""
-    );
-  }
-  if (counts.critical > 0) lines.push(`[!!!] ${counts.critical} critical`);
-  if (counts.major > 0) lines.push(` [!!] ${counts.major} major`);
-  if (counts.minor > 0) lines.push(`  [!] ${counts.minor} minor`);
-  lines.push("");
-  if (counts.critical > 0) {
-    for (const issue of sortedIssues) {
-      if (issue.severity !== "critical") continue;
-      lines.push(`> ${issue.description}  [${issue.page_url}]`);
-    }
-  } else {
-    lines.push("no critical issues");
-  }
-  lines.push("");
-  if (counts.total > 0) {
-    lines.push(`fix first: ${topFix}`, "");
-  }
-  if (comparison) {
-    lines.push(
-      `vs previous run: ${comparison.still_present_count} still present \xB7 ${comparison.new_count} new \xB7 ${comparison.resolved.length} resolved`,
-      ""
-    );
-  }
-  lines.push(`report: ${reportPath}`, rule);
-  return lines.join("\n");
-}
-function hauntGenerateReport(input) {
-  const date = input.date ?? todayISODate();
-  const allIssues = input.sessions.flatMap((s) => s.issues);
-  const allBlockedRequests = input.sessions.flatMap(
-    (s) => s.sandbox_blocked_requests ?? []
-  );
-  const sorted = [...allIssues].sort(
-    (a, b) => SEVERITY_ORDER.indexOf(a.severity) - SEVERITY_ORDER.indexOf(b.severity)
-  );
-  const counts = countBySeverity(allIssues);
-  const top_fix = sorted[0]?.recommendation ?? "";
-  const named = /* @__PURE__ */ new Map();
-  const unnamed = [];
-  for (const session of input.sessions) {
-    const taken = /* @__PURE__ */ new Set();
-    for (const issue of session.issues) {
-      const signal = session.signals?.find((s) => s.id === issue.signal);
-      if (!signal) continue;
-      named.set(issue, [signal]);
-      taken.add(signal.id);
-    }
-    unnamed.push(...(session.signals ?? []).filter((s) => !taken.has(s.id)));
-  }
-  const allSignals = input.sessions.flatMap((s) => s.signals ?? []);
-  const signal_counts = {
-    total: unnamed.length,
-    major: unnamed.filter((s) => s.severity === "major").length,
-    minor: unnamed.filter((s) => s.severity === "minor").length
-  };
-  const personaSlug = input.personas.join("-").toLowerCase().replace(/[^a-z0-9-]+/g, "-");
-  const report_path = `${REPORTS_DIR}/${date}-${personaSlug}.md`;
-  let comparison;
-  let comparison_error;
-  let previousIssues;
-  if (input.compare_with) {
-    try {
-      previousIssues = loadPreviousIssues(input.compare_with);
-      comparison = compareIssues(previousIssues, sorted, input.compare_with);
-    } catch (error) {
-      comparison_error = error instanceof Error ? error.message : String(error);
-    }
-  }
-  const previousKeys = previousIssues ? new Set(previousIssues.map(issueKey)) : void 0;
-  const frontmatter = [
-    "---",
-    "haunt: true",
-    `target: ${input.target_url}`,
-    `date: ${date}`,
-    `personas: [${input.personas.join(", ")}]`,
-    `areas_tested: ${input.sessions.length}`,
-    "issues:",
-    `  total: ${counts.total}`,
-    `  critical: ${counts.critical}`,
-    `  major: ${counts.major}`,
-    `  minor: ${counts.minor}`,
-    "signals:",
-    `  total: ${signal_counts.total}`,
-    `  major: ${signal_counts.major}`,
-    `  minor: ${signal_counts.minor}`,
-    `top_fix: "${top_fix.replace(/"/g, "'")}"`,
-    "---"
-  ].join("\n");
-  const issuesSection = sorted.length ? sorted.map(
-    (issue, i) => renderIssueBlock(issue, i, previousKeys, named.get(issue))
-  ).join("\n\n") : "_No issues found._";
-  const impressionsSection = input.sessions.map((s) => `**${s.area} \u2014 ${s.persona}:** "${s.overall_impression}"`).join("\n");
-  const forClaudeSection = sorted.length ? sorted.map(renderForClaudeLine).join("\n") : "_No issues found._";
-  const bodySections = [
-    frontmatter,
-    "",
-    `# Haunt Report \u2014 ${input.target_url}`,
-    `${date} \xB7 ${input.sessions.length} areas \xB7 ${counts.total} issues \xB7 ${input.personas.join(", ")}`,
-    "",
-    "## Issues",
-    "",
-    issuesSection
-  ];
-  if (unnamed.length > 0) {
-    bodySections.push(
-      "",
-      `## ${SIGNALS_HEADING}`,
-      "",
-      "Found by the engine itself, not by a tester: server errors, exceptions, failed and slow requests, dead controls, accessibility violations.",
-      "",
-      [...unnamed].sort(
-        (a, b) => a.severity === b.severity ? 0 : a.severity === "major" ? -1 : 1
-      ).map(renderSignal).join("\n")
-    );
-  }
-  bodySections.push("", "## Session Impressions", "", impressionsSection);
-  if (counts.total > 0) {
-    bodySections.push("", "## Top Fix", "", top_fix);
-  }
-  if (comparison) {
-    bodySections.push(
-      "",
-      "## Comparison",
-      "",
-      renderComparisonSection(comparison)
-    );
-  } else if (comparison_error) {
-    bodySections.push(
-      "",
-      "## Comparison",
-      "",
-      `Could not compare with \`${input.compare_with}\`: ${comparison_error}`
-    );
-  }
-  bodySections.push(
-    "",
-    "## For Claude",
-    "",
-    "The following issues were found by Haunt. Fix them in order of severity.",
-    "",
-    forClaudeSection,
-    ...unnamed.length > 0 ? ["", `Then fix what is listed under "${SIGNALS_HEADING}".`] : [],
-    "",
-    `After fixing, run \`/haunt:haunt-test ${input.target_url}\` again to verify.`
-  );
-  if (allBlockedRequests.length > 0) {
-    bodySections.push(
-      "",
-      "## Sandbox-Blocked Requests",
-      "",
-      "These are not app bugs \u2014 the test sandbox blocked an attempt to reach an origin outside the target app, shown here for visibility into what the persona tried.",
-      "",
-      renderSandboxBlockedSection(allBlockedRequests)
-    );
-  }
-  const markdown = bodySections.join("\n");
-  mkdirSync2(REPORTS_DIR, { recursive: true });
-  writeFileSync(report_path, markdown, "utf-8");
-  writeFileSync(
-    sidecarPathFor(report_path),
-    JSON.stringify(
-      {
-        target_url: input.target_url,
-        date,
-        personas: input.personas,
-        issues: sorted.map(
-          (issue) => named.has(issue) ? { ...issue, signals: named.get(issue) } : issue
-        ),
-        signals: allSignals,
-        signal_counts
-      },
-      null,
-      2
-    ),
-    "utf-8"
-  );
-  const summary = renderSummary(
-    input.sessions,
-    sorted,
-    counts,
-    signal_counts,
-    top_fix,
-    report_path,
-    comparison
-  );
-  return {
-    report_path,
-    markdown,
-    summary,
-    counts,
-    signal_counts,
-    top_fix,
-    comparison,
-    comparison_error
-  };
 }
 
 // src/engine/spawn.ts
-import { existsSync as existsSync3 } from "fs";
+import { existsSync as existsSync2 } from "fs";
 import { chromium } from "playwright";
 
 // node_modules/uuid/dist/esm/stringify.js
@@ -41422,6 +41189,10 @@ function v4(options, buf, offset) {
 }
 var v4_default = v4;
 
+// src/gates/part-3/contract.ts
+var BUNDLE_CAP_BYTES = 5 * 1024 * 1024;
+var REPORT_CAP_BYTES = 50 * 1024 * 1024;
+
 // src/engine/act/runtime.ts
 function attachRuntime(context, snapshot) {
   const runtime = {
@@ -41472,7 +41243,7 @@ function attachRuntime(context, snapshot) {
 }
 
 // src/engine/persona/loader.ts
-import { readFileSync as readFileSync2 } from "fs";
+import { readFileSync } from "fs";
 import { resolve as resolve2 } from "path";
 import { fileURLToPath } from "url";
 
@@ -44570,7 +44341,7 @@ var PersonaSchema = external_exports.object({
 });
 function loadPersona(nameOrPath) {
   const filePath = nameOrPath.endsWith(".yaml") || nameOrPath.endsWith(".yml") ? nameOrPath : resolve2(BUILTIN_PERSONAS_DIR, `${nameOrPath}.yaml`);
-  const raw = readFileSync2(filePath, "utf-8");
+  const raw = readFileSync(filePath, "utf-8");
   const parsed = yaml.load(raw);
   return PersonaSchema.parse(parsed);
 }
@@ -44610,6 +44381,7 @@ var DEFAULT_THRESHOLDS = {
 var REPORT_BINDING = "__hauntReport";
 var REDACTED = "[redacted]";
 var MIN_SECRET_LENGTH = 4;
+var MIN_TOKEN_LENGTH = 8;
 var MAX_MESSAGE = 500;
 var MAX_STACK = 4e3;
 var MAX_SIGNALS = 500;
@@ -45036,6 +44808,14 @@ var SignalCollector = class {
       this.secrets.push(text);
     }
   }
+  // A cookie value or bearer token the session sent or was sent (R-E15).
+  addToken(value) {
+    if (value.length >= MIN_TOKEN_LENGTH) this.addSecret(value);
+  }
+  // Whether a text was typed into a credential field.
+  isSecret(text) {
+    return this.secrets.includes(text);
+  }
   // A text with nothing in it that was typed into a credential field. Also
   // for what leaves the engine outside a signal (an action's console and
   // network errors).
@@ -45116,13 +44896,14 @@ function pageUrl(frame, request) {
 }
 
 // src/engine/spawn.ts
+var REPLAY_BUDGET_MS = 12e4;
 async function hauntSpawn(manager, input) {
   await manager.reapStale(SESSION_TTL_MS);
   purgeOldScreenshots(SCREENSHOT_MAX_AGE_MS);
   const personaConfig = loadPersona(input.persona);
   const sessionId = v4_default();
   const executablePath = chromium.executablePath();
-  if (!existsSync3(executablePath)) {
+  if (!existsSync2(executablePath)) {
     throw new Error(
       `Chromium is not installed at ${executablePath}. Run: node node_modules/playwright-core/cli.js install chromium (or npx playwright install chromium), then try again.`
     );
@@ -45253,6 +45034,8 @@ async function hauntSpawn(manager, input) {
     }
   });
   collector.attach(context);
+  for (const secret of input.secrets ?? []) collector.addSecret(secret);
+  for (const cookie of input.cookies ?? []) collector.addToken(cookie.value);
   await context.exposeBinding(REPORT_BINDING, (source, report) => {
     collector.fromPage(source, report);
   });
@@ -45308,7 +45091,19 @@ async function hauntSpawn(manager, input) {
     snapshot: snapshotState,
     runtime,
     collector,
-    signals: collector.signals
+    signals: collector.signals,
+    recording: newRecording(
+      input.target_url,
+      page.viewportSize() ?? { width: 1280, height: 720 },
+      { ...input }
+    ),
+    evidence: {
+      audit: input.audit !== false,
+      replay_budget_ms: input.replay_budget_ms ?? REPLAY_BUDGET_MS,
+      bundle_cap_bytes: input.bundle_cap_bytes ?? BUNDLE_CAP_BYTES,
+      cookies: input.cookies,
+      secrets: input.secrets
+    }
   };
   manager.set(sessionId, session);
   await takeSnapshot(session, { format: "json" }, true).catch(() => {
@@ -45320,6 +45115,994 @@ async function hauntSpawn(manager, input) {
     persona_goal: personaConfig.scenarios[0]?.goal ?? "Explore the application",
     persona_description: personaConfig.system_prompt,
     signals: collector.deliver(0)
+  };
+}
+
+// src/engine/evidence/verify.ts
+import {
+  existsSync as existsSync4,
+  mkdirSync as mkdirSync2,
+  mkdtempSync,
+  readdirSync as readdirSync2,
+  renameSync,
+  rmSync,
+  statSync as statSync3,
+  writeFileSync as writeFileSync2
+} from "fs";
+import { tmpdir } from "os";
+import { join as join3 } from "path";
+
+// src/engine/evidence/replay.ts
+import { existsSync as existsSync3, readFileSync as readFileSync3, statSync as statSync2 } from "fs";
+import { join as join2 } from "path";
+
+// src/engine/evidence/zip.ts
+import { readFileSync as readFileSync2, writeFileSync } from "fs";
+import { deflateRawSync, inflateRawSync } from "zlib";
+var CRC_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 3988292384 ^ c >>> 1 : c >>> 1;
+    table[n] = c >>> 0;
+  }
+  return table;
+})();
+function crc32(data) {
+  let crc = 4294967295;
+  for (const byte of data) crc = CRC_TABLE[(crc ^ byte) & 255] ^ crc >>> 8;
+  return (crc ^ 4294967295) >>> 0;
+}
+function readZip(path) {
+  const zip = readFileSync2(path);
+  let end = zip.length - 22;
+  while (end >= 0 && zip.readUInt32LE(end) !== 101010256) end--;
+  if (end < 0) throw new Error(`${path} is not a zip archive`);
+  const count = zip.readUInt16LE(end + 10);
+  let at = zip.readUInt32LE(end + 16);
+  const entries = [];
+  for (let i = 0; i < count; i++) {
+    const method = zip.readUInt16LE(at + 10);
+    const size = zip.readUInt32LE(at + 20);
+    const nameLength = zip.readUInt16LE(at + 28);
+    const extraLength = zip.readUInt16LE(at + 30);
+    const commentLength = zip.readUInt16LE(at + 32);
+    const local = zip.readUInt32LE(at + 42);
+    const name = zip.toString("utf-8", at + 46, at + 46 + nameLength);
+    const start = local + 30 + zip.readUInt16LE(local + 26) + zip.readUInt16LE(local + 28);
+    const data = zip.subarray(start, start + size);
+    entries.push([
+      name,
+      method === 8 ? inflateRawSync(data) : Buffer.from(data)
+    ]);
+    at += 46 + nameLength + extraLength + commentLength;
+  }
+  return entries;
+}
+function writeZip(path, entries) {
+  const locals = [];
+  const centrals = [];
+  let offset = 0;
+  for (const [name, data] of entries) {
+    const nameBytes = Buffer.from(name, "utf-8");
+    const packed = deflateRawSync(data);
+    const crc = crc32(data);
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(67324752, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt16LE(2048, 6);
+    local.writeUInt16LE(8, 8);
+    local.writeUInt32LE(crc, 14);
+    local.writeUInt32LE(packed.length, 18);
+    local.writeUInt32LE(data.length, 22);
+    local.writeUInt16LE(nameBytes.length, 26);
+    const central = Buffer.alloc(46);
+    central.writeUInt32LE(33639248, 0);
+    central.writeUInt16LE(20, 4);
+    central.writeUInt16LE(20, 6);
+    central.writeUInt16LE(2048, 8);
+    central.writeUInt16LE(8, 10);
+    central.writeUInt32LE(crc, 16);
+    central.writeUInt32LE(packed.length, 20);
+    central.writeUInt32LE(data.length, 24);
+    central.writeUInt16LE(nameBytes.length, 28);
+    central.writeUInt32LE(offset, 42);
+    locals.push(local, nameBytes, packed);
+    centrals.push(central, nameBytes);
+    offset += 30 + nameBytes.length + packed.length;
+  }
+  const directory = Buffer.concat(centrals);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(101010256, 0);
+  end.writeUInt16LE(entries.length, 8);
+  end.writeUInt16LE(entries.length, 10);
+  end.writeUInt32LE(directory.length, 12);
+  end.writeUInt32LE(offset, 16);
+  writeFileSync(path, Buffer.concat([...locals, directory, end]));
+}
+function redactZip(path, redact) {
+  const entries = readZip(path).map(([name, data]) => {
+    if (/\.(png|jpe?g|webp|gif)$/i.test(name)) return [name, data];
+    const text = data.toString("utf-8");
+    const clean = redact(text);
+    return [name, clean === text ? data : Buffer.from(clean, "utf-8")];
+  });
+  writeZip(path, entries);
+}
+
+// src/engine/evidence/replay.ts
+var PLACEHOLDER = /^\{\{secret:\d+\}\}$/;
+function sameSignal(a, b) {
+  if (a.kind !== b.kind) return false;
+  const fields = (s) => {
+    const all = s;
+    const path = (url) => {
+      try {
+        return new URL(String(url)).pathname;
+      } catch {
+        return void 0;
+      }
+    };
+    const timed = ["slow_response", "long_task", "request_hung"];
+    return JSON.stringify([
+      path(all.request_url),
+      all.status,
+      all.error,
+      all.rule,
+      all.nodes,
+      all.role,
+      all.name,
+      timed.includes(s.kind) ? void 0 : s.message
+    ]);
+  };
+  return fields(a) === fields(b);
+}
+async function textOf(session) {
+  const texts = await Promise.all(
+    session.page.frames().map(
+      (frame) => frame.evaluate(() => document.body?.innerText ?? "").catch(() => "")
+    )
+  );
+  return texts.join("\n");
+}
+async function holds(session, observed) {
+  if (observed.text_present !== void 0) {
+    return (await textOf(session)).includes(observed.text_present);
+  }
+  if (observed.text_absent !== void 0) {
+    return !(await textOf(session)).includes(observed.text_absent);
+  }
+  if (observed.url !== void 0) {
+    return session.page.url().includes(observed.url);
+  }
+  if (observed.element && observed.locator) {
+    const read = await takeSnapshot(session, { format: "json" }, true);
+    const ref2 = refFor(
+      read.elements ?? [],
+      read.containers ?? [],
+      observed.locator
+    );
+    const element = read.elements?.find((e) => e.ref === ref2);
+    switch (observed.element.state) {
+      case "gone":
+        return !element;
+      case "visible":
+        return Boolean(element && !element.hidden);
+      case "hidden":
+        return Boolean(element?.hidden);
+      case "disabled":
+        return Boolean(element?.disabled);
+      case "enabled":
+        return Boolean(element && !element.disabled);
+    }
+  }
+  return false;
+}
+async function actionFor(session, step, secrets) {
+  const action = { ...step.action };
+  const needs = REF_FIELDS.filter((f) => action[f] === REF_PLACEHOLDER);
+  if (needs.length > 0) {
+    const read = await takeSnapshot(session, { format: "json" }, true);
+    for (const field of needs) {
+      const locator = step.locators[field];
+      const ref2 = locator && refFor(read.elements ?? [], read.containers ?? [], locator);
+      if (!ref2) return void 0;
+      action[field] = ref2;
+    }
+  }
+  if (typeof action.text === "string" && PLACEHOLDER.test(action.text)) {
+    action.text = secrets[action.text] ?? action.text;
+  }
+  return action;
+}
+async function replay(file, options = {}) {
+  const manager = new SessionManager();
+  const claim = file.claim;
+  const spawned = await hauntSpawn(manager, {
+    ...file.spawn,
+    persona: String(file.spawn.persona),
+    target_url: file.start_url,
+    cookies: options.cookies,
+    secrets: options.known,
+    timeout: file.steps.length + 5,
+    // A replay is not a session of its own: no audit unless the claim is
+    // about one, and no replays of its replays.
+    audit: "signal" in claim && claim.signal.kind === "a11y",
+    replay_budget_ms: 0
+  });
+  const session = manager.get(spawned.session_id);
+  const context = session.page.context();
+  const network = [];
+  const started = /* @__PURE__ */ new Map();
+  context.on("request", (request) => started.set(request, Date.now()));
+  context.on("response", (response) => {
+    const request = response.request();
+    let url = request.url();
+    try {
+      const parsed = new URL(url);
+      url = `${parsed.origin}${parsed.pathname}`;
+    } catch {
+    }
+    network.push({
+      method: request.method(),
+      url,
+      status: response.status(),
+      ms: Date.now() - (started.get(request) ?? Date.now())
+    });
+  });
+  if (options.evidenceDir) {
+    await context.tracing.start({ snapshots: true, screenshots: false });
+  }
+  const secrets = options.secrets ?? {};
+  try {
+    for (const step of file.steps) {
+      if (step.step > claim.step) break;
+      const action = await actionFor(session, step, secrets);
+      if (!action) {
+        return {
+          outcome: "not_replayable",
+          reproduced: false,
+          failed_step: step.step
+        };
+      }
+      const result = await hauntAct(manager, {
+        session_id: spawned.session_id,
+        actions: [action]
+      });
+      if (!result.results[0]?.ok) {
+        return {
+          outcome: "not_replayable",
+          reproduced: false,
+          failed_step: step.step
+        };
+      }
+    }
+    await lastEffects(session);
+    let reproduced;
+    let signal;
+    if ("signal" in claim) {
+      signal = session.collector.all().find((s) => sameSignal(s, claim.signal));
+      reproduced = Boolean(signal);
+    } else {
+      reproduced = await holds(session, claim.observed);
+    }
+    const run = {
+      outcome: reproduced ? "reproduced" : "not_reproduced",
+      reproduced,
+      signal
+    };
+    if (reproduced && options.evidenceDir) {
+      const trace = join2(options.evidenceDir, "trace.zip");
+      await context.tracing.stop({ path: trace });
+      for (const value of Object.values(secrets)) {
+        session.collector.addSecret(value);
+      }
+      for (const cookie of await context.cookies().catch(() => [])) {
+        session.collector.addToken(cookie.value);
+      }
+      for (const token of tokensIn(readZip(trace))) {
+        session.collector.addToken(token);
+      }
+      if (!sabotaged("evidence_secrets_in_trace")) {
+        redactZip(trace, (text) => session.collector.redact(text));
+      }
+      run.evidence = {
+        screenshot: await maskedScreenshot(session.page),
+        network,
+        trace,
+        signal
+      };
+    }
+    return run;
+  } finally {
+    await session.browser.close().catch(() => {
+    });
+    manager.delete(spawned.session_id);
+  }
+}
+var TOKEN_HEADERS = /* @__PURE__ */ new Set(["cookie", "set-cookie", "authorization"]);
+function tokensIn(entries) {
+  const found = /* @__PURE__ */ new Set();
+  const take = (name, value) => {
+    const header2 = name.toLowerCase();
+    const parts = header2 === "authorization" ? [value.split(" ").pop() ?? ""] : value.split(header2 === "cookie" ? ";" : "\n").map((pair) => pair.split(";")[0]);
+    for (const part of parts) {
+      const raw = header2 === "authorization" ? part : part.split("=")[1];
+      const token = raw?.trim().replace(/^"(.*)"$/, "$1");
+      if (!token) continue;
+      found.add(token);
+      try {
+        found.add(decodeURIComponent(token));
+      } catch {
+      }
+    }
+  };
+  const walk = (value) => {
+    if (Array.isArray(value)) {
+      for (const item of value) walk(item);
+    } else if (value && typeof value === "object") {
+      const { name, value: inner } = value;
+      if (typeof name === "string" && typeof inner === "string" && TOKEN_HEADERS.has(name.toLowerCase())) {
+        take(name, inner);
+      }
+      for (const child of Object.values(value)) walk(child);
+    }
+  };
+  for (const [name, data] of entries) {
+    if (!/\.(trace|network)$/.test(name)) continue;
+    for (const line of data.toString("utf-8").split("\n")) {
+      if (!line) continue;
+      try {
+        walk(JSON.parse(line));
+      } catch {
+      }
+    }
+  }
+  return [...found];
+}
+async function hauntReplay(input) {
+  const path = existsSync3(input.bundle) && statSync2(input.bundle).isDirectory() ? join2(input.bundle, "steps.json") : input.bundle;
+  if (!existsSync3(path)) throw new Error(`No steps.json at ${path}`);
+  const file = JSON.parse(readFileSync3(path, "utf-8"));
+  if (file.version !== 1 || !Array.isArray(file.steps)) {
+    throw new Error(`${path} is not a haunt steps file`);
+  }
+  const run = await replay(file, {
+    secrets: input.secrets,
+    cookies: input.cookies
+  });
+  const output = {
+    reproduced: run.reproduced,
+    outcome: run.outcome
+  };
+  if (run.failed_step !== void 0) output.failed_step = run.failed_step;
+  if (run.signal) output.signal = run.signal;
+  return output;
+}
+
+// src/engine/evidence/verify.ts
+var EVIDENCE_DIR = `${REPORTS_DIR}/evidence`;
+var CONFIRM = 3;
+var MEASURE = 10;
+var PARALLEL = 3;
+function stepsFileOf(session, claim) {
+  const { recording } = session;
+  return {
+    version: 1,
+    start_url: recording.start_url,
+    viewport: recording.viewport,
+    spawn: recording.spawn,
+    steps: recording.steps.filter((s) => s.step <= claim.step),
+    claim,
+    secrets: [...recording.secrets.values()]
+  };
+}
+function sizeOf(dir) {
+  return readdirSync2(dir).reduce(
+    (sum, file) => sum + statSync3(join3(dir, file)).size,
+    0
+  );
+}
+function writeBundle(dir, file, run, verification, cap) {
+  mkdirSync2(dir, { recursive: true });
+  writeFileSync2(join3(dir, "steps.json"), JSON.stringify(file, null, 2));
+  const evidence = run.evidence;
+  if (evidence) {
+    writeFileSync2(join3(dir, "screenshot.png"), evidence.screenshot);
+    writeFileSync2(
+      join3(dir, "network.json"),
+      JSON.stringify(evidence.network, null, 2)
+    );
+    if (evidence.trace && existsSync4(evidence.trace)) {
+      renameSync(evidence.trace, join3(dir, "trace.zip"));
+    }
+  }
+  const signal = run.signal ?? ("signal" in file.claim ? file.claim.signal : void 0);
+  if (signal)
+    writeFileSync2(join3(dir, "signal.json"), JSON.stringify(signal, null, 2));
+  const written = { ...verification, bundle: dir };
+  const write = () => writeFileSync2(
+    join3(dir, "verification.json"),
+    JSON.stringify(written, null, 2)
+  );
+  write();
+  if (sabotaged("evidence_cap_ignored")) return;
+  for (const [file2, what] of [
+    ["trace.zip", "trace"],
+    ["screenshot.png", "screenshot"]
+  ]) {
+    if (sizeOf(dir) < cap) return;
+    rmSync(join3(dir, file2), { force: true });
+    written.dropped = [...written.dropped ?? [], what];
+    write();
+  }
+}
+async function verifyClaim(session, claim, deadline, dir, forSignal) {
+  const file = stepsFileOf(session, claim);
+  const secrets = Object.fromEntries(
+    [...session.recording.secrets].map(([value, placeholder]) => [
+      placeholder,
+      value
+    ])
+  );
+  const cookies = sabotaged("evidence_same_session") ? await session.page.context().cookies().catch(() => []) : session.evidence.cookies;
+  const runs = [];
+  const scratch = [];
+  const batch = async (count) => {
+    const started = Array.from({ length: count }, () => {
+      const evidenceDir = mkdtempSync(join3(tmpdir(), "haunt-replay-"));
+      scratch.push(evidenceDir);
+      return replay(file, {
+        secrets,
+        cookies,
+        known: session.evidence.secrets,
+        evidenceDir
+      }).catch(
+        () => ({ outcome: "not_replayable", reproduced: false })
+      );
+    });
+    const done = await Promise.all(started);
+    if (Date.now() > deadline) return false;
+    runs.push(...done);
+    return true;
+  };
+  try {
+    let unverified = false;
+    const confirm = sabotaged("evidence_one_replay") ? 1 : CONFIRM;
+    for (let done = 0; done < confirm && !unverified; done += PARALLEL) {
+      unverified = Date.now() >= deadline || !await batch(Math.min(PARALLEL, confirm - done));
+    }
+    const allReproduced = () => runs.every((r) => r.reproduced);
+    while (!unverified && !allReproduced() && runs.length < MEASURE) {
+      unverified = Date.now() >= deadline || !await batch(Math.min(PARALLEL, MEASURE - runs.length));
+    }
+    const reproduced = runs.filter((r) => r.reproduced).length;
+    const attempts = runs.length;
+    const rate = attempts === 0 ? 0 : reproduced / attempts;
+    const base = { attempts, reproduced, rate };
+    let verification;
+    if (unverified) {
+      verification = { status: "unverified", ...base };
+    } else if (reproduced === attempts) {
+      verification = { status: "confirmed", ...base, rate: 1 };
+    } else if (reproduced > 0 || forSignal) {
+      verification = {
+        status: sabotaged("evidence_flaky_as_confirmed") ? "confirmed" : "flaky",
+        ...base
+      };
+    } else {
+      const stuck = runs.find((r) => r.outcome === "not_replayable");
+      verification = {
+        status: "rejected",
+        ...base,
+        reason: runs.every((r) => r.outcome === "not_replayable") ? "not_replayable" : "not_reproduced",
+        ...stuck?.failed_step !== void 0 ? { failed_step: stuck.failed_step } : {}
+      };
+    }
+    const proof = runs.find((r) => r.reproduced);
+    if (proof && (verification.status === "confirmed" || verification.status === "flaky")) {
+      writeBundle(
+        dir,
+        file,
+        proof,
+        verification,
+        session.evidence.bundle_cap_bytes
+      );
+      verification.bundle = dir;
+    }
+    return verification;
+  } finally {
+    for (const dir2 of scratch) rmSync(dir2, { recursive: true, force: true });
+  }
+}
+var rejected = (reason) => ({
+  status: "rejected",
+  attempts: 0,
+  reproduced: 0,
+  rate: 0,
+  reason
+});
+async function verifySession(session, issues, signals) {
+  const deadline = Date.now() + session.evidence.replay_budget_ms;
+  const root = join3(EVIDENCE_DIR, session.id);
+  const out = {
+    issues_found: [],
+    rejected: [],
+    signal_verification: {}
+  };
+  const named = /* @__PURE__ */ new Set();
+  for (const [i, issue] of issues.entries()) {
+    let verification;
+    const signal = issue.signal ? signals.find((s) => s.id === issue.signal) : void 0;
+    if (!issue.signal && !issue.observed) {
+      verification = rejected("no_claim");
+    } else if (issue.signal && !signal) {
+      verification = rejected("unknown_signal");
+    } else {
+      if (signal) named.add(signal.id);
+      let claim;
+      if (signal) {
+        claim = { step: signal.step, signal };
+      } else {
+        const observed = issue.observed;
+        const read = session.snapshot.previous;
+        const locator = observed.element && read ? locatorOf(read.elements, read.containers, observed.element.ref) : void 0;
+        claim = {
+          step: observed.step ?? session.step_count,
+          observed: { ...observed, ...locator ? { locator } : {} }
+        };
+      }
+      verification = await verifyClaim(
+        session,
+        claim,
+        deadline,
+        join3(root, `issue-${i + 1}`),
+        false
+      );
+    }
+    const verified = { ...issue, verification };
+    if (verification.status === "rejected" && !sabotaged("evidence_rejected_reported")) {
+      out.rejected.push(verified);
+    } else {
+      out.issues_found.push(verified);
+    }
+  }
+  for (const signal of signals) {
+    const verification = named.has(signal.id) ? out.issues_found.find((i) => i.signal === signal.id)?.verification ?? rejected("not_reproduced") : await verifyClaim(
+      session,
+      { step: signal.step, signal },
+      deadline,
+      join3(root, signal.id),
+      true
+    );
+    out.signal_verification[signal.id] = verification;
+  }
+  return out;
+}
+
+// src/engine/end-session.ts
+var sleep2 = (ms) => new Promise((r) => setTimeout(r, ms));
+async function lastEffects(session) {
+  if (sabotaged("signals_off")) return;
+  const { collector } = session;
+  const deadline = Date.now() + SETTLE_CAP_MS;
+  for (; ; ) {
+    let timers = 0;
+    if (!session.runtime.dialog && !session.page.isClosed()) {
+      const counts = await Promise.all(
+        session.page.frames().map(
+          (frame) => frame.evaluate(pendingTimers, collector.lastStepStart).catch(() => 0)
+        )
+      );
+      timers = counts.reduce((sum, count) => sum + count, 0);
+    }
+    if (timers === 0 && collector.awaited() === 0) return;
+    if (Date.now() >= deadline) return;
+    await sleep2(50);
+  }
+}
+async function hauntEndSession(manager, input) {
+  const session = manager.get(input.session_id);
+  const known = new Set(session.issues.map((issue) => JSON.stringify(issue)));
+  for (const issue of input.issues ?? []) {
+    if (!known.has(JSON.stringify(issue))) session.issues.push(issue);
+  }
+  await lastEffects(session);
+  const signals = session.collector.all();
+  const verified = await verifySession(session, session.issues, signals);
+  await session.browser.close();
+  manager.delete(input.session_id);
+  await manager.reapStale(SESSION_TTL_MS);
+  const duration_seconds = Math.round(
+    (Date.now() - session.start_time) / 1e3
+  );
+  const output = {
+    session_id: session.id,
+    persona: session.persona.name,
+    duration_seconds,
+    pages_visited: session.pages_visited.length,
+    step_count: session.step_count,
+    issues_found: verified.issues_found,
+    rejected: verified.rejected,
+    sandbox_blocked_requests: session.sandbox_blocked_requests,
+    signals,
+    signal_verification: verified.signal_verification,
+    overall_impression: input.overall_impression ?? `Completed ${session.step_count} steps across ${session.pages_visited.length} pages.`
+  };
+  return output;
+}
+
+// src/engine/report/generate-report.ts
+import { existsSync as existsSync5, mkdirSync as mkdirSync3, readFileSync as readFileSync4, writeFileSync as writeFileSync3 } from "fs";
+var SIGNALS_HEADING = "Detected automatically";
+var FLAKY_HEADING = "Flaky";
+var UNVERIFIED_HEADING = "Unverified";
+var statusOf = (item) => item.verification?.status ?? "confirmed";
+function replays(verification) {
+  if (!verification) return "";
+  const { reproduced, attempts } = verification;
+  return `reproduced ${reproduced} of ${attempts} replays (${Math.round((attempts ? reproduced / attempts : 0) * 100)}%)`;
+}
+var SEVERITY_ORDER = [
+  "critical",
+  "major",
+  "minor",
+  "suggestion"
+];
+function likelyFile(pageUrl2) {
+  let path;
+  try {
+    path = new URL(pageUrl2).pathname;
+  } catch {
+    if (!pageUrl2.startsWith("/")) return void 0;
+    path = pageUrl2;
+  }
+  if (!path) return void 0;
+  if (/\/(login|sign-?in|sign-?up|register|auth|session)(\/|$)/i.test(path)) {
+    return "lib/auth.ts";
+  }
+  if (path === "/") return "app/page.tsx";
+  if (path.startsWith("/api/")) return `app${path}/route.ts`;
+  return `app${path}/page.tsx`;
+}
+function todayISODate() {
+  return (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+}
+function countBySeverity(issues) {
+  return {
+    total: issues.length,
+    critical: issues.filter((i) => i.severity === "critical").length,
+    major: issues.filter((i) => i.severity === "major").length,
+    minor: issues.filter((i) => i.severity === "minor").length,
+    suggestion: issues.filter((i) => i.severity === "suggestion").length
+  };
+}
+function issueKey(issue) {
+  return `${issue.page_url}||${issue.category}||${issue.severity}`;
+}
+function sidecarPathFor(reportPath) {
+  return reportPath.endsWith(".md") ? `${reportPath.slice(0, -3)}.json` : `${reportPath}.json`;
+}
+function loadPreviousIssues(compareWith) {
+  const sidecarPath = compareWith.endsWith(".json") ? compareWith : sidecarPathFor(compareWith);
+  if (!existsSync5(sidecarPath)) {
+    throw new Error(`No sidecar data found at ${sidecarPath}`);
+  }
+  const parsed = JSON.parse(readFileSync4(sidecarPath, "utf-8"));
+  if (!Array.isArray(parsed.issues)) {
+    throw new Error(`${sidecarPath} does not contain an issues array`);
+  }
+  return parsed.issues;
+}
+function compareIssues(oldIssues, newIssues, compareWith) {
+  const oldKeys = new Set(oldIssues.map(issueKey));
+  const newKeys = new Set(newIssues.map(issueKey));
+  return {
+    compared_with: compareWith,
+    resolved: oldIssues.filter((i) => !newKeys.has(issueKey(i))),
+    still_present_count: newIssues.filter((i) => oldKeys.has(issueKey(i))).length,
+    new_count: newIssues.filter((i) => !oldKeys.has(issueKey(i))).length
+  };
+}
+function renderSignal(signal) {
+  const times = signal.count > 1 ? `, ${signal.count} times` : "";
+  return `- [${signal.severity.toUpperCase()}] ${signal.message} \u2014 \`${signal.url}\` (step ${signal.step}${times})`;
+}
+function renderIssueBlock(issue, index, previousKeys, signals = []) {
+  const statusTag = previousKeys ? previousKeys.has(issueKey(issue)) ? " _(still present)_" : " _(new)_" : "";
+  const lines = [
+    `### ${index + 1}. [${issue.severity.toUpperCase()}] ${issue.description}${statusTag}`,
+    `- **Page:** \`${issue.page_url}\``,
+    `- **Fix:** ${issue.recommendation}`
+  ];
+  const file = likelyFile(issue.page_url);
+  if (file) {
+    lines.push(
+      `- **Likely file:** \`${file}\` *(AI estimate \u2014 verify before editing)*`
+    );
+  }
+  for (const signal of signals) {
+    lines.push(`- **Detected:** ${renderSignal(signal).slice(2)}`);
+  }
+  const verification = issue.verification;
+  if (verification?.bundle) {
+    lines.push(
+      `- **Evidence:** \`${verification.bundle}\` \u2014 ${replays(verification)}`
+    );
+  }
+  return lines.join("\n");
+}
+function renderForClaudeLine(issue, index) {
+  const file = likelyFile(issue.page_url);
+  const fileSuffix = file ? ` Likely in \`${file}\`.` : "";
+  return `${index + 1}. [${issue.severity.toUpperCase()}] \`${issue.page_url}\` \u2014 ${issue.recommendation}.${fileSuffix}`;
+}
+function renderComparisonSection(comparison) {
+  const lines = [
+    `Compared with \`${comparison.compared_with}\`: ${comparison.still_present_count} still present, ${comparison.new_count} new, ${comparison.resolved.length} resolved.`
+  ];
+  if (comparison.resolved.length > 0) {
+    lines.push("");
+    lines.push("Resolved since then:");
+    for (const issue of comparison.resolved) {
+      lines.push(
+        `- [${issue.severity.toUpperCase()}] ${issue.description} (\`${issue.page_url}\`)`
+      );
+    }
+  }
+  return lines.join("\n");
+}
+function renderSandboxBlockedSection(blocked) {
+  return blocked.map((entry) => `- ${entry}`).join("\n");
+}
+function renderSummary(sessions, sortedIssues, counts, signalCounts, topFix, reportPath, comparison) {
+  const rule = "-".repeat(40);
+  const lines = [
+    rule,
+    `${sessions.length} areas tested \xB7 ${counts.total} issues`,
+    ""
+  ];
+  if (signalCounts.total > 0) {
+    lines.push(
+      `${signalCounts.total} more detected automatically (${signalCounts.major} major)`,
+      ""
+    );
+  }
+  if (counts.critical > 0) lines.push(`[!!!] ${counts.critical} critical`);
+  if (counts.major > 0) lines.push(` [!!] ${counts.major} major`);
+  if (counts.minor > 0) lines.push(`  [!] ${counts.minor} minor`);
+  lines.push("");
+  if (counts.critical > 0) {
+    for (const issue of sortedIssues) {
+      if (issue.severity !== "critical") continue;
+      lines.push(`> ${issue.description}  [${issue.page_url}]`);
+    }
+  } else {
+    lines.push("no critical issues");
+  }
+  lines.push("");
+  if (counts.total > 0) {
+    lines.push(`fix first: ${topFix}`, "");
+  }
+  if (comparison) {
+    lines.push(
+      `vs previous run: ${comparison.still_present_count} still present \xB7 ${comparison.new_count} new \xB7 ${comparison.resolved.length} resolved`,
+      ""
+    );
+  }
+  lines.push(`report: ${reportPath}`, rule);
+  return lines.join("\n");
+}
+function hauntGenerateReport(input) {
+  const date = input.date ?? todayISODate();
+  const filed = input.sessions.flatMap((s) => s.issues);
+  const allIssues = filed.filter((i) => statusOf(i) === "confirmed");
+  const flaky = filed.filter((i) => statusOf(i) === "flaky");
+  const unverified = filed.filter((i) => statusOf(i) === "unverified");
+  const rejectedIssues = [
+    ...filed.filter((i) => statusOf(i) === "rejected"),
+    ...input.sessions.flatMap((s) => s.rejected ?? [])
+  ];
+  const allBlockedRequests = input.sessions.flatMap(
+    (s) => s.sandbox_blocked_requests ?? []
+  );
+  const sorted = [...allIssues].sort(
+    (a, b) => SEVERITY_ORDER.indexOf(a.severity) - SEVERITY_ORDER.indexOf(b.severity)
+  );
+  const counts = countBySeverity(allIssues);
+  const top_fix = sorted[0]?.recommendation ?? "";
+  const named = /* @__PURE__ */ new Map();
+  const unnamed = [];
+  for (const session of input.sessions) {
+    const taken = /* @__PURE__ */ new Set();
+    for (const issue of session.issues.filter(
+      (i) => statusOf(i) !== "rejected"
+    )) {
+      const signal = session.signals?.find((s) => s.id === issue.signal);
+      if (!signal) continue;
+      named.set(issue, [signal]);
+      taken.add(signal.id);
+    }
+    unnamed.push(...(session.signals ?? []).filter((s) => !taken.has(s.id)));
+  }
+  const allSignals = input.sessions.flatMap((s) => s.signals ?? []);
+  const signal_counts = {
+    total: unnamed.length,
+    major: unnamed.filter((s) => s.severity === "major").length,
+    minor: unnamed.filter((s) => s.severity === "minor").length
+  };
+  const confirmed_major_signals = input.sessions.flatMap((session) => {
+    const taken = new Set(
+      session.issues.filter((i) => statusOf(i) !== "rejected").map((i) => i.signal)
+    );
+    return (session.signals ?? []).filter(
+      (s) => !taken.has(s.id) && s.severity === "major" && (session.signal_verification?.[s.id]?.status ?? "confirmed") === "confirmed"
+    );
+  }).length;
+  const personaSlug = input.personas.join("-").toLowerCase().replace(/[^a-z0-9-]+/g, "-");
+  const report_path = `${REPORTS_DIR}/${date}-${personaSlug}.md`;
+  let comparison;
+  let comparison_error;
+  let previousIssues;
+  if (input.compare_with) {
+    try {
+      previousIssues = loadPreviousIssues(input.compare_with);
+      comparison = compareIssues(previousIssues, sorted, input.compare_with);
+    } catch (error) {
+      comparison_error = error instanceof Error ? error.message : String(error);
+    }
+  }
+  const previousKeys = previousIssues ? new Set(previousIssues.map(issueKey)) : void 0;
+  const frontmatter = [
+    "---",
+    "haunt: true",
+    `target: ${input.target_url}`,
+    `date: ${date}`,
+    `personas: [${input.personas.join(", ")}]`,
+    `areas_tested: ${input.sessions.length}`,
+    "issues:",
+    `  total: ${counts.total}`,
+    `  critical: ${counts.critical}`,
+    `  major: ${counts.major}`,
+    `  minor: ${counts.minor}`,
+    "signals:",
+    `  total: ${signal_counts.total}`,
+    `  major: ${signal_counts.major}`,
+    `  minor: ${signal_counts.minor}`,
+    `top_fix: "${top_fix.replace(/"/g, "'")}"`,
+    "---"
+  ].join("\n");
+  const issuesSection = sorted.length ? sorted.map(
+    (issue, i) => renderIssueBlock(issue, i, previousKeys, named.get(issue))
+  ).join("\n\n") : "_No issues found._";
+  const impressionsSection = input.sessions.map((s) => `**${s.area} \u2014 ${s.persona}:** "${s.overall_impression}"`).join("\n");
+  const forClaudeSection = sorted.length ? sorted.map(renderForClaudeLine).join("\n") : "_No issues found._";
+  const bodySections = [
+    frontmatter,
+    "",
+    `# Haunt Report \u2014 ${input.target_url}`,
+    `${date} \xB7 ${input.sessions.length} areas \xB7 ${counts.total} issues \xB7 ${input.personas.join(", ")}`,
+    "",
+    "## Issues",
+    "",
+    issuesSection
+  ];
+  if (unnamed.length > 0) {
+    bodySections.push(
+      "",
+      `## ${SIGNALS_HEADING}`,
+      "",
+      "Found by the engine itself, not by a tester: server errors, exceptions, failed and slow requests, dead controls, accessibility violations.",
+      "",
+      [...unnamed].sort(
+        (a, b) => a.severity === b.severity ? 0 : a.severity === "major" ? -1 : 1
+      ).map(renderSignal).join("\n")
+    );
+  }
+  const listed = (issue) => `- [${issue.severity.toUpperCase()}] ${issue.description} (\`${issue.page_url}\`)${issue.verification?.bundle ? ` \u2014 evidence: \`${issue.verification.bundle}\`` : ""} \u2014 ${replays(issue.verification)}`;
+  if (flaky.length > 0) {
+    bodySections.push(
+      "",
+      `## ${FLAKY_HEADING}`,
+      "",
+      "Replayed in a fresh browser, these happened only some of the time: real, but not every time.",
+      "",
+      flaky.map(listed).join("\n")
+    );
+  }
+  if (unverified.length > 0) {
+    bodySections.push(
+      "",
+      `## ${UNVERIFIED_HEADING}`,
+      "",
+      "Not replayed within the time the session had: not confirmed, and not counted.",
+      "",
+      unverified.map(listed).join("\n")
+    );
+  }
+  bodySections.push("", "## Session Impressions", "", impressionsSection);
+  if (counts.total > 0) {
+    bodySections.push("", "## Top Fix", "", top_fix);
+  }
+  if (comparison) {
+    bodySections.push(
+      "",
+      "## Comparison",
+      "",
+      renderComparisonSection(comparison)
+    );
+  } else if (comparison_error) {
+    bodySections.push(
+      "",
+      "## Comparison",
+      "",
+      `Could not compare with \`${input.compare_with}\`: ${comparison_error}`
+    );
+  }
+  bodySections.push(
+    "",
+    "## For Claude",
+    "",
+    "The following issues were found by Haunt. Fix them in order of severity.",
+    "",
+    forClaudeSection,
+    ...unnamed.length > 0 ? ["", `Then fix what is listed under "${SIGNALS_HEADING}".`] : [],
+    "",
+    `After fixing, run \`/haunt:haunt-test ${input.target_url}\` again to verify.`
+  );
+  if (allBlockedRequests.length > 0) {
+    bodySections.push(
+      "",
+      "## Sandbox-Blocked Requests",
+      "",
+      "These are not app bugs \u2014 the test sandbox blocked an attempt to reach an origin outside the target app, shown here for visibility into what the persona tried.",
+      "",
+      renderSandboxBlockedSection(allBlockedRequests)
+    );
+  }
+  const markdown = bodySections.join("\n");
+  mkdirSync3(REPORTS_DIR, { recursive: true });
+  writeFileSync3(report_path, markdown, "utf-8");
+  writeFileSync3(
+    sidecarPathFor(report_path),
+    JSON.stringify(
+      {
+        target_url: input.target_url,
+        date,
+        personas: input.personas,
+        issues: sorted.map(
+          (issue) => named.has(issue) ? { ...issue, signals: named.get(issue) } : issue
+        ),
+        flaky,
+        unverified,
+        rejected: rejectedIssues,
+        signals: allSignals,
+        signal_counts
+      },
+      null,
+      2
+    ),
+    "utf-8"
+  );
+  const summary = renderSummary(
+    input.sessions,
+    sorted,
+    counts,
+    signal_counts,
+    top_fix,
+    report_path,
+    comparison
+  );
+  return {
+    report_path,
+    markdown,
+    summary,
+    counts,
+    signal_counts,
+    confirmed_major_signals,
+    top_fix,
+    comparison,
+    comparison_error
   };
 }
 
@@ -46626,10 +47409,11 @@ export {
   actionSchema,
   hauntAct,
   hauntCaptureState,
+  hauntSpawn,
+  hauntReplay,
   hauntEndSession,
   hauntGetCookies,
-  hauntGenerateReport,
-  hauntSpawn
+  hauntGenerateReport
 };
 /*! Bundled license information:
 

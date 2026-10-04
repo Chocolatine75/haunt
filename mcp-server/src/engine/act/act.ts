@@ -6,6 +6,7 @@
 import { existsSync } from 'node:fs';
 import type { ElementHandle, Frame, Page } from 'playwright';
 import type {
+  Action,
   ActionChanges,
   ActionError,
   FailureCode,
@@ -16,7 +17,9 @@ import type {
   StopReason,
 } from '../../gates/part-1/contract.js';
 import type { ActSignalsResult } from '../../gates/part-2/contract.js';
+import type { Locator } from '../../gates/part-3/contract.js';
 import { SESSION_TTL_MS } from '../constants.js';
+import { REF_FIELDS, locatorOf, record } from '../evidence/recording.js';
 import { sabotaged } from '../sabotage.js';
 import type { SessionManager } from '../session/manager.js';
 import { auditIfNew } from '../signals/audit.js';
@@ -1055,6 +1058,22 @@ async function runStep(
 
   const validation = validateAction(input);
   if (validation.ok) type = validation.action.type;
+  // Where the action's references point, as another browser can find them
+  // again (R-E4): read from the snapshot the action was decided on.
+  const locators: Record<string, Locator> = {};
+  if (validation.ok && readBefore) {
+    const fields = validation.action as unknown as Record<string, unknown>;
+    for (const field of REF_FIELDS) {
+      const ref = fields[field];
+      if (typeof ref !== 'string') continue;
+      const locator = locatorOf(
+        readBefore.elements,
+        readBefore.containers,
+        ref,
+      );
+      if (locator) locators[field] = locator;
+    }
+  }
   if (!validation.ok) {
     error = {
       code: 'invalid_action',
@@ -1201,6 +1220,25 @@ async function runStep(
   if (settled.pending) step.pending = settled.pending;
   if (outcome.options) step.options = outcome.options;
   if (outcome.text !== undefined) step.text = outcome.text;
+  // A step that failed changed nothing: it is not replayed (R-E6).
+  if (validation.ok && !error && !sabotaged('evidence_off')) {
+    const typed = (validation.action as { text?: unknown }).text;
+    record(
+      session.recording,
+      stepNumber,
+      validation.action as unknown as Action,
+      locators,
+      typeof typed === 'string' && collector.isSecret(typed),
+    );
+  } else if (validation.ok && error && sabotaged('evidence_failed_replayed')) {
+    record(
+      session.recording,
+      stepNumber,
+      validation.action as unknown as Action,
+      locators,
+      false,
+    );
+  }
   return step;
 }
 

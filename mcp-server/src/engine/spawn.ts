@@ -4,16 +4,21 @@ import { chromium } from 'playwright';
 import type { BrowserContext, Request } from 'playwright';
 import { v4 as uuidv4 } from 'uuid';
 import type { Signal, SignalThresholds } from '../gates/part-2/contract.js';
+import { BUNDLE_CAP_BYTES } from '../gates/part-3/contract.js';
 import { attachRuntime } from './act/runtime.js';
 import {
   SCREENSHOT_MAX_AGE_MS,
   SESSION_MAX_ACTIVE_DURATION_MS,
   SESSION_TTL_MS,
 } from './constants.js';
+import { newRecording } from './evidence/recording.js';
 import { loadPersona } from './persona/loader.js';
 import { sabotaged } from './sabotage.js';
 import { purgeOldScreenshots } from './screenshots.js';
 import type { SessionManager } from './session/manager.js';
+
+// How long a session's replays may take by default (R-E11).
+const REPLAY_BUDGET_MS = 120_000;
 import { auditIfNew } from './signals/audit.js';
 import { REPORT_BINDING, SignalCollector } from './signals/collector.js';
 import { installHooks } from './snapshot/page-script.js';
@@ -33,6 +38,15 @@ export interface SpawnInput {
   max_active_duration_ms?: number;
   // Above which a response is slow, a task long, a request hung (R-S4).
   signal_thresholds?: Partial<SignalThresholds>;
+  // How long the session's replays may take (R-E11), and how large one of
+  // its bundles may grow (R-E16).
+  replay_budget_ms?: number;
+  bundle_cap_bytes?: number;
+  // Not on the tool: a replay audits nothing it was not asked about.
+  audit?: boolean;
+  // Values that must not leave the engine though no field of this session
+  // ever has them typed: the account it was signed in with elsewhere (R-E15).
+  secrets?: string[];
 }
 
 export interface SpawnOutput {
@@ -235,6 +249,8 @@ export async function hauntSpawn(
     },
   });
   collector.attach(context);
+  for (const secret of input.secrets ?? []) collector.addSecret(secret);
+  for (const cookie of input.cookies ?? []) collector.addToken(cookie.value);
   await context.exposeBinding(REPORT_BINDING, (source, report: unknown) => {
     collector.fromPage(source, report);
   });
@@ -311,6 +327,18 @@ export async function hauntSpawn(
     runtime,
     collector,
     signals: collector.signals,
+    recording: newRecording(
+      input.target_url,
+      page.viewportSize() ?? { width: 1280, height: 720 },
+      { ...input },
+    ),
+    evidence: {
+      audit: input.audit !== false,
+      replay_budget_ms: input.replay_budget_ms ?? REPLAY_BUDGET_MS,
+      bundle_cap_bytes: input.bundle_cap_bytes ?? BUNDLE_CAP_BYTES,
+      cookies: input.cookies,
+      secrets: input.secrets,
+    },
   };
 
   manager.set(sessionId, session);

@@ -17,6 +17,7 @@ const EXPECTED_TOOLS = [
   'haunt_estimate_cost',
   'haunt_generate_report',
   'haunt_act',
+  'haunt_replay',
 ];
 
 // Protocol-level tests that need no browser: what a host sees when it lists
@@ -71,7 +72,10 @@ describe('MCP server', () => {
     const actIssue = schemaOf('haunt_act').issues.items;
     const reportIssue = schemaOf('haunt_generate_report').sessions.items
       .properties.issues.items;
-    expect(reportIssue).toEqual(actIssue);
+    // The report also takes how haunt_end_session verified each one.
+    const { verification, ...filed } = reportIssue.properties;
+    expect(verification).toBeTruthy();
+    expect({ ...reportIssue, properties: filed }).toEqual(actIssue);
   });
 
   it('returns a tool result as JSON text', async () => {

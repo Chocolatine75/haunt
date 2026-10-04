@@ -118,6 +118,21 @@ Rules:
   - Do not report the same fact twice, and do not invent one: a signal you
     do not turn into an issue still reaches the report, under "Detected
     automatically".
+- **Every issue must be checkable.** It names a signal (`"signal"`), or it
+  states what the page shows in `"observed"`: exactly one of `text_present`,
+  `text_absent`, `url`, or `element` (`{ "ref": "e12", "state": "disabled" }`),
+  with the `step` after which it holds (the last step if left out). "No
+  error message after submitting an invalid email" is
+  `"observed": { "text_absent": "valid email", "step": 4 }`.
+  - When the session ends, `haunt_end_session` replays every issue in a
+    fresh browser. One reproduced every time is **confirmed**; one
+    reproduced only some of the time is **flaky**, with its rate; one never
+    reproduced, or with neither a signal nor an observation, is
+    **rejected** and does not reach the report. Each confirmed or flaky
+    issue comes with an evidence bundle (steps, screenshot, trace) that
+    `haunt_replay` plays again.
+  - A pure opinion ("this label is confusing") is not checkable: leave it
+    out.
   - `haunt_capture_state` with `signals: true` lists the signals of the
     current page; with `audit: true` it audits the page again as it is now
     (after a dialog or a panel opened, for instance).
@@ -147,7 +162,7 @@ Print: `logging in as <email>...`
 
 Print: `authenticated  —  cookies captured`
 
-Store the cookies. Pass them to every `haunt_spawn` call in Phase 2 via the `cookies` parameter.
+Store the cookies. Pass them to every `haunt_spawn` call in Phase 2 via the `cookies` parameter, with `secrets: [<email>, <password>]`: the session never types them, and haunt keeps them out of every bundle only if it knows them.
 
 If login fails (still on login page after submit, or error visible):
 - If `--debug-auth`: print `  · login failed — session not detected`
@@ -211,7 +226,7 @@ Run all sessions yourself — do NOT spawn sub-agents or agents.
 A "step" is one decision per session: one `haunt_act` call, which may carry
 several actions. Spawn each session with `timeout` set to `steps × 5`.
 
-1. `haunt_spawn` for every area in a single message (all in parallel). If auth cookies were captured in Phase 0.5, pass them via the `cookies` parameter to every `haunt_spawn` call.
+1. `haunt_spawn` for every area in a single message (all in parallel). If auth cookies were captured in Phase 0.5, pass them via the `cookies` parameter to every `haunt_spawn` call, and the email and password via `secrets`.
    Keep track of which area each returned `session_id` belongs to — Phase 3 needs it.
 2. `haunt_capture_state` for all sessions — all in parallel.
 3. Reason as each persona with a **corner-case mindset — NOT the happy path** (silently unless `--verbose`):
@@ -250,6 +265,9 @@ For each session, gather:
 - `issues` — that session's `EndSessionOutput.issues_found`
 - `sandbox_blocked_requests` — that session's `EndSessionOutput.sandbox_blocked_requests`
 - `signals` — that session's `EndSessionOutput.signals`, exactly as returned
+- `rejected` — that session's `EndSessionOutput.rejected`, exactly as returned
+- `issues` are passed exactly as returned too, with their `verification`: the
+  report lists confirmed ones as issues, and flaky and unverified ones apart
 
 Call `haunt_generate_report` with `target_url`, `personas` (the list used this run),
 `sessions` (the array assembled above), and — if `--compare <path>` was given —

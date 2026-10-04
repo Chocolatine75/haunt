@@ -205,7 +205,11 @@ const HOW_TO_ACT =
   'submit that changed nothing on the page, a server error in the console ' +
   '(status 500, an exception), a form accepted or refused without any ' +
   'message, private content shown without logging in. Each of those is an ' +
-  'issue a real user would hit.';
+  'issue a real user would hit.\n' +
+  'Every issue must be checkable: name the signal it is about in "signal", ' +
+  'or state what the page shows in "observed" (text_present, text_absent, ' +
+  "url, or an element's state, after a step). Each is replayed in a fresh " +
+  'browser before it is reported; one with neither is rejected.';
 
 // Asked once after the last step, so that what the last action revealed is
 // not lost: nothing would otherwise look at its result.
@@ -403,6 +407,8 @@ async function runPersonaSession(
     persona: spawnResult.persona_name,
     overall_impression: endResult.overall_impression,
     issues: endResult.issues_found,
+    rejected: endResult.rejected,
+    signal_verification: endResult.signal_verification,
     sandbox_blocked_requests: endResult.sandbox_blocked_requests,
     signals: endResult.signals,
   };
@@ -413,7 +419,8 @@ export interface HeadlessRunResult {
   failures: string[];
   // 1 for a critical or major issue, or a major signal no issue took up
   // (R-S22): a model that reports nothing cannot turn a server error into a
-  // passing build.
+  // passing build. Only what a replay confirmed counts (R-E12): nor can a
+  // model that imagines one fail it.
   exitCode: 0 | 1;
 }
 
@@ -469,7 +476,7 @@ export async function runHeadlessTest(
   const blocking =
     report.counts.critical > 0 ||
     report.counts.major > 0 ||
-    report.signal_counts.major > 0;
+    report.confirmed_major_signals > 0;
   return { report, failures, exitCode: blocking ? 1 : 0 };
 }
 
