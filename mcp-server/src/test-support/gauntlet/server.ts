@@ -30,6 +30,22 @@ declare global {
 
 const HERE = fileURLToPath(new URL('.', import.meta.url));
 
+// The huge page's 500 records, the same every time (pages/huge.html).
+const hugeRecords = Array.from({ length: 500 }, (_, k) => {
+  const i = k + 1;
+  const spans = Array.from(
+    { length: 40 },
+    (_, j) => `<span>v${i}.${j + 1}</span>`,
+  ).join('');
+  return (
+    `<div class="record"><a href="#record-${i}" data-g="link-${i}">Record ${i}</a>` +
+    `<input type="text" data-g="note-${i}" aria-label="Note for record ${i}" size="8">` +
+    `<input type="checkbox" data-g="select-${i}" aria-label="Select record ${i}">` +
+    `<button type="button" data-g="archive-${i}" aria-label="Archive record ${i}">Archive</button>` +
+    `${spans}</div>`
+  );
+}).join('');
+
 export const GAUNTLET_PAGES = [
   'forms',
   'shadow',
@@ -149,6 +165,7 @@ async function handle(
           (_, only: string, inner: string) => (only === variant ? inner : ''),
         )
         .replaceAll('{{VARIANT}}', variant)
+        .replace('{{HUGE_RECORDS}}', hugeRecords)
         .replaceAll('{{OTHER_ORIGIN}}', otherOrigin()),
     );
   };
