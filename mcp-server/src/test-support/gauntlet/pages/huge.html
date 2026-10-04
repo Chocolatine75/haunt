@@ -13,51 +13,17 @@
 <body>
 <h1>Huge page</h1>
 <!-- 500 records × 4 controls = 2,000 interactive elements, and 500 × 40
-     text spans = 20,000 text nodes. Generated the same way every time. -->
-<div id="records"></div>
+     text spans = 20,000 text nodes. Rendered by the server (server.ts):
+     built by a script in one go they made a 600 to 900 ms task while the
+     page loaded, a long task the page did not mean to plant (S5.4 on the
+     Linux runner); parsed, the browser takes them in short pieces. -->
+<div id="records">{{HUGE_RECORDS}}</div>
 <p id="result" role="status"></p>
 
 <script>
   const G = window.__gauntlet;
   const records = document.getElementById('records');
-  const fragment = document.createDocumentFragment();
   G.state.clicks = 0;
-
-  for (let i = 1; i <= 500; i++) {
-    const row = document.createElement('div');
-    row.className = 'record';
-
-    const link = document.createElement('a');
-    link.href = `#record-${i}`;
-    link.dataset.g = `link-${i}`;
-    link.textContent = `Record ${i}`;
-
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.dataset.g = `note-${i}`;
-    input.setAttribute('aria-label', `Note for record ${i}`);
-    input.size = 8;
-
-    const check = document.createElement('input');
-    check.type = 'checkbox';
-    check.dataset.g = `select-${i}`;
-    check.setAttribute('aria-label', `Select record ${i}`);
-
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.dataset.g = `archive-${i}`;
-    button.textContent = 'Archive';
-    button.setAttribute('aria-label', `Archive record ${i}`);
-
-    row.append(link, input, check, button);
-    for (let j = 1; j <= 40; j++) {
-      const span = document.createElement('span');
-      span.textContent = `v${i}.${j}`;
-      row.append(span);
-    }
-    fragment.append(row);
-  }
-  records.append(fragment);
 
   records.addEventListener('click', (e) => {
     const el = e.target.closest('[data-g]');
