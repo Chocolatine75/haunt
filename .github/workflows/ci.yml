@@ -45,7 +45,10 @@ jobs:
       # part 2 (a socket error loading a script, a browser that took more
       # than 10 s to close, a 3 s "long task" while typing). Two at a time
       # there; the tests and their limits are the same everywhere.
+      # Windows reports but does not block (CLAUDE.md): its failures have been
+      # timings on a slow runner, not haunt.
       - run: npx vitest run --coverage ${{ matrix.os == 'windows-latest' && '--maxWorkers=2' || '' }}
+        continue-on-error: ${{ matrix.os == 'windows-latest' }}
       # Time budgets, reported but not enforced here: shared runners vary by
       # a factor of two from one run to the next (the same test took 14 s and
       # 34 s on Windows a few hours apart), so a failure would say nothing
