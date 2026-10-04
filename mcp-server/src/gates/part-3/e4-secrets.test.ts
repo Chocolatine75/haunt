@@ -1,6 +1,6 @@
 // E4 — secrets (R-E7, R-E15).
 import { readFileSync, rmSync, statSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 import { describe, expect } from 'vitest';
 import {
   EV_LOGIN,
@@ -28,6 +28,32 @@ const formsOf = (secret: string) => [
   ]),
 ];
 const SECRETS = [EV_LOGIN.email, EV_LOGIN.password, COOKIE.value];
+
+// What a test wrote since it started. Other gate files run at the same time
+// and write bundles of their own — E7.1's sabotage leaves the password in
+// ev-login's trace on purpose — so the bundles searched, and deleted, are
+// those of this test's sessions, and the reports its own.
+function writtenBy(
+  startedAt: number,
+  sessions: string[],
+  reports: string[],
+): string[] {
+  const root = resolve('.haunt-reports');
+  const evidence = join(root, 'evidence');
+  const ours = sessions.map((id) => join(evidence, id) + sep);
+  const ourReports = reports.flatMap((path) => [
+    resolve(path),
+    resolve(path.replace(/\.md$/, '.json')),
+  ]);
+  return filesUnder(root).filter((file) => {
+    if (statSync(file).mtimeMs < startedAt) return false;
+    if (file.startsWith(evidence + sep)) {
+      return ours.some((dir) => file.startsWith(dir));
+    }
+    if (dirname(file) === root) return ourReports.includes(file);
+    return true;
+  });
+}
 const FORMS = SECRETS.flatMap(formsOf);
 
 const bundleOf = (issue: VerifiedIssue) => {
@@ -88,8 +114,10 @@ describe('E4 secrets', () => {
           }
         };
         search('the tool results', ctx.transcript.join('\n'));
-        const written = filesUnder(resolve('.haunt-reports')).filter(
-          (file) => statSync(file).mtimeMs >= startedAt,
+        const written = writtenBy(
+          startedAt,
+          [session.s.s.id],
+          [report.data.report_path],
         );
         for (const file of written) {
           if (file.endsWith('.zip')) {
@@ -224,8 +252,10 @@ describe('E4 secrets', () => {
           'the tool results',
           ctx.transcript.slice(afterCookies).join('\n'),
         );
-        const written = filesUnder(resolve('.haunt-reports')).filter(
-          (file) => statSync(file).mtimeMs >= startedAt,
+        const written = writtenBy(
+          startedAt,
+          [login.s.s.id, session.s.s.id],
+          [report.data.report_path],
         );
         for (const file of written) {
           if (file.endsWith('.zip')) {
