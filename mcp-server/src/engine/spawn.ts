@@ -44,6 +44,9 @@ export interface SpawnInput {
   bundle_cap_bytes?: number;
   // Not on the tool: a replay audits nothing it was not asked about.
   audit?: boolean;
+  // Values that must not leave the engine though no field of this session
+  // ever has them typed: the account it was signed in with elsewhere (R-E15).
+  secrets?: string[];
 }
 
 export interface SpawnOutput {
@@ -246,6 +249,8 @@ export async function hauntSpawn(
     },
   });
   collector.attach(context);
+  for (const secret of input.secrets ?? []) collector.addSecret(secret);
+  for (const cookie of input.cookies ?? []) collector.addToken(cookie.value);
   await context.exposeBinding(REPORT_BINDING, (source, report: unknown) => {
     collector.fromPage(source, report);
   });
@@ -332,6 +337,7 @@ export async function hauntSpawn(
       replay_budget_ms: input.replay_budget_ms ?? REPLAY_BUDGET_MS,
       bundle_cap_bytes: input.bundle_cap_bytes ?? BUNDLE_CAP_BYTES,
       cookies: input.cookies,
+      secrets: input.secrets,
     },
   };
 

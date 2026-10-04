@@ -23,7 +23,7 @@ import { hauntSpawn } from '../spawn.js';
 import type { HauntSession } from '../types.js';
 import { REF_FIELDS, REF_PLACEHOLDER, refFor } from './recording.js';
 import { maskedScreenshot } from './screenshot.js';
-import { redactZip } from './zip.js';
+import { readZip, redactZip } from './zip.js';
 
 const PLACEHOLDER = /^\{\{secret:\d+\}\}$/;
 
@@ -54,6 +54,9 @@ export interface ReplayRun {
 export interface ReplayOptions {
   secrets?: Record<string, string>;
   cookies?: Parameters<typeof hauntSpawn>[1]['cookies'];
+  // What the session was told to keep out though it never typed it: the
+  // account it was signed in with (R-E15).
+  known?: string[];
   // A directory to write the trace into, when the evidence is wanted.
   evidenceDir?: string;
 }
@@ -172,6 +175,7 @@ export async function replay(
     persona: String(file.spawn.persona),
     target_url: file.start_url,
     cookies: options.cookies,
+    secrets: options.known,
     timeout: file.steps.length + 5,
     // A replay is not a session of its own: no audit unless the claim is
     // about one, and no replays of its replays.
@@ -246,12 +250,18 @@ export async function replay(
       const trace = join(options.evidenceDir, 'trace.zip');
       await context.tracing.stop({ path: trace });
       // What was typed in the replay is in the trace's actions and in its
-      // snapshots of the fields; the cookies passed in, in its requests.
-      for (const cookie of options.cookies ?? []) {
-        session.collector.addSecret(cookie.value);
-      }
+      // snapshots of the fields; the cookies passed in, in its requests. The
+      // server may have set others since: a NextAuth session cookie is
+      // issued anew on every response, so the one passed in is not the one
+      // the trace holds most of the time.
       for (const value of Object.values(secrets)) {
         session.collector.addSecret(value);
+      }
+      for (const cookie of await context.cookies().catch(() => [])) {
+        session.collector.addToken(cookie.value);
+      }
+      for (const token of tokensIn(readZip(trace))) {
+        session.collector.addToken(token);
       }
       if (!sabotaged('evidence_secrets_in_trace')) {
         redactZip(trace, (text) => session.collector.redact(text));
@@ -268,6 +278,64 @@ export async function replay(
     await session.browser.close().catch(() => {});
     manager.delete(spawned.session_id);
   }
+}
+
+// The headers that carry a session: what a request sends and what a
+// response sets.
+const TOKEN_HEADERS = new Set(['cookie', 'set-cookie', 'authorization']);
+
+// Every cookie value and bearer token in a trace's requests and responses.
+// The trace's network records are JSON lines whose headers are
+// { name, value } pairs.
+export function tokensIn(entries: Array<[string, Buffer]>): string[] {
+  const found = new Set<string>();
+  const take = (name: string, value: string) => {
+    const header = name.toLowerCase();
+    const parts =
+      header === 'authorization'
+        ? [value.split(' ').pop() ?? '']
+        : value
+            .split(header === 'cookie' ? ';' : '\n')
+            .map((pair) => pair.split(';')[0]);
+    for (const part of parts) {
+      const raw = header === 'authorization' ? part : part.split('=')[1];
+      const token = raw?.trim().replace(/^"(.*)"$/, '$1');
+      if (!token) continue;
+      found.add(token);
+      try {
+        found.add(decodeURIComponent(token));
+      } catch {
+        // Not URL-encoded after all.
+      }
+    }
+  };
+  const walk = (value: unknown): void => {
+    if (Array.isArray(value)) {
+      for (const item of value) walk(item);
+    } else if (value && typeof value === 'object') {
+      const { name, value: inner } = value as Record<string, unknown>;
+      if (
+        typeof name === 'string' &&
+        typeof inner === 'string' &&
+        TOKEN_HEADERS.has(name.toLowerCase())
+      ) {
+        take(name, inner);
+      }
+      for (const child of Object.values(value)) walk(child);
+    }
+  };
+  for (const [name, data] of entries) {
+    if (!/\.(trace|network)$/.test(name)) continue;
+    for (const line of data.toString('utf-8').split('\n')) {
+      if (!line) continue;
+      try {
+        walk(JSON.parse(line));
+      } catch {
+        // Not a record.
+      }
+    }
+  }
+  return [...found];
 }
 
 // haunt_replay (R-E14): a bundle, and nothing else but its secrets.

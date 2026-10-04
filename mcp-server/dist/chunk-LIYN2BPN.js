@@ -34172,7 +34172,7 @@ function sabotaged(name) {
 var REF_FIELDS = ["ref", "from_ref", "to_ref"];
 var REF_PLACEHOLDER = "@ref";
 function newRecording(start_url, viewport, spawn) {
-  const { cookies: _cookies, ...kept } = spawn;
+  const { cookies: _cookies, secrets: _secrets, ...kept } = spawn;
   return { start_url, viewport, spawn: kept, steps: [], secrets: /* @__PURE__ */ new Map() };
 }
 function containerStep(containers, id) {
@@ -44322,6 +44322,7 @@ var DEFAULT_THRESHOLDS = {
 var REPORT_BINDING = "__hauntReport";
 var REDACTED = "[redacted]";
 var MIN_SECRET_LENGTH = 4;
+var MIN_TOKEN_LENGTH = 8;
 var MAX_MESSAGE = 500;
 var MAX_STACK = 4e3;
 var MAX_SIGNALS = 500;
@@ -44748,6 +44749,10 @@ var SignalCollector = class {
       this.secrets.push(text);
     }
   }
+  // A cookie value or bearer token the session sent or was sent (R-E15).
+  addToken(value) {
+    if (value.length >= MIN_TOKEN_LENGTH) this.addSecret(value);
+  }
   // Whether a text was typed into a credential field.
   isSecret(text) {
     return this.secrets.includes(text);
@@ -44970,6 +44975,8 @@ async function hauntSpawn(manager, input) {
     }
   });
   collector.attach(context);
+  for (const secret of input.secrets ?? []) collector.addSecret(secret);
+  for (const cookie of input.cookies ?? []) collector.addToken(cookie.value);
   await context.exposeBinding(REPORT_BINDING, (source, report) => {
     collector.fromPage(source, report);
   });
@@ -45035,7 +45042,8 @@ async function hauntSpawn(manager, input) {
       audit: input.audit !== false,
       replay_budget_ms: input.replay_budget_ms ?? REPLAY_BUDGET_MS,
       bundle_cap_bytes: input.bundle_cap_bytes ?? BUNDLE_CAP_BYTES,
-      cookies: input.cookies
+      cookies: input.cookies,
+      secrets: input.secrets
     }
   };
   manager.set(sessionId, session);
@@ -45256,6 +45264,7 @@ async function replay(file, options = {}) {
     persona: String(file.spawn.persona),
     target_url: file.start_url,
     cookies: options.cookies,
+    secrets: options.known,
     timeout: file.steps.length + 5,
     // A replay is not a session of its own: no audit unless the claim is
     // about one, and no replays of its replays.
@@ -45326,11 +45335,14 @@ async function replay(file, options = {}) {
     if (reproduced && options.evidenceDir) {
       const trace = join2(options.evidenceDir, "trace.zip");
       await context.tracing.stop({ path: trace });
-      for (const cookie of options.cookies ?? []) {
-        session.collector.addSecret(cookie.value);
-      }
       for (const value of Object.values(secrets)) {
         session.collector.addSecret(value);
+      }
+      for (const cookie of await context.cookies().catch(() => [])) {
+        session.collector.addToken(cookie.value);
+      }
+      for (const token of tokensIn(readZip(trace))) {
+        session.collector.addToken(token);
       }
       if (!sabotaged("evidence_secrets_in_trace")) {
         redactZip(trace, (text) => session.collector.redact(text));
@@ -45348,6 +45360,46 @@ async function replay(file, options = {}) {
     });
     manager.delete(spawned.session_id);
   }
+}
+var TOKEN_HEADERS = /* @__PURE__ */ new Set(["cookie", "set-cookie", "authorization"]);
+function tokensIn(entries) {
+  const found = /* @__PURE__ */ new Set();
+  const take = (name, value) => {
+    const header2 = name.toLowerCase();
+    const parts = header2 === "authorization" ? [value.split(" ").pop() ?? ""] : value.split(header2 === "cookie" ? ";" : "\n").map((pair) => pair.split(";")[0]);
+    for (const part of parts) {
+      const raw = header2 === "authorization" ? part : part.split("=")[1];
+      const token = raw?.trim().replace(/^"(.*)"$/, "$1");
+      if (!token) continue;
+      found.add(token);
+      try {
+        found.add(decodeURIComponent(token));
+      } catch {
+      }
+    }
+  };
+  const walk = (value) => {
+    if (Array.isArray(value)) {
+      for (const item of value) walk(item);
+    } else if (value && typeof value === "object") {
+      const { name, value: inner } = value;
+      if (typeof name === "string" && typeof inner === "string" && TOKEN_HEADERS.has(name.toLowerCase())) {
+        take(name, inner);
+      }
+      for (const child of Object.values(value)) walk(child);
+    }
+  };
+  for (const [name, data] of entries) {
+    if (!/\.(trace|network)$/.test(name)) continue;
+    for (const line of data.toString("utf-8").split("\n")) {
+      if (!line) continue;
+      try {
+        walk(JSON.parse(line));
+      } catch {
+      }
+    }
+  }
+  return [...found];
 }
 async function hauntReplay(input) {
   const path = existsSync3(input.bundle) && statSync2(input.bundle).isDirectory() ? join2(input.bundle, "steps.json") : input.bundle;
@@ -45441,7 +45493,12 @@ async function verifyClaim(session, claim, deadline, dir, forSignal) {
     const started = Array.from({ length: count }, () => {
       const evidenceDir = mkdtempSync(join3(tmpdir(), "haunt-replay-"));
       scratch.push(evidenceDir);
-      return replay(file, { secrets, cookies, evidenceDir }).catch(
+      return replay(file, {
+        secrets,
+        cookies,
+        known: session.evidence.secrets,
+        evidenceDir
+      }).catch(
         () => ({ outcome: "not_replayable", reproduced: false })
       );
     });

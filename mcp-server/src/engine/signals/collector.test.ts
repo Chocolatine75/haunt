@@ -176,3 +176,14 @@ describe('SignalCollector', () => {
     expect(c.all()).toEqual([]);
   });
 });
+
+describe('addToken', () => {
+  it('keeps a session token out, not a short cookie', () => {
+    const c = collector();
+    c.addToken('dark');
+    c.addToken('abc123def456');
+    expect(c.redact('theme dark, session abc123def456')).toBe(
+      'theme dark, session [redacted]',
+    );
+  });
+});
