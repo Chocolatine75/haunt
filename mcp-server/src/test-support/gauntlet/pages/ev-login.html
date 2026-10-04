@@ -9,7 +9,10 @@
 <body>
 <!--
   A failure behind a login: a replay reaches it only if it types the email
-  and password again, which a bundle must not hold.
+  and password again, which a bundle must not hold. Signed in, the page
+  carries the account's email in its data, as a server-rendered app does
+  (Next.js's __NEXT_DATA__), and sends a bearer token, and every response of
+  the server sets a new session cookie.
 -->
 <h1>Reports</h1>
 {{#out}}
@@ -20,11 +23,17 @@
 </form>
 {{/out}}
 {{#in}}
+<script id="session" type="application/json">{"user":{"email":"wraith@example.com"}}</script>
 <p><button data-g="export" type="button">Export reports</button></p>
 <p id="result" role="status"></p>
 <script>
+  const token = fetch('/ev/api/token?variant={{VARIANT}}')
+    .then((res) => res.json())
+    .then((body) => body.token);
   window.__gauntlet.find('export').addEventListener('click', async () => {
-    const res = await fetch('/ev/api/export?variant={{VARIANT}}');
+    const res = await fetch('/ev/api/export?variant={{VARIANT}}', {
+      headers: { Authorization: `Bearer ${await token}` },
+    });
     document.getElementById('result').textContent = res.ok ? 'Exported' : 'Export failed';
   });
 </script>

@@ -2,7 +2,10 @@
 import { readFileSync, rmSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect } from 'vitest';
-import { EV_LOGIN } from '../../test-support/gauntlet/evidence-routes.js';
+import {
+  EV_LOGIN,
+  evIssued,
+} from '../../test-support/gauntlet/evidence-routes.js';
 import type { StepsFile, VerifiedIssue } from './contract.js';
 import {
   type EvidenceSession,
@@ -147,6 +150,98 @@ describe('E4 secrets', () => {
         const without = await ctx.replay({ bundle });
         expect(without.outcome).toBe('not_replayable');
         expect(without.failed_step).toBe(steps.steps[3].step);
+      },
+    );
+  });
+
+  describe('E4.4 a session opened signed in', () => {
+    gate(
+      'E4.4',
+      'R-E7 R-E15',
+      'opened with the cookies of a login, the account passed as secrets: no spelling of the account, of a cookie the server set or of a bearer token is in anything written',
+      async () => {
+        const startedAt = Date.now();
+        const before = new Set(evIssued());
+        ctx.transcript.length = 0;
+        // As /haunt-test signs in: a first session logs in, and its cookies
+        // open the session that tests. That one never types the account,
+        // and the server keeps handing it new session cookies.
+        const login = await ctx.ev('ev-login');
+        await login.play(login.truth.steps.slice(0, 3));
+        const got = await ctx.haunt.call<{ cookies: unknown[] }>(
+          'haunt_get_cookies',
+          { session_id: login.s.s.id },
+        );
+        if (got.isError) throw new Error(got.text);
+        // The host asked for the cookies and has them: what comes back after
+        // that is what must be clean.
+        const afterCookies = ctx.transcript.length;
+        const session = await ctx.ev('ev-login', 'buggy', {
+          cookies: got.data.cookies,
+          secrets: [EV_LOGIN.email, EV_LOGIN.password],
+        });
+        await session.play(session.truth.steps.slice(3));
+        const ended = await session.end();
+        expect(ended.issues_found.map((i) => i.verification.status)).toEqual([
+          'confirmed',
+        ]);
+        const report = await ctx.haunt.call<{ report_path: string }>(
+          'haunt_generate_report',
+          {
+            target_url: ctx.gauntlet.baseUrl,
+            personas: ['gate-e4-4'],
+            sessions: [
+              {
+                area: '/ev-login',
+                persona: 'gate',
+                overall_impression: 'done',
+                issues: ended.issues_found,
+                rejected: ended.rejected,
+                signals: ended.signals,
+                signal_verification: ended.signal_verification,
+              },
+            ],
+          },
+        );
+        expect(report.isError).toBe(false);
+
+        // The tokens of this test: the login's, and those its replays got.
+        const tokens = evIssued().filter((t) => !before.has(t));
+        expect(tokens.length).toBeGreaterThan(3);
+        const forms = [
+          ...formsOf(EV_LOGIN.email),
+          ...formsOf(EV_LOGIN.password),
+          ...tokens,
+        ];
+        const searched: string[] = [];
+        const search = (where: string, content: string) => {
+          searched.push(where);
+          for (const form of forms) {
+            expect(content.includes(form), `"${form}" in ${where}`).toBe(false);
+          }
+        };
+        search(
+          'the tool results',
+          ctx.transcript.slice(afterCookies).join('\n'),
+        );
+        const written = filesUnder(resolve('.haunt-reports')).filter(
+          (file) => statSync(file).mtimeMs >= startedAt,
+        );
+        for (const file of written) {
+          if (file.endsWith('.zip')) {
+            for (const [name, data] of zipEntries(file)) {
+              search(`${file}!${name}`, data.toString('latin1'));
+            }
+          } else {
+            search(file, readFileSync(file).toString('latin1'));
+          }
+        }
+        const [issue] = ended.issues_found;
+        expect(
+          searched.some((w) => w.startsWith(resolve(bundleOf(issue)))),
+        ).toBe(true);
+        expect(searched.some((w) => w.includes('trace.zip!'))).toBe(true);
+        for (const file of written) rmSync(file, { force: true });
       },
     );
   });
