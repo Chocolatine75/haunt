@@ -22,7 +22,9 @@
 <section id="late"><h2>Loaded late</h2></section>
 
 <script>
-  // Inserted one second after load: a snapshot taken too early misses it.
+  // Inserted one second after load, or ?late= milliseconds: a snapshot
+  // taken too early misses it.
+  const late = Number(new URLSearchParams(location.search).get('late')) || 1000;
   setTimeout(() => {
     const frame = document.createElement('iframe');
     frame.dataset.frame = 'late';
@@ -31,7 +33,7 @@
     frame.width = 420;
     frame.height = 150;
     document.getElementById('late').appendChild(frame);
-  }, 1000);
+  }, late);
 </script>
 </body>
 </html>
