@@ -22,6 +22,11 @@ const PAGE = `<!doctype html><html lang="en"><title>dead</title>
   <button id="stop" type="button">Stop sync</button>
   <button id="nothing" type="button">Nothing</button>
   <p id="status" role="status"></p>
+  <form id="login">
+    <input id="email" type="email" aria-label="Email">
+    <input id="password" type="password" aria-label="Password">
+    <button type="submit">Sign in</button>
+  </form>
   <script>
     const status = document.getElementById('status');
     document.getElementById('open').addEventListener('click', () => {
@@ -32,6 +37,10 @@ const PAGE = `<!doctype html><html lang="en"><title>dead</title>
     const sync = setInterval(() => { syncs++; }, 3000);
     document.getElementById('stop').addEventListener('click', () => {
       clearInterval(sync);
+    });
+    // A submission the page swallows: dead, once the browser lets it through.
+    document.getElementById('login').addEventListener('submit', (e) => {
+      e.preventDefault();
     });
   </script></html>`;
 
@@ -99,6 +108,38 @@ describe('dead controls', () => {
     ).toEqual([]);
     expect(await deadAfter({ type: 'click', ref: nothing })).toEqual([
       'Nothing',
+    ]);
+  }, 30_000);
+
+  // On a real run against demo/, the sign-in button was reported dead with
+  // "not-an-email" in its email field: once the field shows the browser's
+  // message, another refused click changes nothing in the DOM, and the
+  // browser's bubble is all a user sees.
+  it('does not call a submit button dead when the browser refuses the form', async () => {
+    manager = new SessionManager();
+    ({ session_id } = await hauntSpawn(manager, {
+      persona: VALID_PERSONA,
+      target_url: url,
+      timeout: 50,
+    }));
+    const fill = async (name: string, text: string) => {
+      const result = await hauntAct(manager, {
+        session_id,
+        actions: [{ type: 'fill', ref: await ref(name), text }],
+      });
+      expect(result.results[0].ok).toBe(true);
+    };
+    const signIn = await ref('Sign in');
+    await fill('Password', 'hunter2-secret');
+    await fill('Email', 'not-an-email');
+    expect(await deadAfter({ type: 'click', ref: signIn })).toEqual([]);
+    // The second click finds the field's message already showing: the DOM
+    // does not change, but the browser shows its bubble again.
+    expect(await deadAfter({ type: 'click', ref: signIn })).toEqual([]);
+    // A valid address goes through, and the page does nothing with it.
+    await fill('Email', 'ada@example.com');
+    expect(await deadAfter({ type: 'click', ref: signIn })).toEqual([
+      'Sign in',
     ]);
   }, 30_000);
 });

@@ -34285,6 +34285,9 @@ function installHooks() {
     // to stop something (a pause button) did something.
     intervals: /* @__PURE__ */ new Set(),
     lastCleared: 0,
+    // When the browser last refused to submit a form it found invalid: it
+    // shows its own message for that, which no DOM change records.
+    lastInvalid: 0,
     // Set while the engine's accessibility audit runs here: what axe-core
     // logs is not the page's (R-S17).
     silent: 0
@@ -34293,6 +34296,13 @@ function installHooks() {
   const observer = new MutationObserver(() => {
     state.lastMutation = Date.now();
   });
+  window.addEventListener(
+    "invalid",
+    () => {
+      state.lastInvalid = Date.now();
+    },
+    true
+  );
   const watch = (root) => observer.observe(root, {
     subtree: true,
     childList: true,
@@ -35823,7 +35833,7 @@ function focusedElement() {
 }
 function reactedSince(since) {
   const state = window.__haunt;
-  return (state?.lastCleared ?? 0) >= since || (state?.lastMutation ?? 0) >= since;
+  return (state?.lastCleared ?? 0) >= since || (state?.lastMutation ?? 0) >= since || (state?.lastInvalid ?? 0) >= since;
 }
 function sinceMutation() {
   const state = window.__haunt;
