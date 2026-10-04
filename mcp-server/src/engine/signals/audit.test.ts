@@ -42,9 +42,11 @@ describe('the contrast check on a long page', () => {
   afterAll(async () => {
     await new Promise((done) => server.close(done));
   });
+  // A browser that has just audited a thousand lines took more than vitest's
+  // 10 s default to close on a Windows runner.
   afterEach(async () => {
     for (const session of manager?.all() ?? []) await session.browser.close();
-  });
+  }, 30_000);
 
   const contrastAt = async (count: number) => {
     manager = new SessionManager();
