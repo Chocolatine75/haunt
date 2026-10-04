@@ -346,15 +346,22 @@ describe('gauntlet', { timeout: 30_000 }, () => {
   });
 
   describe('frames', () => {
+    // The late frame is inserted a second after load and then loads its own
+    // document and script: on a slow runner that took longer than the 300 ms
+    // a fixed wait left it, so its name is waited for.
     const frameNamed = async (name: string) => {
-      for (const frame of page.frames()) {
-        if (frame === page.mainFrame()) continue;
-        const found = await frame
-          .evaluate(() => window.__gauntlet?.state.name)
-          .catch(() => undefined);
-        if (found === name) return frame;
+      const deadline = Date.now() + 10_000;
+      for (;;) {
+        for (const frame of page.frames()) {
+          if (frame === page.mainFrame()) continue;
+          const found = await frame
+            .evaluate(() => window.__gauntlet?.state.name)
+            .catch(() => undefined);
+          if (found === name) return frame;
+        }
+        if (Date.now() > deadline) throw new Error(`no frame named ${name}`);
+        await page.waitForTimeout(100);
       }
-      throw new Error(`no frame named ${name}`);
     };
 
     it('has same-origin, cross-origin, nested and late frames', async () => {
