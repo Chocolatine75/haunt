@@ -115,12 +115,28 @@ describe('G1 snapshot truth', () => {
       'R-A3',
       'a frame that has not loaded yet is simply absent, then appears',
       async () => {
-        const s = await ctx.open('frames');
+        // Since part 2, opening a page audits each of its frames: on a slow
+        // runner that took longer than the one second the late frame used to
+        // wait, and the first snapshot already had it. It now comes eight
+        // seconds after load, and the test waits for it rather than for a
+        // fixed time.
+        const s = await ctx.open('frames', 'late=8000');
         const early = (await s.snapshot()).elements.filter(
           (e) => g(e) === 'comment',
         );
         expect(early).toHaveLength(3);
-        await s.page.waitForTimeout(1_300);
+        // Its comment field, not its readyState: a new frame is a complete
+        // about:blank before it navigates.
+        await s.page.waitForFunction(
+          () =>
+            (
+              document.querySelector(
+                'iframe[data-frame="late"]',
+              ) as HTMLIFrameElement | null
+            )?.contentDocument?.querySelector('[data-g="comment"]') != null,
+          undefined,
+          { timeout: 20_000 },
+        );
         const late = (await s.snapshot()).elements.filter(
           (e) => g(e) === 'comment',
         );
