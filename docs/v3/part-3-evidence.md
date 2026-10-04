@@ -111,7 +111,11 @@ with the tester. Visual checks are part 4.
   session appears in any file of a bundle — the trace archive's entries
   included — nor in the report, its sidecar or a log. Credential fields are
   masked in screenshots; URLs lose their query strings; the trace is
-  rewritten so that no spelling of a typed secret remains (R-S18's forms).
+  rewritten so that no spelling of a secret remains (R-S18's forms). The
+  secrets are what was typed into a credential field, what the host passes
+  to `haunt_spawn` as `secrets` (the account a session was signed in with
+  elsewhere), and every cookie value and bearer token the session sent or
+  was sent, the ones the server set along the way included.
 - **R-E16 Storage is capped.** A bundle stays under 5 MB and a report's
   bundles under 50 MB. Over the cap the trace is dropped first (marked so),
   then screenshots; `steps.json` and `verification.json` always stay. A
@@ -199,6 +203,12 @@ files on it, its claim and its expected status.
 2. The screenshot of a filled password or email field shows it masked.
 3. The replay of `ev-login` reproduces with the secrets passed to it, and
    fails as `not_replayable` without them.
+4. A session opened with the cookies of an `ev-login` login and the account
+   passed as `secrets`, whose server sets a new session cookie on every
+   response and whose page carries the account's email in its data and sends a bearer
+   token: no spelling of the email, the password, any session cookie the
+   server handed out or any bearer token appears in any file written or in
+   the tool results after the cookies were asked for.
 
 ### E5 — storage (R-E16)
 

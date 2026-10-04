@@ -3,6 +3,7 @@
 // The server side of the gauntlet's evidence pages (part 3). Each route
 // under /ev/ fails in one precise way, and works when the request carries
 // ?variant=clean, as part 2's /sig/ routes do.
+import { randomBytes } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 // How many saves each run of ev-flaky has made: the run is named in the
@@ -16,7 +17,30 @@ export const EV_LOGIN = {
   email: 'wraith@example.com',
   password: 'Moan 9+haunt',
 };
-const EV_COOKIE = 'ev_session=signed-in';
+const EV_COOKIE = 'ev_session';
+
+// Every session cookie and bearer token ev-login has handed out. A signed-in
+// response sets a new session cookie, as NextAuth's rolling sessions do: the
+// value a host passed at spawn is not the one the server ends up sending, and
+// a test looks for all of them.
+const issued = new Set<string>();
+function issue(): string {
+  const value = randomBytes(16).toString('hex');
+  issued.add(value);
+  return value;
+}
+export function evIssued(): string[] {
+  return [...issued];
+}
+
+function sessionOf(req: IncomingMessage): string | undefined {
+  for (const pair of (req.headers.cookie ?? '').split(';')) {
+    const [name, value] = pair.trim().split('=');
+    if (name === EV_COOKIE && issued.has(value)) return value;
+  }
+  return undefined;
+}
+const sessionCookie = () => `${EV_COOKIE}=${issue()}; Path=/; HttpOnly`;
 
 async function bodyOf(req: IncomingMessage): Promise<URLSearchParams> {
   let body = '';
@@ -75,7 +99,7 @@ export async function handleEvidenceRoute(
       302,
       ok
         ? {
-            'Set-Cookie': `${EV_COOKIE}; Path=/; HttpOnly`,
+            'Set-Cookie': sessionCookie(),
             Location: `/ev-login?variant=${buggy ? 'buggy' : 'clean'}`,
           }
         : {
@@ -83,10 +107,19 @@ export async function handleEvidenceRoute(
           },
     );
     res.end();
-  } else if (path === '/ev/api/export') {
-    const signedIn = (req.headers.cookie ?? '').includes(EV_COOKIE);
-    if (!signedIn) json(401, { error: 'Unauthorized' });
-    else json(buggy ? 500 : 200, buggy ? { error: 'Export failed' } : {});
+  } else if (path === '/ev/api/token' || path === '/ev/api/export') {
+    // The page asks for a bearer token, then sends it with the export, as a
+    // single-page app keeps a JWT: one more secret no field ever typed.
+    const bearer = /^Bearer (\w+)$/.exec(req.headers.authorization ?? '')?.[1];
+    if (!sessionOf(req)) json(401, { error: 'Unauthorized' });
+    else {
+      res.setHeader('Set-Cookie', sessionCookie());
+      if (path === '/ev/api/token') {
+        json(200, { token: issue(), user: { email: EV_LOGIN.email } });
+      } else if (!bearer || !issued.has(bearer)) {
+        json(401, { error: 'Unauthorized' });
+      } else json(buggy ? 500 : 200, buggy ? { error: 'Export failed' } : {});
+    }
   }
 
   // ev-long: deleting the last record fails.
@@ -103,5 +136,5 @@ export async function handleEvidenceRoute(
 // Whether a request carries ev-login's session cookie: the page renders
 // differently for a signed-in visitor.
 export function evSignedIn(req: IncomingMessage): boolean {
-  return (req.headers.cookie ?? '').includes(EV_COOKIE);
+  return sessionOf(req) !== undefined;
 }
