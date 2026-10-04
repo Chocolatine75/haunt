@@ -597,6 +597,7 @@ export class SignalCollector {
       help: string;
       nodes: number;
       refs: string[];
+      sample?: { checked: number; of: number };
     }>,
     options: { again?: boolean } = {},
   ): Signal[] {
@@ -624,7 +625,11 @@ export class SignalCollector {
           nodes: v.nodes,
           refs: v.refs,
           help: v.help,
-          message: `${v.help} (${v.nodes} element${v.nodes === 1 ? '' : 's'})`,
+          message: `${v.help} (${v.nodes} element${v.nodes === 1 ? '' : 's'}${
+            v.sample && v.sample.checked < v.sample.of
+              ? `, among ${v.sample.checked} checked of ${v.sample.of}`
+              : ''
+          })`,
           severity:
             v.impact === 'critical' || v.impact === 'serious'
               ? 'major'

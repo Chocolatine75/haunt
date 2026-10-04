@@ -103,6 +103,10 @@ missing `alt` against a crashed checkout beyond a default severity.
 - **R-S15 Audited once per page.** Each distinct page (origin and path) is
   audited with axe-core once, after it has settled, with the WCAG 2 A and AA
   rules. The audit can also be requested for the current state of a page.
+  Past 200 text elements in a frame, `color-contrast` (nearly all of an
+  audit's time on a long page) is checked on 200 of them, those on screen
+  first, and the signal's message says how many it was checked on, of how
+  many.
 - **R-S16 Violations name their elements.** Each `a11y` signal carries the
   rule id, its impact, and the snapshot references of the offending elements
   where they have one.
