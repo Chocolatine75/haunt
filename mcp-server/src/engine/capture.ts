@@ -3,6 +3,7 @@ import { mkdirSync } from 'node:fs';
 import type { Snapshot } from '../gates/part-1/contract.js';
 import type { Signal } from '../gates/part-2/contract.js';
 import { SCREENSHOTS_DIR, SESSION_TTL_MS } from './constants.js';
+import { maskedScreenshot } from './evidence/screenshot.js';
 import type { SessionManager } from './session/manager.js';
 import { auditNow } from './signals/audit.js';
 import { type SnapshotOptions, takeSnapshot } from './snapshot/snapshot.js';
@@ -51,9 +52,11 @@ export async function hauntCaptureState(
   if (include_screenshot && !session.runtime.dialog) {
     mkdirSync(SCREENSHOTS_DIR, { recursive: true });
     output.screenshot_path = `${session.id}-capture-${Date.now()}.png`;
-    await session.page.screenshot({
-      path: `${SCREENSHOTS_DIR}/${output.screenshot_path}`,
-    });
+    // Credential fields masked, as in a bundle (R-E15).
+    await maskedScreenshot(
+      session.page,
+      `${SCREENSHOTS_DIR}/${output.screenshot_path}`,
+    );
   }
   return output;
 }

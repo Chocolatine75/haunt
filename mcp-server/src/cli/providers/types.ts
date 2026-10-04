@@ -69,7 +69,35 @@ export function decideActionParameters(): Record<string, unknown> {
             signal: {
               type: 'string',
               description:
-                'The id of the detected signal this issue is about (s3), if any',
+                'The id of the detected signal this issue is about (s3)',
+            },
+            observed: {
+              type: 'object',
+              description:
+                'For an issue no signal shows: one fact about the page the engine can check',
+              properties: {
+                step: { type: 'integer' },
+                text_present: { type: 'string' },
+                text_absent: { type: 'string' },
+                url: { type: 'string' },
+                element: {
+                  type: 'object',
+                  properties: {
+                    ref: { type: 'string' },
+                    state: {
+                      type: 'string',
+                      enum: [
+                        'visible',
+                        'hidden',
+                        'disabled',
+                        'enabled',
+                        'gone',
+                      ],
+                    },
+                  },
+                  required: ['ref', 'state'],
+                },
+              },
             },
           },
           required: [

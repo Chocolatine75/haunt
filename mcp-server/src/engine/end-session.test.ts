@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { hauntEndSession } from './end-session.js';
+import { newRecording } from './evidence/recording.js';
 import { SessionManager } from './session/manager.js';
 import { SignalCollector } from './signals/collector.js';
 import type { HauntSession } from './types.js';
@@ -15,9 +16,20 @@ function mockSession(overrides: Partial<HauntSession> = {}): HauntSession {
     start_time: Date.now() - 5_000,
     last_activity: Date.now(),
     step_count: 4,
-    // A session whose page is gone: nothing is left to wait for.
+    // A session whose page is gone: nothing is left to wait for, and no
+    // time to replay anything in.
     page: { isClosed: () => true },
     runtime: {},
+    recording: newRecording(
+      'http://localhost:3000/',
+      { width: 1280, height: 720 },
+      {},
+    ),
+    evidence: {
+      audit: false,
+      replay_budget_ms: 0,
+      bundle_cap_bytes: 1_000_000,
+    },
     collector: new SignalCollector({
       authenticated: false,
       sandbox: {
@@ -56,7 +68,7 @@ describe('hauntEndSession', () => {
     expect(output.duration_seconds).toBeGreaterThanOrEqual(12);
     expect(output.pages_visited).toBe(3);
     expect(output.step_count).toBe(7);
-    expect(output.issues_found).toBe(session.issues);
+    expect(output.issues_found).toEqual([]);
   });
 
   it('uses the provided overall_impression, or a computed default', async () => {
@@ -132,6 +144,14 @@ describe('hauntEndSession', () => {
       issues: [late],
     });
 
-    expect(output.issues_found).toEqual([earlier, late]);
+    // Both are kept, and both rejected: neither names a signal nor states an
+    // observation the engine could check (part 3, R-E9).
+    expect(output.issues_found).toEqual([]);
+    expect(
+      output.rejected.map((i) => [i.description, i.verification.reason]),
+    ).toEqual([
+      ['earlier', 'no_claim'],
+      ['from the last action', 'no_claim'],
+    ]);
   });
 });

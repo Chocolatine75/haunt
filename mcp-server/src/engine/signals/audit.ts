@@ -167,7 +167,7 @@ export async function auditIfNew(
   step: number,
 ): Promise<void> {
   if (sabotaged('signals_no_audit') || sabotaged('signals_off')) return;
-  if (session.page.isClosed()) return;
+  if (!session.evidence.audit || session.page.isClosed()) return;
   const key = pageKey(session.page.url());
   if (!key) return;
   const again = sabotaged('signals_audit_every_action');

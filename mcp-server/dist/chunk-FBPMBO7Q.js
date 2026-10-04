@@ -9,7 +9,7 @@ import {
   hauntGetCookies,
   hauntSpawn,
   zodToJsonSchema
-} from "./chunk-K6S3BOMJ.js";
+} from "./chunk-LFYHXP5Y.js";
 import {
   Anthropic
 } from "./chunk-MMWLM6BK.js";
@@ -34455,7 +34455,34 @@ function decideActionParameters() {
             recommendation: { type: "string" },
             signal: {
               type: "string",
-              description: "The id of the detected signal this issue is about (s3), if any"
+              description: "The id of the detected signal this issue is about (s3)"
+            },
+            observed: {
+              type: "object",
+              description: "For an issue no signal shows: one fact about the page the engine can check",
+              properties: {
+                step: { type: "integer" },
+                text_present: { type: "string" },
+                text_absent: { type: "string" },
+                url: { type: "string" },
+                element: {
+                  type: "object",
+                  properties: {
+                    ref: { type: "string" },
+                    state: {
+                      type: "string",
+                      enum: [
+                        "visible",
+                        "hidden",
+                        "disabled",
+                        "enabled",
+                        "gone"
+                      ]
+                    }
+                  },
+                  required: ["ref", "state"]
+                }
+              }
             }
           },
           required: [
@@ -34635,7 +34662,9 @@ function createDecider(resolved) {
 }
 var UNAUTHENTICATED_NOTE = "Note: you are NOT logged in for this session. If this page shows content that looks private, personalized, or administrative (e.g. a dashboard, account data, admin controls) without redirecting you to a login page first, that is itself a serious security bug \u2014 report it.";
 var SANDBOX_BLOCK_NOTE = "Note: your last action was blocked by the haunt test sandbox because it targeted an origin outside the app under test. This is NOT an app bug \u2014 do not report it as an issue. Blocked: ";
-var HOW_TO_ACT = 'Elements are named by the reference in square brackets, e.g. [e12]. Use that reference in your actions; every action is an object with a "type". A failed action is information about the page (covered, disabled, gone), not necessarily a bug.\nReport an issue as soon as you have seen it \u2014 in this very answer, not later. In particular, look at what your last actions did: a button or a submit that changed nothing on the page, a server error in the console (status 500, an exception), a form accepted or refused without any message, private content shown without logging in. Each of those is an issue a real user would hit.';
+var HOW_TO_ACT = `Elements are named by the reference in square brackets, e.g. [e12]. Use that reference in your actions; every action is an object with a "type". A failed action is information about the page (covered, disabled, gone), not necessarily a bug.
+Report an issue as soon as you have seen it \u2014 in this very answer, not later. In particular, look at what your last actions did: a button or a submit that changed nothing on the page, a server error in the console (status 500, an exception), a form accepted or refused without any message, private content shown without logging in. Each of those is an issue a real user would hit.
+Every issue must be checkable: name the signal it is about in "signal", or state what the page shows in "observed" (text_present, text_absent, url, or an element's state, after a step). Each is replayed in a fresh browser before it is reported; one with neither is rejected.`;
 var WRAP_UP = 'The session is over: no further action will be run, so leave "actions" empty. Report in "issues" anything you have seen and not reported yet, including what your last actions just revealed.';
 function describeSignals(title, signals) {
   if (signals.length === 0) return [];
@@ -34791,6 +34820,8 @@ ${WRAP_UP}`
     persona: spawnResult.persona_name,
     overall_impression: endResult.overall_impression,
     issues: endResult.issues_found,
+    rejected: endResult.rejected,
+    signal_verification: endResult.signal_verification,
     sandbox_blocked_requests: endResult.sandbox_blocked_requests,
     signals: endResult.signals
   };
@@ -34828,7 +34859,7 @@ async function runHeadlessTest(decide, manager, options) {
     personas: options.personas,
     sessions
   });
-  const blocking = report.counts.critical > 0 || report.counts.major > 0 || report.signal_counts.major > 0;
+  const blocking = report.counts.critical > 0 || report.counts.major > 0 || report.confirmed_major_signals > 0;
   return { report, failures, exitCode: blocking ? 1 : 0 };
 }
 function chooseRunner(options, env2, claudeCodeAvailable) {

@@ -27,6 +27,19 @@ export const SABOTAGES = [
   'signals_end_dropped',
   'signals_no_audit',
   'signals_audit_every_action',
+  // Part 3, evidence.
+  'evidence_refs_not_locators',
+  'evidence_failed_replayed',
+  'evidence_one_replay',
+  'evidence_flaky_as_confirmed',
+  'evidence_rejected_reported',
+  'evidence_secrets_in_trace',
+  'evidence_screenshots_unmasked',
+  'evidence_cap_ignored',
+  'evidence_same_session',
+  // Not a breakage: nothing recorded, to measure what recording costs
+  // (E7.4).
+  'evidence_off',
   // Not a breakage: nothing collected at all, to measure what collecting
   // costs (S8.4).
   'signals_off',

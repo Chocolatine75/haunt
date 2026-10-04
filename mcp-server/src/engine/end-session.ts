@@ -1,8 +1,13 @@
 // mcp-server/src/engine/end-session.ts
 import type { Signal } from '../gates/part-2/contract.js';
+import type {
+  SignalVerifications,
+  VerifiedIssue,
+} from '../gates/part-3/contract.js';
 import { SETTLE_CAP_MS } from './act/act.js';
 import { pendingTimers } from './act/page-fns.js';
 import { SESSION_TTL_MS } from './constants.js';
+import { verifySession } from './evidence/verify.js';
 import { sabotaged } from './sabotage.js';
 import type { SessionManager } from './session/manager.js';
 import type { HauntSession, Issue } from './types.js';
@@ -20,10 +25,15 @@ export interface EndSessionOutput {
   duration_seconds: number;
   pages_visited: number;
   step_count: number;
-  issues_found: Issue[];
+  // Issues verified by replay: confirmed, flaky or unverified (R-E8 …
+  // R-E12). The rejected ones are apart, with why.
+  issues_found: VerifiedIssue[];
+  rejected: VerifiedIssue[];
   sandbox_blocked_requests: string[];
-  // Every signal of the session, counted once each.
+  // Every signal of the session, counted once each, and how each fared
+  // when replayed.
   signals: Signal[];
+  signal_verification: SignalVerifications;
   overall_impression: string;
 }
 
@@ -33,7 +43,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // still on the wire, a timer not yet due. There is no later call to report
 // it with, so it is waited for here, within the cap an action waits
 // (R-S8).
-async function lastEffects(session: HauntSession): Promise<void> {
+export async function lastEffects(session: HauntSession): Promise<void> {
   if (sabotaged('signals_off')) return;
   const { collector } = session;
   const deadline = Date.now() + SETTLE_CAP_MS;
@@ -69,7 +79,10 @@ export async function hauntEndSession(
   }
 
   await lastEffects(session);
+  // Replayed in browsers of their own before anything is reported; the
+  // session's browser stays open meanwhile, for nothing but its cookies.
   const signals = session.collector.all();
+  const verified = await verifySession(session, session.issues, signals);
 
   await session.browser.close();
   manager.delete(input.session_id);
@@ -85,9 +98,11 @@ export async function hauntEndSession(
     duration_seconds,
     pages_visited: session.pages_visited.length,
     step_count: session.step_count,
-    issues_found: session.issues,
+    issues_found: verified.issues_found,
+    rejected: verified.rejected,
     sandbox_blocked_requests: session.sandbox_blocked_requests,
     signals,
+    signal_verification: verified.signal_verification,
     overall_impression:
       input.overall_impression ??
       `Completed ${session.step_count} steps across ${session.pages_visited.length} pages.`,

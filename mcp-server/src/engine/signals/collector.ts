@@ -647,6 +647,11 @@ export class SignalCollector {
     }
   }
 
+  // Whether a text was typed into a credential field.
+  isSecret(text: string): boolean {
+    return this.secrets.includes(text);
+  }
+
   // A text with nothing in it that was typed into a credential field. Also
   // for what leaves the engine outside a signal (an action's console and
   // network errors).

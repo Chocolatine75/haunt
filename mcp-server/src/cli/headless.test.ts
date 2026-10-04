@@ -217,6 +217,8 @@ describe('runHeadlessTest', () => {
             description: 'Something bad',
             page_url: 'data:text/html,<input type="text" />',
             recommendation: 'Fix it',
+            // Checkable, so that verification confirms it (part 3).
+            observed: { text_absent: 'Your order is confirmed' },
           },
         ],
       },
