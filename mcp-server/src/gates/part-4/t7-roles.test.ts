@@ -331,7 +331,10 @@ describe('T7 one job each', () => {
             expect(tool, tool).toMatch(/^mcp__(plugin_haunt_)?haunt__/);
             expect(provided, tool).toContain(name);
           }
-          for (const name of source.match(/haunt_[a-z_]+/g) ?? []) {
+          // In its text, that is: the front matter names the tools as the
+          // host does, checked above.
+          const text = source.replace(/^---\n[\s\S]*?\n---/, '');
+          for (const name of text.match(/\bhaunt_[a-z_]+\b/g) ?? []) {
             expect(provided, `${path} mentions ${name}`).toContain(name);
           }
         }
