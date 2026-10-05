@@ -271,9 +271,12 @@ describe('E7 the gate itself', () => {
           files: 10,
           hash: '5fdb1b72f30ba98661a02f7d58d698b1b6e26edcad5c004badada82e3cfc59b9',
         });
+        // Part 2's updated once too: its contract gained the optional
+        // `expected` mark of a refused sign-in (R-S14). No test of the gate
+        // changed.
         expect(hashOf(resolve(HERE, '../part-2'))).toEqual({
           files: 12,
-          hash: 'd20206083b8162df76aa6ebc602eea0cbdd760a46e97bb6a028735cf64c0aee4',
+          hash: '794fce66dc89a49d831d8193a9acf57a64f8b39721f4e503f3245a920670423e',
         });
       },
     );

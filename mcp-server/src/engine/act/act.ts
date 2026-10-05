@@ -40,6 +40,7 @@ import {
   hasText,
   listOptions,
   locate,
+  passwordField,
   probe,
   reactedSince,
   scrollBy,
@@ -358,6 +359,9 @@ async function noteSecret(
   if (!handle || !text) return;
   if (await withTimeout(handle.evaluate(credentialField), 1_000)) {
     session.collector.addSecret(text);
+  }
+  if (await withTimeout(handle.evaluate(passwordField), 1_000)) {
+    session.collector.addPassword(text);
   }
 }
 
@@ -1151,10 +1155,16 @@ async function runStep(
   if (download) changes.download = { filename: download };
 
   // Whether the user was told anything (R-S5): some text appeared.
-  const appeared =
-    textChanges(readBefore?.texts ?? [], session.snapshot.previous?.texts ?? [])
-      .added.length > 0;
-  collector.endStep(stepNumber, appeared);
+  const texts = textChanges(
+    readBefore?.texts ?? [],
+    session.snapshot.previous?.texts ?? [],
+  );
+  const appeared = texts.added.length > 0;
+  collector.endStep(
+    stepNumber,
+    appeared,
+    !appeared && texts.removed.length === 0,
+  );
 
   // A click on a control that changed nothing a user could notice and set
   // nothing in motion (R-S2). Moving the focus elsewhere, scrolling

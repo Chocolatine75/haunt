@@ -35823,6 +35823,20 @@ function credentialField(el) {
   ].join(" ");
   return /pass(word|code|phrase)?|pwd|secret|\bpin\b|e-?mail/i.test(name);
 }
+function passwordField(el) {
+  if (!(el instanceof HTMLInputElement)) return false;
+  if (el.type === "password") return true;
+  if (/password/.test(el.autocomplete || "")) return true;
+  const labels = [...el.labels ?? []].map((l) => l.textContent ?? "");
+  const name = [
+    el.getAttribute("aria-label") ?? "",
+    ...labels,
+    el.placeholder,
+    el.name,
+    el.id
+  ].join(" ");
+  return /pass(word|code|phrase)?|pwd/i.test(name);
+}
 function focusedElement() {
   let active = document.activeElement;
   for (; ; ) {
@@ -40325,6 +40339,9 @@ async function noteSecret(session, handle, text) {
   if (await withTimeout3(handle.evaluate(credentialField), 1e3)) {
     session.collector.addSecret(text);
   }
+  if (await withTimeout3(handle.evaluate(passwordField), 1e3)) {
+    session.collector.addPassword(text);
+  }
 }
 async function centreOf(handle) {
   const box = await handle.boundingBox();
@@ -40962,8 +40979,16 @@ async function runStep(session, input) {
   };
   if (dialog) changes.dialog = dialog;
   if (download) changes.download = { filename: download };
-  const appeared = textChanges(readBefore?.texts ?? [], session.snapshot.previous?.texts ?? []).added.length > 0;
-  collector.endStep(stepNumber, appeared);
+  const texts = textChanges(
+    readBefore?.texts ?? [],
+    session.snapshot.previous?.texts ?? []
+  );
+  const appeared = texts.added.length > 0;
+  collector.endStep(
+    stepNumber,
+    appeared,
+    !appeared && texts.removed.length === 0
+  );
   if (outcome.clicked && !error && !switched && !page.isClosed()) {
     const ref2 = outcome.clicked;
     const element = readBefore?.elements.find((el) => el.ref === ref2);
@@ -44433,6 +44458,13 @@ var SignalCollector = class {
   byKey = /* @__PURE__ */ new Map();
   inflight = /* @__PURE__ */ new Map();
   secrets = [];
+  // Of those, what was typed into a password field.
+  passwords = [];
+  // 401s and 403s that answered a request carrying one of them while the
+  // session was logged out: expected if the page then says so (R-S14).
+  refusals = /* @__PURE__ */ new WeakSet();
+  // Steps that left the page's text exactly as it was.
+  sameText = /* @__PURE__ */ new Set();
   // When each step started; index 0 is the session's own start.
   stepStarts = [Date.now()];
   feedback = /* @__PURE__ */ new Map();
@@ -44501,7 +44533,7 @@ var SignalCollector = class {
     if (status >= 400 && !(status < 500 && sabotaged("signals_ignore_4xx"))) {
       const loggedOut = (status === 401 || status === 403) && !this.options.authenticated;
       const path = new URL(base.request_url).pathname;
-      this.raise({
+      const signal = this.raise({
         ...base,
         kind: "http_error",
         status,
@@ -44510,6 +44542,10 @@ var SignalCollector = class {
         severity: status >= 500 && DATA_TYPES.has(type2) ? "major" : "minor",
         ...loggedOut ? { while_logged_out: true } : {}
       });
+      if (signal && loggedOut && this.carriesPassword(request)) {
+        this.refusals.add(signal);
+        this.setFeedback(signal);
+      }
     }
     if (DATA_TYPES.has(type2) && !pending.hung) {
       const measured = Math.max(
@@ -44719,9 +44755,11 @@ var SignalCollector = class {
     this.stepStarts[step] = Date.now();
     this.blocksAt.set(step, this.options.sandbox.blockedCount());
   }
-  // Whether any text appeared on the page during the step (R-S5).
-  endStep(step, feedback) {
+  // Whether any text appeared on the page during the step (R-S5), and
+  // whether its text is exactly what it was before.
+  endStep(step, feedback, sameText = false) {
     this.feedback.set(step, feedback);
+    if (sameText) this.sameText.add(step);
     for (const signal of this.signals) {
       if (signal.step === step) this.setFeedback(signal);
     }
@@ -44749,6 +44787,33 @@ var SignalCollector = class {
     }
     const feedback = this.feedback.get(signal.step);
     if (feedback !== void 0) signal.feedback = feedback;
+    if (signal.kind === "http_error" && this.refusals.has(signal) && (feedback === true || this.sameText.has(signal.step) && this.explainedBefore(signal))) {
+      signal.expected = true;
+    }
+  }
+  // The request was sent with a password typed in this session in its body.
+  carriesPassword(request) {
+    const body = request.postData() ?? "";
+    if (!body) return false;
+    return this.passwords.some(
+      (password) => [...spellings(password), JSON.stringify(password).slice(1, -1)].some(
+        (form) => body.includes(form)
+      )
+    );
+  }
+  // The same refusal on the same page, explained then, with the page's text
+  // unchanged since: a second wrong password under the message of the first
+  // adds no text, and is no less explained.
+  explainedBefore(signal) {
+    if (signal.kind !== "http_error") return false;
+    for (let step = signal.step - 1; step > 0; step--) {
+      const earlier = this.signals.find(
+        (s) => s.step === step && s.kind === "http_error" && s.url === signal.url && s.method === signal.method && s.request_url === signal.request_url && s.status === signal.status
+      );
+      if (earlier) return earlier.kind === "http_error" && !!earlier.expected;
+      if (!this.sameText.has(step)) return false;
+    }
+    return false;
   }
   raise(draft, report) {
     if (this.off || !/^https?:/.test(draft.url)) return void 0;
@@ -44816,6 +44881,14 @@ var SignalCollector = class {
   addSecret(text) {
     if (text.length >= MIN_SECRET_LENGTH && !this.secrets.includes(text)) {
       this.secrets.push(text);
+    }
+  }
+  // A value typed into a password field: a secret, and what makes a
+  // refused request a refused sign-in (R-S14).
+  addPassword(text) {
+    this.addSecret(text);
+    if (text.length >= MIN_SECRET_LENGTH && !this.passwords.includes(text)) {
+      this.passwords.push(text);
     }
   }
   // A cookie value or bearer token the session sent or was sent (R-E15).
@@ -45804,6 +45877,7 @@ function renderSignalGroup(group) {
 var SIGNALS_HEADING = "Detected automatically";
 var FLAKY_HEADING = "Flaky";
 var UNVERIFIED_HEADING = "Unverified";
+var EXPECTED_HEADING = "Expected, not counted";
 var statusOf = (item) => item.verification?.status ?? "confirmed";
 function replays(verification) {
   if (!verification) return "";
@@ -45992,7 +46066,11 @@ function hauntGenerateReport(input) {
   );
   const allSignals = input.sessions.flatMap((s) => s.signals ?? []);
   const unnamed = allSignals.filter((s) => !takenKeys.has(signalKey(s)));
-  const unnamedGroups = groupBy(unnamed, signalKey);
+  const isExpected = (group) => group.every((s) => s.expected);
+  const unnamedGroups = groupBy(unnamed, signalKey).filter(
+    (group) => !isExpected(group)
+  );
+  const expectedGroups = groupBy(unnamed, signalKey).filter(isExpected);
   let unique = 0;
   const issueGroups = groupBy(sortedFiled, (issue) => {
     const signal = signalOf.get(issue);
@@ -46091,7 +46169,7 @@ function hauntGenerateReport(input) {
     "",
     issuesSection
   ];
-  if (unnamed.length > 0) {
+  if (unnamedGroups.length > 0) {
     bodySections.push(
       "",
       `## ${SIGNALS_HEADING}`,
@@ -46124,6 +46202,16 @@ function hauntGenerateReport(input) {
       unverified.map(listed).join("\n")
     );
   }
+  if (expectedGroups.length > 0) {
+    bodySections.push(
+      "",
+      `## ${EXPECTED_HEADING}`,
+      "",
+      "Sign-ins the app refused and told the user about, as it should when a tester types a wrong password.",
+      "",
+      expectedGroups.map(renderSignalGroup).join("\n")
+    );
+  }
   bodySections.push("", "## Session Impressions", "", impressionsSection);
   if (counts.total > 0) {
     bodySections.push("", "## Top Fix", "", top_fix);
@@ -46150,7 +46238,7 @@ function hauntGenerateReport(input) {
     "The following issues were found by Haunt. Fix them in order of severity.",
     "",
     forClaudeSection,
-    ...unnamed.length > 0 ? ["", `Then fix what is listed under "${SIGNALS_HEADING}".`] : [],
+    ...unnamedGroups.length > 0 ? ["", `Then fix what is listed under "${SIGNALS_HEADING}".`] : [],
     "",
     `After fixing, run \`/haunt:haunt-test ${input.target_url}\` again to verify.`
   );

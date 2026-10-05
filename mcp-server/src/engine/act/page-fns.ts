@@ -362,6 +362,24 @@ export function credentialField(el: Element | null): boolean {
   return /pass(word|code|phrase)?|pwd|secret|\bpin\b|e-?mail/i.test(name);
 }
 
+// Whether what is typed into this element is a password: what makes a
+// request that is refused a refused sign-in (signals, R-S14). An address is
+// a credential too, but a form can be refused for one without any sign-in.
+export function passwordField(el: Element | null): boolean {
+  if (!(el instanceof HTMLInputElement)) return false;
+  if (el.type === 'password') return true;
+  if (/password/.test(el.autocomplete || '')) return true;
+  const labels = [...(el.labels ?? [])].map((l) => l.textContent ?? '');
+  const name = [
+    el.getAttribute('aria-label') ?? '',
+    ...labels,
+    el.placeholder,
+    el.name,
+    el.id,
+  ].join(' ');
+  return /pass(word|code|phrase)?|pwd/i.test(name);
+}
+
 // The focused element, across shadow roots.
 export function focusedElement(): Element | null {
   let active: Element | null = document.activeElement;
