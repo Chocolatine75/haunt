@@ -220,6 +220,54 @@ describe('grouping the report by problem', () => {
     expect(result.signal_counts.total).toBe(5);
   });
 
+  it('sets aside a sign-in refused as it should be, in no count', () => {
+    const refused = (id: string, step: number, expected: boolean) => ({
+      id,
+      kind: 'http_error',
+      url: 'http://localhost:3000/login',
+      step,
+      message: 'POST /api/login answered 401',
+      severity: 'minor' as const,
+      count: 1,
+      method: 'POST',
+      request_url: 'http://localhost:3000/api/login',
+      status: 401,
+      ...(expected ? { expected: true as const } : {}),
+    });
+    const session = (signals: ReportSignal[]) => [
+      {
+        area: '/login',
+        persona: 'Beginner',
+        overall_impression: 'ok',
+        issues: [],
+        signals,
+      },
+    ];
+
+    const result = generate(
+      session([refused('s1', 2, true), refused('s2', 3, true)]),
+    );
+    expect(result.signal_counts).toEqual({ total: 0, major: 0, minor: 0 });
+    expect(result.markdown).not.toContain('## Detected automatically');
+    expect(result.markdown).not.toContain('Then fix what is listed');
+    const section = result.markdown.split('## Expected, not counted')[1];
+    expect(section.split('\n').filter((l) => l.startsWith('- '))).toEqual([
+      '- [MINOR] POST /api/login answered 401 — `http://localhost:3000/login` (steps 2, 3, 2 times)',
+    ]);
+    // Still in the sidecar, as it came.
+    expect(result.sidecar.signals.map((s: ReportSignal) => s.expected)).toEqual(
+      [true, true],
+    );
+
+    // Refused once without a word to the user: that one is a finding, and
+    // the whole entry with it.
+    const mixed = generate(
+      session([refused('s1', 2, true), refused('s2', 3, false)]),
+    );
+    expect(mixed.signal_counts.total).toBe(1);
+    expect(mixed.markdown).not.toContain('## Expected, not counted');
+  });
+
   it('does not count a slow endpoint twice because it was slow by different amounts', () => {
     const slow = (id: string, seconds: string): ReportSignal => ({
       id,

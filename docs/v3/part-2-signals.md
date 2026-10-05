@@ -96,7 +96,12 @@ missing `alt` against a crashed checkout beyond a default severity.
 - **R-S14 Expected statuses.** A 401 or 403 answering a request while the
   session is not logged in is still reported (as `minor`), since it may be a
   real defect, but is marked `while_logged_out` so that a tester or a report
-  can set it aside.
+  can set it aside. When the request carried a password typed in the session
+  and the page then told the user (some text appeared, or the message of the
+  same refusal is still showing), it is a sign-in refused as it should be:
+  the signal is also marked `expected`, and the report lists it once under
+  "Expected, not counted", outside every count. The same answer with nothing
+  said to the user stays a finding.
 
 ## D. Accessibility
 

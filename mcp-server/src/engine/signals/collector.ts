@@ -143,6 +143,13 @@ export class SignalCollector {
   private readonly byKey = new Map<string, Signal>();
   private readonly inflight = new Map<Request, Pending>();
   private readonly secrets: string[] = [];
+  // Of those, what was typed into a password field.
+  private readonly passwords: string[] = [];
+  // 401s and 403s that answered a request carrying one of them while the
+  // session was logged out: expected if the page then says so (R-S14).
+  private readonly refusals = new WeakSet<Signal>();
+  // Steps that left the page's text exactly as it was.
+  private readonly sameText = new Set<number>();
   // When each step started; index 0 is the session's own start.
   private readonly stepStarts: number[] = [Date.now()];
   private readonly feedback = new Map<number, boolean>();
@@ -240,7 +247,7 @@ export class SignalCollector {
       const loggedOut =
         (status === 401 || status === 403) && !this.options.authenticated;
       const path = new URL(base.request_url).pathname;
-      this.raise({
+      const signal = this.raise({
         ...base,
         kind: 'http_error',
         status,
@@ -249,6 +256,10 @@ export class SignalCollector {
         severity: status >= 500 && DATA_TYPES.has(type) ? 'major' : 'minor',
         ...(loggedOut ? { while_logged_out: true as const } : {}),
       });
+      if (signal && loggedOut && this.carriesPassword(request)) {
+        this.refusals.add(signal);
+        this.setFeedback(signal);
+      }
     }
 
     if (DATA_TYPES.has(type) && !pending.hung) {
@@ -501,9 +512,11 @@ export class SignalCollector {
     this.blocksAt.set(step, this.options.sandbox.blockedCount());
   }
 
-  // Whether any text appeared on the page during the step (R-S5).
-  endStep(step: number, feedback: boolean): void {
+  // Whether any text appeared on the page during the step (R-S5), and
+  // whether its text is exactly what it was before.
+  endStep(step: number, feedback: boolean, sameText = false): void {
     this.feedback.set(step, feedback);
+    if (sameText) this.sameText.add(step);
     for (const signal of this.signals) {
       if (signal.step === step) this.setFeedback(signal);
     }
@@ -543,6 +556,46 @@ export class SignalCollector {
     }
     const feedback = this.feedback.get(signal.step);
     if (feedback !== undefined) signal.feedback = feedback;
+    if (
+      signal.kind === 'http_error' &&
+      this.refusals.has(signal) &&
+      (feedback === true ||
+        (this.sameText.has(signal.step) && this.explainedBefore(signal)))
+    ) {
+      signal.expected = true;
+    }
+  }
+
+  // The request was sent with a password typed in this session in its body.
+  private carriesPassword(request: Request): boolean {
+    const body = request.postData() ?? '';
+    if (!body) return false;
+    return this.passwords.some((password) =>
+      [...spellings(password), JSON.stringify(password).slice(1, -1)].some(
+        (form) => body.includes(form),
+      ),
+    );
+  }
+
+  // The same refusal on the same page, explained then, with the page's text
+  // unchanged since: a second wrong password under the message of the first
+  // adds no text, and is no less explained.
+  private explainedBefore(signal: Signal): boolean {
+    if (signal.kind !== 'http_error') return false;
+    for (let step = signal.step - 1; step > 0; step--) {
+      const earlier = this.signals.find(
+        (s) =>
+          s.step === step &&
+          s.kind === 'http_error' &&
+          s.url === signal.url &&
+          s.method === signal.method &&
+          s.request_url === signal.request_url &&
+          s.status === signal.status,
+      );
+      if (earlier) return earlier.kind === 'http_error' && !!earlier.expected;
+      if (!this.sameText.has(step)) return false;
+    }
+    return false;
   }
 
   raise(draft: Draft, report?: string): Signal | undefined {
@@ -652,6 +705,15 @@ export class SignalCollector {
   addSecret(text: string): void {
     if (text.length >= MIN_SECRET_LENGTH && !this.secrets.includes(text)) {
       this.secrets.push(text);
+    }
+  }
+
+  // A value typed into a password field: a secret, and what makes a
+  // refused request a refused sign-in (R-S14).
+  addPassword(text: string): void {
+    this.addSecret(text);
+    if (text.length >= MIN_SECRET_LENGTH && !this.passwords.includes(text)) {
+      this.passwords.push(text);
     }
   }
 

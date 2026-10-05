@@ -111,6 +111,9 @@ Rules:
   `step` that caused it, a default `severity` and a `message`. A signal
   marked `late` comes from an earlier step. `feedback: false` on an error
   means the page said nothing to the user about it: a silent failure.
+  `expected: true` on a 401 or 403 means a sign-in refused as it should be
+  (a wrong password, and the page said so): not an issue, unless the
+  password was the right one.
   - Build your issues on them: when an issue is about a signal, put its id
     in the issue's `"signal"` field. The report then shows the signal under
     your issue instead of on its own. Raise or lower the severity when the

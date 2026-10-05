@@ -34,6 +34,8 @@ export interface ReportSignal {
   help?: string;
   role?: string;
   name?: string;
+  // A sign-in refused as it should be, and explained to the user (R-S14).
+  expected?: true;
 }
 
 // An issue as haunt_end_session returns it: with its verification (part 3).
@@ -97,6 +99,8 @@ export const SIGNALS_HEADING = 'Detected automatically';
 // not be replayed in time (R-E12).
 export const FLAKY_HEADING = 'Flaky';
 export const UNVERIFIED_HEADING = 'Unverified';
+// The heading of the sign-ins refused as they should be (R-S14).
+export const EXPECTED_HEADING = 'Expected, not counted';
 
 const statusOf = (item: { verification?: ReportVerification }) =>
   item.verification?.status ?? 'confirmed';
@@ -368,7 +372,13 @@ export function hauntGenerateReport(
   );
   const allSignals = input.sessions.flatMap((s) => s.signals ?? []);
   const unnamed = allSignals.filter((s) => !takenKeys.has(signalKey(s)));
-  const unnamedGroups = groupBy(unnamed, signalKey);
+  // A sign-in refused and explained every time it happened is set aside:
+  // listed once at the end, in no count (R-S14).
+  const isExpected = (group: ReportSignal[]) => group.every((s) => s.expected);
+  const unnamedGroups = groupBy(unnamed, signalKey).filter(
+    (group) => !isExpected(group),
+  );
+  const expectedGroups = groupBy(unnamed, signalKey).filter(isExpected);
 
   // Issues about the same problem are one entry: the most severe, with the
   // others listed under it as other ways it was reached.
@@ -499,7 +509,7 @@ export function hauntGenerateReport(
     issuesSection,
   ];
 
-  if (unnamed.length > 0) {
+  if (unnamedGroups.length > 0) {
     bodySections.push(
       '',
       `## ${SIGNALS_HEADING}`,
@@ -542,6 +552,17 @@ export function hauntGenerateReport(
     );
   }
 
+  if (expectedGroups.length > 0) {
+    bodySections.push(
+      '',
+      `## ${EXPECTED_HEADING}`,
+      '',
+      'Sign-ins the app refused and told the user about, as it should when a tester types a wrong password.',
+      '',
+      expectedGroups.map(renderSignalGroup).join('\n'),
+    );
+  }
+
   bodySections.push('', '## Session Impressions', '', impressionsSection);
 
   if (counts.total > 0) {
@@ -571,7 +592,7 @@ export function hauntGenerateReport(
     'The following issues were found by Haunt. Fix them in order of severity.',
     '',
     forClaudeSection,
-    ...(unnamed.length > 0
+    ...(unnamedGroups.length > 0
       ? ['', `Then fix what is listed under "${SIGNALS_HEADING}".`]
       : []),
     '',

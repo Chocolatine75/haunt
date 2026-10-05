@@ -68,6 +68,10 @@ export interface HttpErrorSignal extends SignalBase, RequestFields, Feedback {
   resource_type: string;
   // A 401 or 403 answered while the session was not logged in (R-S14).
   while_logged_out?: true;
+  // Such an answer to a request that carried a password typed in the
+  // session, which the page then explained to the user (R-S14): a sign-in
+  // refused as it should be. Still a signal; a report sets it aside.
+  expected?: true;
 }
 
 export interface RequestFailedSignal
