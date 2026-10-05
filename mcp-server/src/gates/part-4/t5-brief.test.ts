@@ -91,7 +91,7 @@ describe('T5 seeing, the brief, repeats', () => {
     );
 
     gate(
-      'T5.2',
+      'T5.2c',
       'R-T14',
       'a report written before this part, personas in it, can still be compared with',
       async () => {
