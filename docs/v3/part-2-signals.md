@@ -19,7 +19,7 @@ proves, as in part 1.
 ## Out of scope
 
 Whether a signal *matters* to a user, and replaying it to prove it, are part
-3. Visual checks (overflow, overlap, contrast as rendered) are part 4. This
+3. Visual checks (overflow, overlap, contrast as rendered) are part 5. This
 part reports what happened, classified and attributed; it does not rank a
 missing `alt` against a crashed checkout beyond a default severity.
 
