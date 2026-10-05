@@ -102,6 +102,9 @@ export function installHooks(): void {
     // to stop something (a pause button) did something.
     intervals: new Set<number>(),
     lastCleared: 0,
+    // When the browser last refused to submit a form it found invalid: it
+    // shows its own message for that, which no DOM change records.
+    lastInvalid: 0,
     // Set while the engine's accessibility audit runs here: what axe-core
     // logs is not the page's (R-S17).
     silent: 0,
@@ -111,6 +114,14 @@ export function installHooks(): void {
   const observer = new MutationObserver(() => {
     state.lastMutation = Date.now();
   });
+  // 'invalid' does not bubble; caught on its way down instead.
+  window.addEventListener(
+    'invalid',
+    () => {
+      state.lastInvalid = Date.now();
+    },
+    true,
+  );
   const watch = (root: Node) =>
     observer.observe(root, {
       subtree: true,
