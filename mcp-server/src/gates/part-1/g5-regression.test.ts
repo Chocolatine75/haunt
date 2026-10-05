@@ -381,6 +381,10 @@ describe('G5 nothing regressed', () => {
 
   describe('G5.6 the earlier tests are still there', () => {
     // Deleting a test is the cheapest way to make a suite pass.
+    //
+    // The two test files of the persona loader were on this list until part
+    // 4, which removes personas and their loader with them (R-T14): the
+    // feature is gone by decision, not its tests to get a suite through.
     const KEPT = [
       'distribution.test.ts',
       'mcp/server.test.ts',
@@ -392,8 +396,6 @@ describe('G5 nothing regressed', () => {
       'engine/end-session.test.ts',
       'engine/get-cookies.test.ts',
       'engine/session/manager.test.ts',
-      'engine/persona/loader.test.ts',
-      'engine/persona/builtin-personas.test.ts',
       'engine/report/generate-report.test.ts',
       'engine/report/estimate-cost.test.ts',
       'cli/headless.test.ts',
