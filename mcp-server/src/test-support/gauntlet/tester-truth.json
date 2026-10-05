@@ -1,0 +1,281 @@
+{
+  "qa-search": {
+    "controls": [
+      {
+        "g": "query",
+        "role": "searchbox",
+        "name": "Search recipes",
+        "group": "search: Recipes"
+      },
+      {
+        "g": "titles-only",
+        "role": "checkbox",
+        "name": "Titles only",
+        "group": "search: Recipes"
+      },
+      {
+        "g": "clear",
+        "role": "button",
+        "name": "Clear",
+        "group": "search: Recipes"
+      }
+    ],
+    "cases": [
+      {
+        "id": "titles-only",
+        "kind": "normal",
+        "controls": ["query", "titles-only"],
+        "expect": "With Titles only on, every result's title contains the word searched",
+        "steps": [
+          { "type": "fill", "target": "query", "text": "garlic" },
+          { "type": "check", "target": "titles-only" }
+        ],
+        "check": {
+          "list": {
+            "within": { "role": "list", "name": "Results" },
+            "items": "heading",
+            "every_contains": "garlic"
+          }
+        },
+        "read": {
+          "buggy": [
+            "Garlic Bread",
+            "Honey Garlic Chicken",
+            "Tomato Soup",
+            "Mushroom Risotto"
+          ],
+          "clean": ["Garlic Bread", "Honey Garlic Chicken"]
+        }
+      }
+    ]
+  },
+  "qa-filters": {
+    "controls": [
+      {
+        "g": "vegan",
+        "role": "checkbox",
+        "name": "Vegan",
+        "group": "group: Show dishes that are all of"
+      },
+      {
+        "g": "gluten-free",
+        "role": "checkbox",
+        "name": "Gluten-free",
+        "group": "group: Show dishes that are all of"
+      }
+    ],
+    "cases": [
+      {
+        "id": "both-filters",
+        "kind": "state",
+        "controls": ["vegan", "gluten-free"],
+        "expect": "With both filters on, only the one dish that is vegan and gluten-free is listed",
+        "steps": [
+          { "type": "check", "target": "vegan" },
+          { "type": "check", "target": "gluten-free" }
+        ],
+        "check": {
+          "list": {
+            "within": { "role": "list", "name": "Dishes" },
+            "items": "listitem",
+            "count": { "eq": 1 }
+          }
+        },
+        "read": {
+          "buggy": [
+            "Falafel wrap",
+            "Chana masala",
+            "Grilled salmon",
+            "Steak and chips",
+            "Lentil soup"
+          ],
+          "clean": ["Chana masala"]
+        }
+      }
+    ]
+  },
+  "qa-sort": {
+    "controls": [
+      { "g": "sort", "role": "combobox", "name": "Sort by", "group": "page" },
+      {
+        "g": "compare",
+        "role": "button",
+        "name": "Compare selected",
+        "group": "page",
+        "state": "disabled"
+      }
+    ],
+    "cases": [
+      {
+        "id": "price-ascending",
+        "kind": "normal",
+        "controls": ["sort"],
+        "expect": "Sorted by price, low to high, the prices go up down the list",
+        "steps": [
+          {
+            "type": "select",
+            "target": "sort",
+            "values": ["Price, low to high"]
+          }
+        ],
+        "check": {
+          "list": {
+            "within": { "role": "list", "name": "Products" },
+            "items": "listitem",
+            "order": "ascending",
+            "as": "number"
+          }
+        },
+        "read": {
+          "buggy": [
+            "Standing desk — $1,050.00",
+            "Monitor arm — $120.00",
+            "Desk lamp — $20.00",
+            "Pencil — $8.00",
+            "Notebook — $9.50"
+          ],
+          "clean": [
+            "Pencil — $8.00",
+            "Notebook — $9.50",
+            "Desk lamp — $20.00",
+            "Monitor arm — $120.00",
+            "Standing desk — $1,050.00"
+          ]
+        }
+      }
+    ]
+  },
+  "qa-form": {
+    "controls": [
+      {
+        "g": "weekly",
+        "role": "checkbox",
+        "name": "Email me a weekly summary",
+        "group": "form: Order settings"
+      },
+      {
+        "g": "quantity",
+        "role": "spinbutton",
+        "name": "Boxes per delivery",
+        "group": "form: Order settings"
+      },
+      {
+        "g": "save",
+        "role": "button",
+        "name": "Save",
+        "group": "form: Order settings"
+      }
+    ],
+    "cases": [
+      {
+        "id": "summary-kept",
+        "kind": "state",
+        "controls": ["weekly", "save"],
+        "expect": "The weekly summary stays checked once saved",
+        "steps": [
+          { "type": "check", "target": "weekly" },
+          { "type": "click", "target": "save" }
+        ],
+        "check": {
+          "value": { "target": "weekly", "of": "checked", "is": true }
+        },
+        "read": { "buggy": false, "clean": true }
+      },
+      {
+        "id": "negative-quantity",
+        "kind": "edge",
+        "controls": ["quantity", "save"],
+        "expect": "A negative number of boxes is refused with a message",
+        "steps": [
+          { "type": "fill", "target": "quantity", "text": "-3" },
+          { "type": "click", "target": "save" }
+        ],
+        "check": { "text_present": "Boxes per delivery must be at least 1" }
+      }
+    ]
+  },
+  "qa-rating": {
+    "controls": [
+      {
+        "g": "refresh",
+        "role": "button",
+        "name": "Refresh ratings",
+        "group": "page"
+      }
+    ],
+    "cases": [
+      {
+        "id": "stars-follow-score",
+        "kind": "visual",
+        "controls": ["refresh"],
+        "expect": "Each product shows as many stars as its score: 5, 3, 2 and 4",
+        "steps": [{ "type": "click", "target": "refresh" }],
+        "check": {
+          "list": {
+            "within": { "role": "list", "name": "Products" },
+            "items": "img",
+            "equals": ["★★★★★", "★★★☆☆", "★★☆☆☆", "★★★★☆"]
+          }
+        },
+        "read": {
+          "buggy": ["★★★★★", "★★★★★", "★★★★★", "★★★★★"],
+          "clean": ["★★★★★", "★★★☆☆", "★★☆☆☆", "★★★★☆"]
+        }
+      }
+    ]
+  },
+  "qa-dialog": {
+    "controls": [
+      {
+        "g": "edit",
+        "role": "button",
+        "name": "Edit profile",
+        "group": "page"
+      },
+      { "g": "help", "role": "link", "name": "Help", "group": "page" },
+      {
+        "g": "display-name",
+        "role": "textbox",
+        "name": "Display name",
+        "group": "dialog: Edit profile",
+        "state": "hidden"
+      },
+      {
+        "g": "save-profile",
+        "role": "button",
+        "name": "Save profile",
+        "group": "dialog: Edit profile",
+        "state": "hidden"
+      },
+      {
+        "g": "cancel",
+        "role": "button",
+        "name": "Cancel",
+        "group": "dialog: Edit profile",
+        "state": "hidden"
+      }
+    ],
+    "opens": {
+      "by": "edit",
+      "controls": ["display-name", "save-profile", "cancel"]
+    },
+    "cases": [
+      {
+        "id": "tab-stays-inside",
+        "kind": "keyboard",
+        "controls": ["edit"],
+        "expect": "With the dialog open, three presses of Tab bring the focus back to its first field",
+        "steps": [
+          { "type": "click", "target": "edit" },
+          { "type": "press", "keys": "Tab" },
+          { "type": "press", "keys": "Tab" },
+          { "type": "press", "keys": "Tab" }
+        ],
+        "check": {
+          "value": { "target": "display-name", "of": "focused", "is": true }
+        },
+        "read": { "buggy": false, "clean": true }
+      }
+    ]
+  }
+}

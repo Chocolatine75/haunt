@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — qa-search</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<!--
+  A search whose "Titles only" switch, in the buggy variant, still matches
+  descriptions: no request, no error, a list with one recipe too many.
+-->
+<h1>Recipes</h1>
+<form data-g="search" id="search" role="search" aria-label="Recipes">
+  <p><label>Search recipes <input data-g="query" id="query" type="search"></label></p>
+  <p><label><input data-g="titles-only" id="titles-only" type="checkbox"> Titles only</label></p>
+  <p><button data-g="clear" type="button">Clear</button></p>
+</form>
+<p id="count" role="status"></p>
+<ul data-g="results" id="results" aria-label="Results"></ul>
+<script>
+  const RECIPES = [
+    ['Garlic Bread', 'Toasted baguette with butter and parsley'],
+    ['Honey Garlic Chicken', 'Sticky thighs, ready in half an hour'],
+    ['Tomato Soup', 'Slow tomatoes with roasted garlic and basil'],
+    ['Lemon Tart', 'Sharp curd in a short crust'],
+    ['Mushroom Risotto', 'Arborio rice, garlic, thyme and parmesan'],
+    ['Apple Crumble', 'Bramley apples under an oat topping'],
+  ];
+  const G = window.__gauntlet;
+  const query = G.find('query');
+  const titlesOnly = G.find('titles-only');
+  function render() {
+    const q = query.value.trim().toLowerCase();
+    const inDescription = !titlesOnly.checked || '{{VARIANT}}' === 'buggy';
+    const found = RECIPES.filter(
+      ([title, description]) =>
+        title.toLowerCase().includes(q) ||
+        (inDescription && description.toLowerCase().includes(q)),
+    );
+    document.getElementById('results').innerHTML = found
+      .map(([title, description]) => `<li><h2>${title}</h2><p>${description}</p></li>`)
+      .join('');
+    document.getElementById('count').textContent =
+      `${found.length} recipe${found.length === 1 ? '' : 's'}`;
+  }
+  query.addEventListener('input', render);
+  titlesOnly.addEventListener('change', render);
+  G.find('clear').addEventListener('click', () => {
+    query.value = '';
+    render();
+  });
+  G.find('search').addEventListener('submit', (event) => event.preventDefault());
+  render();
+</script>
+</body>
+</html>

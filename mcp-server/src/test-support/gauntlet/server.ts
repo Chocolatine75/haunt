@@ -102,6 +102,21 @@ export const EVIDENCE_PAGES = [
 ] as const;
 
 export type EvidencePage = (typeof EVIDENCE_PAGES)[number];
+
+// Part 4's pages: functional defects. The page answers, raises no signal,
+// and is wrong; only a tester that states what it expects finds out. The
+// same two variants; what each offers and what a correct tester checks on
+// it is in tester-truth.json.
+export const TESTER_PAGES = [
+  'qa-search',
+  'qa-filters',
+  'qa-sort',
+  'qa-form',
+  'qa-rating',
+  'qa-dialog',
+] as const;
+
+export type TesterPage = (typeof TESTER_PAGES)[number];
 export type Variant = 'buggy' | 'clean';
 
 export interface Gauntlet {
@@ -109,7 +124,10 @@ export interface Gauntlet {
   baseUrl: string;
   // A second origin serving the same app, for cross-origin frames.
   otherUrl: string;
-  url(page: GauntletPage | SignalPage | EvidencePage, query?: string): string;
+  url(
+    page: GauntletPage | SignalPage | EvidencePage | TesterPage,
+    query?: string,
+  ): string;
   // "<METHOD> <path>" of every request, per origin.
   requests: { base: string[]; other: string[] };
   close(): Promise<void>;
@@ -276,7 +294,8 @@ async function handle(
   if (
     (GAUNTLET_PAGES as readonly string[]).includes(first) ||
     (SIGNAL_PAGES as readonly string[]).includes(first) ||
-    (EVIDENCE_PAGES as readonly string[]).includes(first)
+    (EVIDENCE_PAGES as readonly string[]).includes(first) ||
+    (TESTER_PAGES as readonly string[]).includes(first)
   ) {
     html(file(join('pages', `${first}.html`)));
     return;
@@ -287,6 +306,7 @@ async function handle(
         ...GAUNTLET_PAGES,
         ...SIGNAL_PAGES,
         ...EVIDENCE_PAGES,
+        ...TESTER_PAGES,
       ]
         .map((p) => `<li><a href="/${p}">${p}</a></li>`)
         .join('')}</ul>`,

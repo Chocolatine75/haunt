@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — qa-form</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<!--
+  A settings form with two defects in the buggy variant: the checkbox is
+  unchecked again once saved, and a negative quantity is accepted where the
+  clean variant refuses it and says why.
+-->
+<h1>Order settings</h1>
+<form data-g="settings" id="settings" aria-label="Order settings" novalidate>
+  <p><label><input data-g="weekly" id="weekly" type="checkbox"> Email me a weekly summary</label></p>
+  <p><label>Boxes per delivery <input data-g="quantity" id="quantity" type="number" value="1"></label></p>
+  <p><button data-g="save" type="submit">Save</button></p>
+</form>
+<p id="result" role="status"></p>
+<script>
+  const G = window.__gauntlet;
+  G.find('settings').addEventListener('submit', (event) => {
+    event.preventDefault();
+    const buggy = '{{VARIANT}}' === 'buggy';
+    const quantity = Number(G.find('quantity').value);
+    const result = document.getElementById('result');
+    if (!buggy && !(quantity >= 1)) {
+      result.textContent = 'Boxes per delivery must be at least 1';
+      return;
+    }
+    if (buggy) G.find('weekly').checked = false;
+    result.textContent = `Saved: ${quantity} per delivery`;
+  });
+</script>
+</body>
+</html>
