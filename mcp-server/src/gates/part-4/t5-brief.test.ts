@@ -194,6 +194,7 @@ describe('T5 seeing, the brief, repeats', () => {
           );
           expect(result.failures).toEqual([]);
           expect(systems.length).toBeGreaterThan(0);
+          // The planner plans from it; the testers judge by it.
           for (const system of systems) expect(system).toContain(spec);
           expect(result.report.markdown).toContain('kettles.md');
           // The text itself stays out of the report: only its name.
@@ -230,10 +231,11 @@ describe('T5 seeing, the brief, repeats', () => {
             expect(system).not.toMatch(
               /persona|you are (a|an) (confused|malicious)/i,
             );
-            // The steps of the method, in its own words.
-            for (const word of ['inventory', 'expect', 'realistic']) {
-              expect(system.toLowerCase(), word).toContain(word);
-            }
+          }
+          // The steps of the method, in its own words, between the briefs.
+          const all = systems.join('\n').toLowerCase();
+          for (const word of ['inventory', 'expect', 'realistic']) {
+            expect(all, word).toContain(word);
           }
         } finally {
           cleanUp();

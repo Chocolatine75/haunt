@@ -193,7 +193,7 @@ describe('T6 the gate itself', () => {
       async () => {
         const spec = readFileSync(SPEC, 'utf-8');
         const required = [...new Set(spec.match(/\bR-T\d+\b/g))].sort();
-        expect(required).toHaveLength(19);
+        expect(required).toHaveLength(23);
         const claimed = new Set(registrations().flatMap((r) => r.requirements));
         // R-T17 is proved by the earlier gates running, and by T6.3. R-T18
         // by the gate going through the tools as a host does, and by the
@@ -211,7 +211,7 @@ describe('T6 the gate itself', () => {
       'each numbered test of the specification’s gate exists, and no other',
       async () => {
         const wanted = specified(readFileSync(SPEC, 'utf-8')).sort();
-        expect(wanted.length).toBeGreaterThanOrEqual(20);
+        expect(wanted.length).toBeGreaterThanOrEqual(24);
         const ids = new Set(
           registrations().map((r) => r.id.replace(/[a-z]$/, '')),
         );

@@ -75,9 +75,16 @@ export class TesterSession {
       ...input,
     });
     if (result.isError) throw new Error(result.text);
-    const { inventory, cases, coverage } = result.data ?? {};
-    if (!Array.isArray(inventory) || !Array.isArray(cases) || !coverage) {
-      throw new Error('haunt_plan returned no inventory, cases or coverage');
+    const { inventory, cases, coverage, portable } = result.data ?? {};
+    if (
+      !Array.isArray(inventory) ||
+      !Array.isArray(cases) ||
+      !Array.isArray(portable) ||
+      !coverage
+    ) {
+      throw new Error(
+        'haunt_plan returned no inventory, cases, portable cases or coverage',
+      );
     }
     return result.data;
   }
@@ -173,8 +180,14 @@ export class TesterSession {
     );
     if (result.isError) throw new Error(result.text);
     const ended = result.data;
-    if (!ended.coverage || !Array.isArray(ended.cases)) {
-      throw new Error('haunt_end_session returned no coverage or cases');
+    if (
+      !ended.coverage ||
+      !Array.isArray(ended.cases) ||
+      !Array.isArray(ended.inventory)
+    ) {
+      throw new Error(
+        'haunt_end_session returned no coverage, cases or inventory',
+      );
     }
     for (const issue of [...ended.issues_found, ...ended.rejected]) {
       if (!issue.verification) throw new Error('an issue has no verification');
