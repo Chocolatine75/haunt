@@ -8,7 +8,7 @@ haunt should be for web apps: the agent you point at an app to find out what
 is broken, with results you can trust.
 
 "Better" is a number, not a claim. It is decided by the head-to-head benchmark
-in part 6, and each part before it exists to move that number.
+in part 7, and each part before it exists to move that number.
 
 Where things stand and why is in [`HISTORY.md`](HISTORY.md). The ideas below
 come from a survey of browser-use, Playwright MCP, agent-browser, Chrome
@@ -144,7 +144,27 @@ separated from confirmed ones.
   report or the logs. The test searches all of them.
 - Bundle storage is capped; a 200-step session stays under the cap.
 
-### 4. Bounded, visual perception
+### 4. A tester, not a persona
+
+Test a page the way a QA engineer does, instead of playing a character on
+it. Specified in [`v3/part-4-tester.md`](v3/part-4-tester.md), from a pilot
+on a published benchmark where haunt found none of four annotated bugs and
+plain Claude with a browser found one
+([`benchmarks/2026-10-05-cattest-pilot.md`](benchmarks/2026-10-05-cattest-pilot.md)).
+
+Scope: an inventory of what a page offers and a plan of test cases, both
+kept by the engine; coverage counted in code; a budget of actions in place
+of three steps; an expectation stated before each action and checked after
+it, with exact readings of lists and values; issues the engine cannot check
+listed for a person instead of dropped; a screenshot on request; no persona
+by default; an optional description of the app.
+
+**Gate**: T1 to T6 of the specification, deterministic, on six new gauntlet
+pages whose defects raise no signal; and, *live*, at least as many annotated
+bugs found on the pilot's three applications as Claude Code with Playwright
+MCP, for no more than the same cost.
+
+### 5. Bounded, visual perception
 
 Show the tester what a user would see, and catch bugs that only exist
 visually.
@@ -168,7 +188,7 @@ perception and action path in `haunt-ci`.
 - *Live*: driven only by screenshots, the tester completes the part 1 flows
   on at least 12 of the 15 gauntlet pages.
 
-### 5. From finding to regression test
+### 6. From finding to regression test
 
 Make a found bug stay fixed, and test what changed.
 
@@ -184,7 +204,7 @@ Playwright test file; replay known flows without model calls.
 - A recorded flow replays with zero model calls; when the page's markup
   changes but its behaviour does not, replay still passes.
 
-### 6. Head-to-head benchmark
+### 7. Head-to-head benchmark
 
 The measure of the goal.
 
@@ -213,7 +233,7 @@ better than browser-use.
 
 ## Order
 
-1 → 2 → 3 → 4 → 5, with the part 6 runner and ground truth started alongside
+1 → 2 → 3 → 4 → 5 → 6, with the part 7 runner and ground truth started alongside
 part 1 so that every later part can be measured as it lands. Parts 2 and 3
 are where haunt can pull ahead: the other tools are strong at acting on a
 page and weak at proving that what they report is real.

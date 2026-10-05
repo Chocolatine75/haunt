@@ -21,8 +21,8 @@ proves, as in parts 1 and 2.
 
 Shortening the steps to the fewest that still reproduce (minimisation),
 turning a confirmed issue into a regression test, and replaying when the
-page's markup has changed are part 5. Judging how bad an issue is stays
-with the tester. Visual checks are part 4.
+page's markup has changed are part 6. Judging how bad an issue is stays
+with the tester. Visual checks are part 5.
 
 ---
 
