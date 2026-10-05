@@ -27,7 +27,8 @@ Claude setups found one. The session logs say why:
 The tools that do this well share a method (CATJudge's explorer, browser-use's
 agent loop, WebTestBench's checklist, minitap's mobile-use): an explicit plan,
 an expected result before each action, a check after it, and a second pass
-that confirms. Parts 1 to 3 gave haunt the hands, the instruments and the
+that confirms. minitap also splits the work between agents with one job
+each, and reports that as its largest gain; section I takes that up. Parts 1 to 3 gave haunt the hands, the instruments and the
 proof; this part gives it the method. Signals, replays and the handling of
 secrets stay as they are: they are what the plain setups do not have.
 
@@ -38,8 +39,9 @@ Requirements are numbered (`R-T1`); every gate test names the ones it proves.
 Visual checks done by the engine (overflow, overlap, a layout that shifts)
 and screenshot-driven action are part 5. Reading a codebase to derive the
 plan is not in this part: the plan comes from the page and, when given, a
-written description of the app. Choosing a model, or splitting the work
-between several agents, is left to the host.
+written description of the app. A screenshot at every step, as computer use
+takes, is left out on purpose: it is taken on request (R-T13), which keeps
+a run short and cheap. Choosing a model is left to the host.
 
 ---
 
@@ -151,7 +153,37 @@ between several agents, is left to the host.
   and names the controls not yet exercised. The action is not refused: a
   tester may have a reason. It still counts against the budget.
 
-## H. What must not regress
+## H. One job each
+
+A single agent that plans, acts and judges in one context does each of them
+worse: the plan is forgotten as the snapshots pile up, and a tester that
+wrote the plan tests what it already believes works.
+
+- **R-T20 Two roles under an orchestrator.** A **planner** reads an area's
+  inventory, and the description of the app when there is one, and writes
+  its test cases; it reads and does not act. **Testers** play the cases they
+  are handed, one group of controls each, in a browser session of their own,
+  at the same time; they state expectations, read results and file issues,
+  and do not plan beyond what a result brings. The orchestrator spawns them,
+  hands the plan over, and assembles the report; it tests nothing itself.
+  The plugin ships each role as an agent of its own, and the planner's is
+  given no tool that acts on a page: a boundary, not an instruction.
+- **R-T21 A plan passes from one session to another.** `haunt_plan` returns
+  each case in a form another session of the same page can take: its
+  controls by role, name and group instead of by reference. Registered
+  there, they are resolved to that session's references; a case naming a
+  control that session does not have is refused, with the control named.
+- **R-T22 Coverage is of the app, not of each session.** Sessions that
+  tested the same area count each control once in the report, exercised if
+  any of them exercised it, and each case once. Different areas add up.
+- **R-T23 The same separation in `haunt-ci`.** Its loop asks for the plan
+  first, in a call of its own that carries the planner's brief and the
+  inventory, registers the cases returned, then asks for the actions of one
+  case at a time under the tester's brief, with the case and what it
+  expects in front of the model. A decider that returns no case still gets
+  its session: it explores, as before.
+
+## I. What must not regress
 
 - **R-T17 Earlier gates.** The part 1, 2 and 3 gates pass unchanged, except
   the one test that proves the first case of R-E9 (E3.1), which R-T11
@@ -219,7 +251,8 @@ Deterministic, with a scripted tester, as in parts 1 to 3.
    that.
 2. An issue naming a signal the session does not have is still rejected.
 3. The report's coverage section matches the engine's count, and names the
-   controls never touched.
+   controls never touched; a report of sessions that carry no inventory has
+   no such section.
 
 ### T5 — seeing, the brief, repeats (R-T13 … R-T16)
 
@@ -246,7 +279,22 @@ Deterministic, with a scripted tester, as in parts 1 to 3.
 3. The files of the part 1, 2 and 3 gates are what they were when this part
    started.
 
-### T7 — live
+### T7 — one job each (R-T20 … R-T23)
+
+1. The cases of a session register in another session of the same page, by
+   what their controls are, and play there; one naming a control that
+   session does not have is refused.
+2. Two sessions on one area count its controls once in the report, and its
+   cases once; a second area adds to them.
+3. `haunt-ci` asks for a plan before any action, under the planner's brief
+   and with the inventory; the cases come back in the session's result; each
+   later call is under the tester's brief and names the case to play. A
+   decider that plans nothing still runs.
+4. The plugin has an agent for each role; the command names both; the
+   planner's has no tool that acts on a page; neither names a tool the
+   server does not provide.
+
+### T8 — live
 
 Run by hand, three times, scorecards under `docs/benchmarks/`: on the three
 CATTest applications of the pilot, with the same model, against Claude Code
@@ -259,5 +307,5 @@ and the prompts given to each tool are committed with the scorecards.
 
 ## Accepted when
 
-T1 to T6 are green on Linux and macOS, the earlier gates still are, and T7's
+T1 to T7 are green on Linux and macOS, the earlier gates still are, and T8's
 scorecards are committed and meet its rule.

@@ -94,8 +94,9 @@ export interface Coverage {
 export interface PlanInput {
   session_id: string;
   // Cases to add. An id already used replaces that case if it has no
-  // verdict, and is refused otherwise.
-  cases?: PlanCase[];
+  // verdict, and is refused otherwise. A control is a reference of this
+  // session, or what it is, as `portable` gives it (R-T21).
+  cases?: Array<PlanCase | PortableCase>;
   // Cases the tester closes itself (R-T7).
   close?: Array<{ id: string; verdict: CaseVerdict; note: string }>;
 }
@@ -104,6 +105,21 @@ export interface PlanOutput {
   inventory: InventoryControl[];
   cases: CaseStatus[];
   coverage: Coverage;
+  // The cases as another session of the same page can register them
+  // (R-T21).
+  portable: PortableCase[];
+}
+
+// A control by what it is, which holds from one session to another where a
+// reference does not.
+export interface ControlName {
+  role: string;
+  name: string;
+  group: string;
+}
+
+export interface PortableCase extends Omit<PlanCase, 'controls'> {
+  controls: ControlName[];
 }
 
 // ---------------------------------------------------------------------------
@@ -246,6 +262,8 @@ export interface EndSessionTesterOutput
   rejected: VerifiedTesterIssue[];
   cases: CaseStatus[];
   coverage: Coverage;
+  // What the report merges sessions by (R-T22).
+  inventory: InventoryControl[];
 }
 
 export const REPORT_UNCHECKED_HEADING = 'To check by hand';
@@ -259,10 +277,38 @@ export interface ReportTesterSession
   issues: VerifiedTesterIssue[];
   rejected?: VerifiedTesterIssue[];
   cases?: CaseStatus[];
-  // As haunt_end_session returned them. The controls never exercised are
-  // named from coverage.left.controls, since a reference means nothing in a
-  // report.
-  coverage?: Coverage;
+  // As haunt_end_session returned them. Decided here: the report counts
+  // from the inventories, not from each session's own coverage, so that two
+  // sessions on one area count its controls once (R-T22): a control is the
+  // same when area, group, role and name are.
+  inventory?: InventoryControl[];
+}
+
+// The report's coverage: of the app, across its sessions.
+export interface ReportCoverage {
+  controls: { listed: number; exercised: number };
+  cases: { planned: number; run: number; passed: number; failed: number };
+  left: {
+    controls: Array<{ area: string; role: string; name: string }>;
+    cases: string[];
+  };
+}
+
+// ---------------------------------------------------------------------------
+// haunt-ci (R-T23)
+// ---------------------------------------------------------------------------
+
+// Decided here: what a brief starts with, so that who is being asked can be
+// told from the prompt.
+export const PLANNER_BRIEF_HEADING = '# Planner';
+export const TESTER_BRIEF_HEADING = '# Tester';
+
+// What a decision may carry besides its actions and issues: a plan, when
+// asked for one; then the case its actions play and what it expects.
+export interface DecisionTester {
+  cases?: PlanCase[];
+  case?: string;
+  expect?: Expectation;
 }
 
 export interface ReportTesterInput {
@@ -275,6 +321,7 @@ export interface ReportTesterSidecar
   extends Omit<ReportEvidenceSidecar, 'issues'> {
   issues: VerifiedTesterIssue[];
   unchecked: VerifiedTesterIssue[];
-  coverage: Coverage;
+  // Absent when no session carried an inventory.
+  coverage?: ReportCoverage;
   spec?: string;
 }

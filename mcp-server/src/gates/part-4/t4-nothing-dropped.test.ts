@@ -51,7 +51,7 @@ describe('T4 nothing dropped', () => {
           signals: ended.signals,
           signal_verification: ended.signal_verification,
           cases: ended.cases,
-          coverage: ended.coverage,
+          inventory: ended.inventory,
         },
       ],
     });
@@ -214,7 +214,8 @@ describe('T4 nothing dropped', () => {
           expect(coverage).not.toContain('"Sort by"');
           // No reference: it means nothing outside the session.
           expect(coverage).not.toMatch(/\be\d+\b/);
-          expect(sidecar.coverage).toEqual(ended.coverage);
+          expect(sidecar.coverage?.controls).toEqual(ended.coverage.controls);
+          expect(sidecar.coverage?.cases).toEqual(ended.coverage.cases);
         } finally {
           cleanUp();
         }
@@ -224,45 +225,24 @@ describe('T4 nothing dropped', () => {
     gate(
       'T4.3',
       'R-T12',
-      'several sessions add up, and a report of sessions without coverage has no such section',
+      'a report of sessions that carry no inventory has no such section',
       async () => {
-        const reports = async (sessions: unknown[]) => {
-          const result = await ctx.haunt.call<{
-            report_path: string;
-            markdown: string;
-          }>('haunt_generate_report', {
-            target_url: ctx.gauntlet.baseUrl,
-            personas: [],
-            date: '2026-04-05',
-            sessions,
-          });
-          if (result.isError) throw new Error(result.text);
-          written.push(
-            result.data.report_path,
-            result.data.report_path.replace(/\.md$/, '.json'),
-          );
-          return result.data.markdown;
-        };
-        const base = { overall_impression: 'done', issues: [] };
-        const coverage = (listed: number, exercised: number, name: string) => ({
-          controls: { listed, exercised },
-          cases: { planned: 2, run: 1, passed: 1, failed: 0 },
-          left: {
-            controls: [{ ref: 'e1', role: 'button', name }],
-            cases: ['later'],
-          },
+        const result = await ctx.haunt.call<{
+          report_path: string;
+          markdown: string;
+        }>('haunt_generate_report', {
+          target_url: ctx.gauntlet.baseUrl,
+          personas: [],
+          date: '2026-04-05',
+          sessions: [{ area: '/a', overall_impression: 'done', issues: [] }],
         });
+        if (result.isError) throw new Error(result.text);
+        written.push(
+          result.data.report_path,
+          result.data.report_path.replace(/\.md$/, '.json'),
+        );
         try {
-          const two = await reports([
-            { ...base, area: '/a', coverage: coverage(4, 3, 'Export') },
-            { ...base, area: '/b', coverage: coverage(6, 5, 'Archive') },
-          ]);
-          const text = section(two, REPORT_COVERAGE_HEADING);
-          expect(text).toContain('8 of 10 controls');
-          expect(text).toContain('2 passed, 0 failed, 2 not run');
-          expect(text).toContain('button "Export"');
-          expect(text).toContain('button "Archive"');
-          expect(await reports([{ ...base, area: '/a' }])).not.toContain(
+          expect(result.data.markdown).not.toContain(
             `## ${REPORT_COVERAGE_HEADING}`,
           );
         } finally {

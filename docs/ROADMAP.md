@@ -157,9 +157,10 @@ kept by the engine; coverage counted in code; a budget of actions in place
 of three steps; an expectation stated before each action and checked after
 it, with exact readings of lists and values; issues the engine cannot check
 listed for a person instead of dropped; a screenshot on request; personas
-removed; an optional description of the app.
+removed; an optional description of the app; the work split between a
+planner and testers, each an agent of its own.
 
-**Gate**: T1 to T6 of the specification, deterministic, on six new gauntlet
+**Gate**: T1 to T7 of the specification, deterministic, on six new gauntlet
 pages whose defects raise no signal; and, *live*, on the pilot's three
 applications, more annotated bugs found than Claude Code with Playwright
 MCP, or as many for less.
