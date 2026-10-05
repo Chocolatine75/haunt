@@ -125,13 +125,16 @@ between several agents, is left to the host.
 
 ## F. What the tester is told
 
-- **R-T14 No persona by default.** `haunt_spawn` no longer requires a
-  persona, and `/haunt-test` and `haunt-ci` run without one. The brief the
-  tester gets is the method: inventory, plan each control's normal use with
-  realistic values before any hostile input, state the expectation, check it,
-  then edge cases, keyboard and state changes. A persona can still be passed;
-  it adds its angle (hostile input, keyboard only) after the method, and
-  replaces none of it.
+- **R-T14 No personas.** They are removed: the `persona` input of
+  `haunt_spawn`, the `--personas` flag, the `personas/` directory and its
+  loader, and the persona column of reports. The brief the tester gets is
+  the method: inventory, plan each control's normal use with realistic
+  values, state the expectation, check it, then edge cases, keyboard and
+  state changes. What two of the personas were for stays as case kinds:
+  `keyboard` (reaching and operating a control without a pointer) is part of
+  every plan, and attack payloads (`hostile`) are planned only with
+  `--hostile`, since they must only be sent to an app the user owns. A report
+  written before this part, with personas in it, can still be compared with.
 - **R-T15 A description of the app, if there is one.** `--spec` takes a file
   or a text describing what the app is meant to do. It is given to the tester
   verbatim with the brief, and named in the report. Nothing else reads it.
@@ -217,8 +220,10 @@ Deterministic, with a scripted tester, as in parts 1 to 3.
 
 1. A screenshot is returned on request; with the login page's fields filled,
    it is the same image as with them empty.
-2. `haunt_spawn` without a persona opens a session; with one, the persona's
-   text comes after the method in what the tester is given.
+2. `haunt_spawn` takes no persona and refuses one as an unknown input; no
+   tool result, report or sidecar has a persona in it; a report compared
+   with one written before this part still gets its comparison. A `hostile`
+   case is refused without `--hostile` and accepted with it.
 3. `--spec` reaches the decider of `haunt-ci` verbatim, and the report names
    it.
 4. The third unchanged repeat of an action is flagged, with what is left to
@@ -232,13 +237,15 @@ fingerprints of the earlier gates.
 ### T7 — live
 
 Run by hand, three times, scorecards under `docs/benchmarks/`: on the three
-CATTest applications of the pilot, with the same model, haunt finds at least
-as many of the annotated bugs as Claude Code with Playwright MCP did on the
-worst of its runs, for no more than the same cost per application. The
-runner and the prompts given to each tool are committed with the scorecards.
+CATTest applications of the pilot, with the same model, against Claude Code
+with Playwright MCP. Haunt has to be better, cheaper, or both: on the worst
+of its three runs it finds more of the annotated bugs than the other's best
+run, or it finds as many for a lower cost per application. Finding fewer is
+a failure whatever it costs, and finding more may not cost more than twice
+as much. The runner and the prompts given to each tool are committed with
+the scorecards.
 
 ## Accepted when
 
 T1 to T6 are green on Linux and macOS, the earlier gates still are, and T7's
-scorecards are committed. The thresholds of T7 are a proposal until the repo
-owner confirms them.
+scorecards are committed and meet its rule.
