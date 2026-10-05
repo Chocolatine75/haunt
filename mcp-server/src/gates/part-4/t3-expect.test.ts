@@ -109,7 +109,6 @@ describe('T3 expect, act, check', () => {
         expect(await held(menu, { ...dishes, every_contains: 'a' })).toBe(
           false,
         );
-        expect(await held(menu, { ...dishes, every_contains: 'E' })).toBe(true);
         // A container the page does not have holds nothing.
         const absent = await check(menu, {
           list: {
@@ -119,6 +118,15 @@ describe('T3 expect, act, check', () => {
           },
         });
         expect(absent).toEqual({ held: true, read: [] });
+
+        // The three vegan dishes: Falafel wrap, Chana masala, Lentil soup.
+        await menu.act([
+          { type: 'check', ref: await menu.ref('vegan'), checked: true },
+        ]);
+        expect(await held(menu, { ...dishes, every_contains: 'L' })).toBe(true);
+        expect(await held(menu, { ...dishes, every_contains: 'wrap' })).toBe(
+          false,
+        );
 
         const products = {
           within: { role: 'list', name: 'Products' },
