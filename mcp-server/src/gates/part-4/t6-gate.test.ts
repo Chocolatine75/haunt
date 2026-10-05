@@ -111,9 +111,11 @@ function registrations(): Array<{ id: string; requirements: string[] }> {
   const found: Array<{ id: string; requirements: string[] }> = [];
   for (const { source } of gateFiles()) {
     for (const match of source.matchAll(
-      /gate\(\s*'(T\d+\.\d+[a-z]?)',\s*'([^']+)'/g,
+      /gate\(\s*(?:\/\/[^\n]*\n\s*)?(?:[^,]*\? )?'(T\d+\.\d+[a-z]?)'(?: : '(T\d+\.\d+[a-z]?)')?,\s*'([^']+)'/g,
     )) {
-      found.push({ id: match[1], requirements: match[2].split(/\s+/) });
+      for (const id of [match[1], match[2]]) {
+        if (id) found.push({ id, requirements: match[3].split(/\s+/) });
+      }
     }
   }
   return found;
@@ -160,7 +162,8 @@ describe('T6 the gate itself', () => {
   describe('T6.1 sabotage', () => {
     for (const name of Object.keys(SABOTAGES)) {
       gate(
-        'T6.1',
+        // Listed apart in status.ts: it waits on R-T11, the others do not.
+        name === 'tester_unchecked_confirmed' ? 'T6.1b' : 'T6.1',
         'R-T19',
         `${name}: the check passes normally and fails when the engine is sabotaged`,
         async () => {

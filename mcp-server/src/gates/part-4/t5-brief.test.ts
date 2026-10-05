@@ -139,7 +139,7 @@ describe('T5 seeing, the brief, repeats', () => {
     );
 
     gate(
-      'T5.2',
+      'T5.2b',
       'R-T14',
       'a hostile case is refused in a session not spawned for it, and accepted in one that is',
       async () => {

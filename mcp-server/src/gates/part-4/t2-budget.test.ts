@@ -53,7 +53,7 @@ describe('T2 budget', () => {
   );
 
   gate(
-    'T2.1',
+    'T2.1b',
     'R-T5',
     'a session spawned with no budget has 40 actions',
     async () => {
