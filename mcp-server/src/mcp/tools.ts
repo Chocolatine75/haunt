@@ -181,8 +181,15 @@ const planCaseSchema = z.object({
       'normal use, an edge input, a state change, keyboard only, visual, or hostile (attack payloads; only in a session spawned with hostile: true)',
     ),
   controls: z
-    .array(z.string())
-    .describe('References of the controls it exercises, from the inventory'),
+    .array(
+      z.union([
+        z.string(),
+        z.object({ role: z.string(), name: z.string(), group: z.string() }),
+      ]),
+    )
+    .describe(
+      'The controls it exercises: references from the inventory, or what each is ({ role, name, group }), as `portable` gives them, to register in this session a plan made in another',
+    ),
   expect: z
     .string()
     .describe('One sentence: what should be true once the case is played'),

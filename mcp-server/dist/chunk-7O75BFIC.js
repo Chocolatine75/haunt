@@ -27869,11 +27869,11 @@ var require_axe = __commonJS({
             return null;
           }
           var hasProhibitedAriaLabel = prohibited.includes("aria-label");
-          var resolved = _getResolvedRefs(vNode, "aria-labelledby").filter(Boolean);
-          if (resolved.length === 0) {
+          var resolved2 = _getResolvedRefs(vNode, "aria-labelledby").filter(Boolean);
+          if (resolved2.length === 0) {
             return hasProhibitedAriaLabel ? null : "unresolvedLabel";
           }
-          if (!resolved.every(function(ref2) {
+          if (!resolved2.every(function(ref2) {
             return _isVisibleToScreenReaders(ref2);
           })) {
             return null;
@@ -43327,8 +43327,34 @@ function planOf(session) {
       planned: named.has(control.ref)
     })),
     cases,
-    coverage: coverageOf(session)
+    coverage: coverageOf(session),
+    // By what each control is: a reference means nothing to another session
+    // (R-T21).
+    portable: cases.map(({ id, kind, controls, expect }) => ({
+      id,
+      kind,
+      controls: controls.flatMap((ref2) => {
+        const control = session.plan.controls.get(ref2);
+        return control ? [{ role: control.role, name: control.name, group: control.group }] : [];
+      }),
+      expect
+    }))
   };
+}
+function resolved(session, one) {
+  const controls = one.controls.map((control) => {
+    if (typeof control === "string") return control;
+    const found = [...session.plan.controls.values()].filter(
+      (c) => c.role === control.role && c.name === control.name && c.group === control.group
+    );
+    if (found.length !== 1) {
+      throw new Error(
+        `Case "${one.id}" names the ${control.role} "${control.name}" (${control.group}), which ${found.length === 0 ? "is not a control of this session" : `${found.length} controls of this session match`}. Plan it from this session's inventory.`
+      );
+    }
+    return found[0].ref;
+  });
+  return { id: one.id, kind: one.kind, controls, expect: one.expect };
 }
 function closeCase(session, id, verdict, by, detail) {
   const one = session.plan.cases.get(id);
@@ -43376,13 +43402,14 @@ async function hauntPlan(manager, input) {
     });
   }
   await syncInventory(session);
-  for (const one of input.cases ?? []) checkCase(session, one);
+  const cases = (input.cases ?? []).map((one) => resolved(session, one));
+  for (const one of cases) checkCase(session, one);
   for (const one of input.close ?? []) {
-    if (!session.plan.cases.has(one.id) && !input.cases?.some((c) => c.id === one.id)) {
+    if (!session.plan.cases.has(one.id) && !cases.some((c) => c.id === one.id)) {
       throw new Error(`No case "${one.id}" in the plan.`);
     }
   }
-  for (const one of input.cases ?? []) {
+  for (const one of cases) {
     session.plan.cases.set(one.id, {
       id: one.id,
       kind: one.kind,
@@ -46257,6 +46284,7 @@ async function hauntEndSession(manager, input) {
     signal_verification: verified.signal_verification,
     cases: plan.cases,
     coverage: plan.coverage,
+    inventory: plan.inventory,
     overall_impression: input.overall_impression ?? `Completed ${session.step_count} steps across ${session.pages_visited.length} pages.`
   };
   return output;

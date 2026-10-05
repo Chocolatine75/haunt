@@ -4,7 +4,11 @@ import type {
   SignalVerifications,
   VerifiedIssue,
 } from '../gates/part-3/contract.js';
-import type { CaseStatus, Coverage } from '../gates/part-4/contract.js';
+import type {
+  CaseStatus,
+  Coverage,
+  InventoryControl,
+} from '../gates/part-4/contract.js';
 import { SETTLE_CAP_MS } from './act/act.js';
 import { pendingTimers } from './act/page-fns.js';
 import { SESSION_TTL_MS } from './constants.js';
@@ -40,6 +44,8 @@ export interface EndSessionOutput {
   // The plan as it stands, and how much of it was done (part 4, R-T4).
   cases: CaseStatus[];
   coverage: Coverage;
+  // Every control the session was shown: what a report merges sessions by.
+  inventory: InventoryControl[];
   overall_impression: string;
 }
 
@@ -117,6 +123,7 @@ export async function hauntEndSession(
     signal_verification: verified.signal_verification,
     cases: plan.cases,
     coverage: plan.coverage,
+    inventory: plan.inventory,
     overall_impression:
       input.overall_impression ??
       `Completed ${session.step_count} steps across ${session.pages_visited.length} pages.`,

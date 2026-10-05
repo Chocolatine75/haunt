@@ -14,7 +14,7 @@ import {
   hauntSpawn,
   malformed,
   zodToJsonSchema
-} from "./chunk-D2N3VQNN.js";
+} from "./chunk-7O75BFIC.js";
 import {
   _enum,
   _null,
@@ -10685,7 +10685,14 @@ var planCaseSchema = external_exports.object({
   kind: external_exports.enum(CASE_KINDS).describe(
     "normal use, an edge input, a state change, keyboard only, visual, or hostile (attack payloads; only in a session spawned with hostile: true)"
   ),
-  controls: external_exports.array(external_exports.string()).describe("References of the controls it exercises, from the inventory"),
+  controls: external_exports.array(
+    external_exports.union([
+      external_exports.string(),
+      external_exports.object({ role: external_exports.string(), name: external_exports.string(), group: external_exports.string() })
+    ])
+  ).describe(
+    "The controls it exercises: references from the inventory, or what each is ({ role, name, group }), as `portable` gives them, to register in this session a plan made in another"
+  ),
   expect: external_exports.string().describe("One sentence: what should be true once the case is played")
 });
 var cookieSchema = external_exports.object({

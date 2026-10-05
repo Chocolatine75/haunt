@@ -12,6 +12,7 @@ import type { SnapshotElement } from '../../gates/part-1/contract.js';
 import type {
   CaseStatus,
   CaseVerdict,
+  ControlName,
   Coverage,
   InventoryControl,
   PlanCase,
@@ -195,7 +196,41 @@ export function planOf(session: HauntSession): PlanOutput {
     })),
     cases,
     coverage: coverageOf(session),
+    // By what each control is: a reference means nothing to another session
+    // (R-T21).
+    portable: cases.map(({ id, kind, controls, expect }) => ({
+      id,
+      kind,
+      controls: controls.flatMap((ref) => {
+        const control = session.plan.controls.get(ref);
+        return control
+          ? [{ role: control.role, name: control.name, group: control.group }]
+          : [];
+      }),
+      expect,
+    })),
   };
+}
+
+// The case with its controls as references of this session. One given by
+// what it is must be a control of the inventory, and only one.
+function resolved(session: HauntSession, one: GivenCase): PlanCase {
+  const controls = one.controls.map((control) => {
+    if (typeof control === 'string') return control;
+    const found = [...session.plan.controls.values()].filter(
+      (c) =>
+        c.role === control.role &&
+        c.name === control.name &&
+        c.group === control.group,
+    );
+    if (found.length !== 1) {
+      throw new Error(
+        `Case "${one.id}" names the ${control.role} "${control.name}" (${control.group}), which ${found.length === 0 ? 'is not a control of this session' : `${found.length} controls of this session match`}. Plan it from this session's inventory.`,
+      );
+    }
+    return found[0].ref;
+  });
+  return { id: one.id, kind: one.kind, controls, expect: one.expect };
 }
 
 // Gives a case its verdict.
@@ -245,9 +280,15 @@ function checkCase(session: HauntSession, one: PlanCase): void {
   }
 }
 
+// A case as it may be given: each control a reference of this session, or
+// what it is. The contract's two forms, and any mix of them.
+type GivenCase = Omit<PlanCase, 'controls'> & {
+  controls: Array<string | ControlName>;
+};
+
 export async function hauntPlan(
   manager: SessionManager,
-  input: PlanInput,
+  input: Omit<PlanInput, 'cases'> & { cases?: GivenCase[] },
 ): Promise<PlanOutput> {
   const session = manager.get(input.session_id);
   await manager.reapStale(SESSION_TTL_MS);
@@ -259,16 +300,17 @@ export async function hauntPlan(
   await syncInventory(session);
 
   // All of them or none: a plan half taken is not the plan that was sent.
-  for (const one of input.cases ?? []) checkCase(session, one);
+  const cases = (input.cases ?? []).map((one) => resolved(session, one));
+  for (const one of cases) checkCase(session, one);
   for (const one of input.close ?? []) {
     if (
       !session.plan.cases.has(one.id) &&
-      !input.cases?.some((c) => c.id === one.id)
+      !cases.some((c) => c.id === one.id)
     ) {
       throw new Error(`No case "${one.id}" in the plan.`);
     }
   }
-  for (const one of input.cases ?? []) {
+  for (const one of cases) {
     session.plan.cases.set(one.id, {
       id: one.id,
       kind: one.kind,

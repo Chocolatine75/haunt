@@ -28,4 +28,5 @@ export const PASSING: ReadonlySet<string> = new Set<string>([
   'T5.2b',
   'T5.4',
   'T6.1',
+  'T7.1',
 ]);
