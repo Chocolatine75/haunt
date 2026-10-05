@@ -3,6 +3,7 @@ import {
   CASE_KINDS,
   SessionManager,
   actionSchema,
+  expectationSchema,
   external_exports,
   hauntAct,
   hauntCaptureState,
@@ -12,9 +13,10 @@ import {
   hauntPlan,
   hauntReplay,
   hauntSpawn,
-  malformed,
+  listQuerySchema,
+  planCaseSchema,
   zodToJsonSchema
-} from "./chunk-RLH6GE5Q.js";
+} from "./chunk-Q2MFLHYO.js";
 import {
   _enum,
   _null,
@@ -10586,53 +10588,6 @@ var SIGNAL_KINDS = [
 ];
 
 // src/mcp/tools.ts
-var listQuerySchema = external_exports.object({
-  within: external_exports.object({ role: external_exports.string(), name: external_exports.string() }).describe(
-    'The container, by its role and accessible name: { role: "list", name: "Results" }'
-  ),
-  items: external_exports.string().describe(
-    "The role of the items read under it, in reading order: listitem, heading, row, img\u2026"
-  )
-});
-var expectationSchema = external_exports.object({
-  text_present: external_exports.string().optional(),
-  text_absent: external_exports.string().optional(),
-  url: external_exports.string().optional(),
-  element: external_exports.object({
-    ref: external_exports.string(),
-    state: external_exports.enum(["visible", "hidden", "disabled", "enabled", "gone"])
-  }).optional(),
-  list: listQuerySchema.extend({
-    count: external_exports.object({
-      eq: external_exports.number().int().optional(),
-      min: external_exports.number().int().optional(),
-      max: external_exports.number().int().optional()
-    }).optional(),
-    every_contains: external_exports.string().optional(),
-    none_contains: external_exports.string().optional(),
-    order: external_exports.enum(["ascending", "descending"]).optional(),
-    as: external_exports.enum(["number", "text"]).optional().describe(
-      "How the order is judged; a number is the first one written in the item. Default: text"
-    ),
-    equals: external_exports.array(external_exports.string()).optional().describe("Exactly these items, in this order")
-  }).optional().describe(
-    "The items of a container, as the page shows them, and what must be true of them"
-  ),
-  value: external_exports.object({
-    ref: external_exports.string(),
-    of: external_exports.enum(["value", "checked", "expanded", "pressed", "focused"]),
-    is: external_exports.union([external_exports.string(), external_exports.boolean()])
-  }).optional().describe(
-    'What a control holds or its state. A credential field reads as "(filled)" or "(empty)"'
-  ),
-  step: external_exports.number().int().min(0).optional().describe(
-    "For an issue: the step after which it holds. Default: the last step"
-  )
-}).strict().superRefine((value, ctx) => {
-  const problem = malformed(value);
-  if (problem)
-    ctx.addIssue({ code: external_exports.ZodIssueCode.custom, message: problem });
-});
 var issueSchema = external_exports.object({
   severity: external_exports.enum(["critical", "major", "minor", "suggestion"]),
   category: external_exports.enum([
@@ -10680,21 +10635,6 @@ var signalSchema = external_exports.object({
   severity: external_exports.enum(["major", "minor"]),
   count: external_exports.number().int().positive()
 }).passthrough();
-var planCaseSchema = external_exports.object({
-  id: external_exports.string().min(1).describe('A short name of your own: "titles-only"'),
-  kind: external_exports.enum(CASE_KINDS).describe(
-    "normal use, an edge input, a state change, keyboard only, visual, or hostile (attack payloads; only in a session spawned with hostile: true)"
-  ),
-  controls: external_exports.array(
-    external_exports.union([
-      external_exports.string(),
-      external_exports.object({ role: external_exports.string(), name: external_exports.string(), group: external_exports.string() })
-    ])
-  ).describe(
-    "The controls it exercises: references from the inventory, or what each is ({ role, name, group }), as `portable` gives them, to register in this session a plan made in another"
-  ),
-  expect: external_exports.string().describe("One sentence: what should be true once the case is played")
-});
 var caseStatusSchema = external_exports.object({
   id: external_exports.string(),
   kind: external_exports.enum(CASE_KINDS),
@@ -10726,14 +10666,32 @@ var cookieSchema = external_exports.object({
 function defineTool(tool) {
   return tool;
 }
+var sessionSchema = external_exports.object({
+  area: external_exports.string().describe("The route/area this session tested, e.g. /signup"),
+  persona: external_exports.string().optional(),
+  overall_impression: external_exports.string(),
+  cases: external_exports.array(caseStatusSchema).optional().describe("This session's EndSessionOutput.cases, as returned"),
+  inventory: external_exports.array(inventoryControlSchema).optional().describe(
+    "This session's EndSessionOutput.inventory, as returned: the report counts coverage from it, each control once across the sessions of an area"
+  ),
+  issues: external_exports.array(reportIssueSchema).describe(
+    "This session's EndSessionOutput.issues_found, as returned (with their verification)"
+  ),
+  rejected: external_exports.array(reportIssueSchema).optional().describe("This session's EndSessionOutput.rejected"),
+  sandbox_blocked_requests: external_exports.array(external_exports.string()).optional().describe("This session's EndSessionOutput.sandbox_blocked_requests"),
+  signals: external_exports.array(signalSchema).optional().describe(
+    "This session's EndSessionOutput.signals, as returned: those no issue names get a section of their own"
+  ),
+  signal_verification: external_exports.record(verificationSchema).optional().describe(
+    "This session's EndSessionOutput.signal_verification: only confirmed major signals count in haunt-ci's verdict"
+  )
+});
 var TOOLS = [
   defineTool({
     name: "haunt_spawn",
-    description: "Open a browser session for a persona and navigate to the target URL. Returns persona details (name, goal, system prompt) so the orchestrator can roleplay as that persona.",
+    description: "Open a browser session on the target URL. Returns its id and what went wrong while the page loaded.",
     input: external_exports.object({
-      persona: external_exports.string().describe(
-        "Persona name (e.g. confused-beginner) or absolute path to a YAML file"
-      ),
+      persona: external_exports.string().optional().describe("No longer used. Accepted and ignored"),
       target_url: external_exports.string().describe("URL to test (e.g. http://localhost:3000)"),
       headless: external_exports.boolean().optional().describe("Run browser in headless mode. Default: true"),
       budget: external_exports.number().int().positive().optional().describe(
@@ -10807,6 +10765,10 @@ var TOOLS = [
     input: external_exports.object({
       session_id: external_exports.string().describe("Session ID from haunt_spawn"),
       cases: external_exports.array(planCaseSchema).optional(),
+      from: external_exports.string().optional().describe(
+        "The id of another session, live or ended: registers its cases here, resolved to this session's controls. How a tester takes the cases a planner wrote"
+      ),
+      only: external_exports.array(external_exports.string()).optional().describe("With `from`: the ids of the cases to take. Default: all"),
       close: external_exports.array(
         external_exports.object({
           id: external_exports.string(),
@@ -10848,9 +10810,7 @@ var TOOLS = [
     description: "Close the browser session, replay every issue in a fresh browser to verify it, and return them: confirmed, flaky (with the rate a replay reproduced it) or unverified in issues_found, each with its evidence bundle; rejected ones apart, with why.",
     input: external_exports.object({
       session_id: external_exports.string(),
-      overall_impression: external_exports.string().optional().describe(
-        "The orchestrator's summary of the session from the persona's perspective"
-      ),
+      overall_impression: external_exports.string().optional().describe("What the session found, in a sentence or two"),
       issues: external_exports.array(issueSchema).optional().describe(
         "Issues found since the last haunt_act call, typically from the result of the last action"
       )
@@ -10876,26 +10836,9 @@ var TOOLS = [
         "The name of the description of the app the testers were given, if any"
       ),
       sessions: external_exports.array(
-        external_exports.object({
-          area: external_exports.string().describe("The route/area this session tested, e.g. /signup"),
-          persona: external_exports.string().optional(),
-          overall_impression: external_exports.string(),
-          cases: external_exports.array(caseStatusSchema).optional().describe("This session's EndSessionOutput.cases, as returned"),
-          inventory: external_exports.array(inventoryControlSchema).optional().describe(
-            "This session's EndSessionOutput.inventory, as returned: the report counts coverage from it, each control once across the sessions of an area"
-          ),
-          issues: external_exports.array(reportIssueSchema).describe(
-            "This session's EndSessionOutput.issues_found, as returned (with their verification)"
-          ),
-          rejected: external_exports.array(reportIssueSchema).optional().describe("This session's EndSessionOutput.rejected"),
-          sandbox_blocked_requests: external_exports.array(external_exports.string()).optional().describe(
-            "This session's EndSessionOutput.sandbox_blocked_requests"
-          ),
-          signals: external_exports.array(signalSchema).optional().describe(
-            "This session's EndSessionOutput.signals, as returned: those no issue names get a section of their own"
-          ),
-          signal_verification: external_exports.record(verificationSchema).optional().describe(
-            "This session's EndSessionOutput.signal_verification: only confirmed major signals count in haunt-ci's verdict"
+        sessionSchema.partial({ overall_impression: true, issues: true }).extend({
+          session_id: external_exports.string().optional().describe(
+            "The id of a session that has ended: its result is taken from the server, and the other fields here only add to it or correct it. Prefer this to passing the result yourself"
           )
         })
       ).describe("One entry per ended session"),
@@ -10903,7 +10846,25 @@ var TOOLS = [
         "Path to a previous report (its .md path, or the .json sidecar directly) to diff against. Annotates each current issue as new vs. still present, and lists issues from that run no longer found."
       )
     }),
-    run: (_manager, input) => hauntGenerateReport(input)
+    run: (manager, input) => hauntGenerateReport({
+      ...input,
+      sessions: input.sessions.map((given) => {
+        const { session_id, ...own } = given;
+        if (session_id === void 0) return sessionSchema.parse(own);
+        const ended = manager.endedSession(session_id);
+        if (!ended) {
+          throw new Error(
+            `No ended session ${session_id}: end it with haunt_end_session before the report, or pass its result.`
+          );
+        }
+        return sessionSchema.parse({
+          ...ended.result,
+          // Named `issues_found` where a session returns them.
+          issues: ended.result.issues_found,
+          ...own
+        });
+      })
+    })
   }),
   defineTool({
     name: "haunt_replay",

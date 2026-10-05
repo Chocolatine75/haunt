@@ -9,6 +9,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { PLANNER_BRIEF, TESTER_BRIEF } from './engine/brief.js';
 import {
   type HauntClient,
   connectInMemory,
@@ -97,15 +98,20 @@ describe('shipped bundle', () => {
       );
     });
 
-    it('resolves built-in persona names to the repo personas/ directory', async () => {
-      const result = await shipped.call('haunt_spawn', {
+    // Was: a persona's name resolves to the repo's personas/ directory. The
+    // shipped server reads none now (part 4, R-T14): a session opens
+    // whatever persona an older host still passes.
+    it('opens a session whatever persona it is passed, since it reads none', async () => {
+      const result = await shipped.call<{ session_id: string }>('haunt_spawn', {
         persona: 'no-such-persona',
         target_url: 'data:text/html,<h1>x</h1>',
+        replay_budget_ms: 0,
       });
-      expect(result.isError).toBe(true);
-      expect(result.text).toContain(
-        join(REPO_ROOT, 'personas', 'no-such-persona.yaml'),
-      );
+      expect(result.isError, result.text).toBe(false);
+      expect(result.text).not.toMatch(/persona/i);
+      await shipped.call('haunt_end_session', {
+        session_id: result.data.session_id,
+      });
     });
   });
 
@@ -223,18 +229,21 @@ describe('plugin packaging', () => {
     }
   });
 
-  it('documents only personas that ship', () => {
-    const documented = new Set(
-      `${read('README.md')}${read('docs/cli.md')}${read('commands/haunt-test.md')}`.match(
-        /\b(confused-beginner|malicious-user|screen-reader-user)\b/g,
-      ),
-    );
-    expect(documented.size).toBe(3);
-    for (const name of documented) {
-      expect(
-        existsSync(join(REPO_ROOT, 'personas', `${name}.yaml`)),
-        name,
-      ).toBe(true);
+  // Was: the docs name only personas that ship. None ships any more (part 4,
+  // R-T14), so none may be named as something to run.
+  it('documents no persona, now that none ships', () => {
+    expect(existsSync(join(REPO_ROOT, 'personas'))).toBe(false);
+    for (const path of ['README.md', 'docs/cli.md', 'commands/haunt-test.md']) {
+      expect(read(path), path).not.toMatch(
+        /--personas|confused-beginner|malicious-user|screen-reader-user/,
+      );
     }
+  });
+
+  // The agents are what Claude Code runs; the briefs are what haunt-ci
+  // sends. One method, written once (engine/brief.ts).
+  it('ships an agent per role that holds its brief, word for word', () => {
+    expect(read('agents/haunt-planner.md')).toContain(PLANNER_BRIEF);
+    expect(read('agents/haunt-tester.md')).toContain(TESTER_BRIEF);
   });
 });

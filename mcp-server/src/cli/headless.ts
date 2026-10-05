@@ -1,45 +1,62 @@
 // mcp-server/src/cli/headless.ts
 //
-// Standalone, non-interactive entrypoint: everything commands/haunt-test.md does
-// through an interactive Claude Code session, but callable from a shell/CI pipeline
-// with no orchestrating agent. Persona action decisions come from a direct LLM API
-// call per step instead of the host LLM — this is the piece the README's
-// "add personas, run it in CI" line needed and didn't have (see the audit's Majeur
-// on this). Supports Anthropic and Mistral as interchangeable reasoning providers
-// (see src/cli/providers/) — pick whichever key you have.
+// Standalone, non-interactive entrypoint: what commands/haunt-test.md does
+// through a Claude Code session, callable from a shell or a CI pipeline with
+// no orchestrating agent. The decisions come from a direct LLM API call per
+// step: one for the plan, under the planner's brief, then one per step under
+// the tester's (engine/brief.ts). Anthropic and Mistral are interchangeable
+// (src/cli/providers/).
 //
-// Scope for this first version: tests exactly the one URL given, across the given
-// personas, in parallel. It does not do the interactive command's Phase 1 route
-// discovery (scouting up to 4 areas from real links) — that's a reasonable next
-// step, not implemented here to keep this landing as a working, honestly-scoped v1.
+// It tests the one URL given. It does not do the command's route discovery.
 import 'dotenv/config';
+import { readFileSync } from 'node:fs';
+import { basename } from 'node:path';
 import Anthropic from '@anthropic-ai/sdk';
 import { Mistral } from '@mistralai/mistralai';
 import type { Cookie } from 'playwright';
 import { hauntAct } from '../engine/act/act.js';
+import { briefFor } from '../engine/brief.js';
 import { hauntCaptureState } from '../engine/capture.js';
 import { hauntEndSession } from '../engine/end-session.js';
+import { malformed } from '../engine/plan/expect.js';
+import { hauntPlan } from '../engine/plan/plan.js';
 import type {
   GenerateReportOutput,
   SessionResult,
 } from '../engine/report/generate-report.js';
 import { hauntGenerateReport } from '../engine/report/generate-report.js';
 import { SessionManager } from '../engine/session/manager.js';
-import { hauntSpawn } from '../engine/spawn.js';
+import { DEFAULT_BUDGET, hauntSpawn } from '../engine/spawn.js';
 import type { Issue } from '../engine/types.js';
 import type { ActResult } from '../gates/part-1/contract.js';
-import type { ActSignalsResult, Signal } from '../gates/part-2/contract.js';
+import type { Signal } from '../gates/part-2/contract.js';
+import type {
+  ActTesterResult,
+  CaseStatus,
+  InventoryControl,
+} from '../gates/part-4/contract.js';
 import { authenticate } from './authenticate.js';
 import { isClaudeCodeAvailable, runViaClaudeCode } from './claude-code.js';
 import { createAnthropicDecider } from './providers/anthropic.js';
 import { createMistralDecider } from './providers/mistral.js';
-import { type ActionDecider, MAX_ACTIONS_PER_STEP } from './providers/types.js';
+import {
+  type ActionDecider,
+  type ActionDecision,
+  MAX_ACTIONS_PER_STEP,
+} from './providers/types.js';
 
 export type Provider = 'anthropic' | 'mistral';
 
 export interface CliOptions {
   targetUrl: string;
-  personas: string[];
+  // Ignored: personas are gone (part 4). Still accepted from a caller, and
+  // on the command line, written before.
+  personas?: string[];
+  // A file describing what the app is meant to do, given to the planner and
+  // the testers as it is (R-T15).
+  specPath?: string;
+  // Lets attack payloads be planned. Only against an app you own.
+  hostile?: boolean;
   steps: number;
   // 'claude-code' runs the real command in a headless Claude Code session,
   // on the account set up on this machine; the others call an API with a key.
@@ -54,10 +71,12 @@ export interface CliOptions {
 }
 
 const USAGE =
-  'Usage: haunt-ci <url> [--personas p1,p2] [--steps N] [--provider claude-code|anthropic|mistral] [--model id] [--headed] [--verbose] [--email addr --password pw] [--login-url url]';
+  'Usage: haunt-ci <url> [--spec file] [--hostile] [--steps N] [--provider claude-code|anthropic|mistral] [--model id] [--headed] [--verbose] [--email addr --password pw] [--login-url url]';
 
 const VALUED_FLAGS = [
+  // No longer used; still takes its value, so that it is not read as the URL.
   'personas',
+  'spec',
   'steps',
   'provider',
   'model',
@@ -86,11 +105,7 @@ export function parseArgs(argv: string[]): CliOptions {
     throw new Error(USAGE);
   }
 
-  const personas = (getFlag('personas') ?? 'confused-beginner')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-  const steps = Number(getFlag('steps') ?? '3');
+  const steps = Number(getFlag('steps') ?? String(DEFAULT_BUDGET));
   if (!Number.isFinite(steps) || steps < 1) {
     throw new Error(
       `--steps must be a positive number, got: ${getFlag('steps')}`,
@@ -120,7 +135,8 @@ export function parseArgs(argv: string[]): CliOptions {
 
   return {
     targetUrl,
-    personas,
+    specPath: getFlag('spec'),
+    hostile: argv.includes('--hostile'),
     steps,
     provider: providerFlag as CliOptions['provider'],
     model: getFlag('model'),
@@ -234,7 +250,7 @@ function describeSignals(title: string, signals: Signal[]): string[] {
 }
 
 // What the last decision did, in a few lines the next decision can use.
-function describeOutcome(result: ActSignalsResult): string {
+function describeOutcome(result: ActTesterResult): string {
   const lines = result.results.map((step, i) => {
     if (!step.ok)
       return `${i + 1}. ${step.type}: FAILED — ${step.error?.message}`;
@@ -287,6 +303,28 @@ function describeOutcome(result: ActSignalsResult): string {
     );
   }
   lines.push(...describeSignals('What went wrong', result.signals));
+  if (result.expectation) {
+    lines.push(
+      result.expectation.held
+        ? 'What you expected held.'
+        : `What you expected did NOT hold. The page showed: ${JSON.stringify(result.expectation.read ?? 'something else')}. If your test was right, file an issue with "case".`,
+    );
+  }
+  if (result.new_controls?.length) {
+    lines.push(
+      `Controls that became usable: ${result.new_controls.map((c) => `[${c.ref}] ${c.role} "${c.name}"`).join(', ')}`,
+    );
+  }
+  if (result.repeating) {
+    lines.push(
+      `That action has left the page unchanged ${result.repeating.times} times: move on.`,
+    );
+  }
+  if (result.remaining) {
+    lines.push(
+      `Not exercised yet: ${result.remaining.controls.map((c) => `[${c.ref}] ${c.role} "${c.name}"`).join(', ') || 'nothing'}`,
+    );
+  }
   return `Your last actions:\n${lines.join('\n')}`;
 }
 
@@ -295,7 +333,7 @@ function describeState(
   step: number,
   steps: number,
   authenticated: boolean,
-  last?: ActSignalsResult,
+  last?: ActTesterResult,
   atLoad: Signal[] = [],
 ): string {
   const sections = [`Step ${step} of ${steps}\n\n${snapshot}`, HOW_TO_ACT];
@@ -312,105 +350,205 @@ function describeState(
   return sections.join('\n\n');
 }
 
-async function runPersonaSession(
+// What a model without tools is told on top of a brief written for one
+// with them: the page is in front of it, and its answer is the decision.
+const PLANNER_ANSWER =
+  'You have no tools in this run. The page and its inventory are below. ' +
+  'Answer with your test cases in "cases": an id, a kind, the controls by ' +
+  'their reference from the inventory, and what is expected. Leave ' +
+  '"actions" empty: the cases are registered for you and played next.';
+
+const TESTER_ANSWER =
+  'You have no tools in this run. Each answer is one step: the actions to ' +
+  'run now in "actions", with "case" and "expect" when they play a case, ' +
+  'and in "issues" what you have found. The page is read for you before ' +
+  'each step, the cases are registered already, and the session is ended ' +
+  'for you.';
+
+// The inventory in a few lines a planner can plan from.
+function describeInventory(inventory: InventoryControl[]): string {
+  if (inventory.length === 0) return 'Inventory: the page offers no control.';
+  return [
+    'Inventory (every control the page offers, by group):',
+    ...inventory.map(
+      (c) =>
+        `- [${c.ref}] ${c.role} "${c.name}" — ${c.group}${c.state ? ` (${c.state})` : ''}`,
+    ),
+  ].join('\n');
+}
+
+// The cases still to play, the next one first, as a tester needs them.
+function describeCases(cases: CaseStatus[]): string | undefined {
+  const left = cases.filter((one) => !one.verdict);
+  if (cases.length === 0) return undefined;
+  if (left.length === 0) {
+    return 'Every case of the plan has been played. Use what is left of the session on the controls no case has exercised.';
+  }
+  const [next, ...later] = left;
+  return [
+    `Case to play now: "${next.id}" (${next.kind}), on ${next.controls.join(', ') || 'no control'}.`,
+    `Expected: ${next.expect}`,
+    'State that as "expect", with "case", in the answer whose actions complete it.',
+    ...(later.length > 0
+      ? [`Then: ${later.map((one) => `"${one.id}"`).join(', ')}.`]
+      : []),
+  ].join('\n');
+}
+
+interface SessionOptions {
+  // How many decisions are asked for, and how many actions they may run in
+  // all.
+  steps: number;
+  budget?: number;
+  headless: boolean;
+  cookies?: Cookie[];
+  spec?: { name: string; text: string };
+  hostile?: boolean;
+}
+
+// One session on one area: a plan is asked for, then its cases are played
+// (R-T23).
+async function runSession(
   decide: ActionDecider,
   manager: SessionManager,
-  personaName: string,
   targetUrl: string,
-  steps: number,
-  headless: boolean,
-  cookies?: Cookie[],
+  options: SessionOptions,
   log: (line: string) => void = () => {},
 ): Promise<SessionResult> {
+  const { steps, cookies } = options;
   const authenticated = Boolean(cookies && cookies.length > 0);
+  const planner = `${briefFor('planner', options.spec?.text)}\n\n${PLANNER_ANSWER}`;
+  const tester = `${briefFor('tester', options.spec?.text)}\n\n${TESTER_ANSWER}`;
   const spawnResult = await hauntSpawn(manager, {
-    persona: personaName,
     target_url: targetUrl,
-    headless,
-    // One step is one decision, which may carry several actions.
-    timeout: steps * MAX_ACTIONS_PER_STEP,
+    headless: options.headless,
+    // The budget of actions (R-T5). A decision carries up to five; a
+    // caller that counts in decisions gets room for five in each.
+    budget: options.budget ?? steps * MAX_ACTIONS_PER_STEP,
     cookies,
+    hostile: options.hostile,
   });
+  const session_id = spawnResult.session_id;
+  const read = async () =>
+    (await hauntCaptureState(manager, { session_id, format: 'text' })).text;
 
   let finalIssues: Issue[] = [];
   try {
-    let last: ActSignalsResult | undefined;
-    for (let step = 1; step <= steps; step++) {
-      const state = await hauntCaptureState(manager, {
-        session_id: spawnResult.session_id,
-        format: 'text',
-      });
+    // The plan first, in a call of its own.
+    const plan = await hauntPlan(manager, { session_id });
+    const asked = await decide(
+      planner,
+      `${describeState(await read(), 1, steps, authenticated, undefined, spawnResult.signals)}\n\n${describeInventory(plan.inventory)}`,
+    );
+    let cases: CaseStatus[] = [];
+    if (asked.cases?.length) {
+      try {
+        cases = (await hauntPlan(manager, { session_id, cases: asked.cases }))
+          .cases;
+      } catch (error) {
+        // A plan the engine refuses is no plan: the session explores.
+        log(
+          `[plan] refused: ${error instanceof Error ? error.message : error}`,
+        );
+      }
+    }
+    log(`[plan] ${cases.length} case(s)`);
+    // An answer that plans nothing and acts is a decider that does not
+    // plan: its actions are the first step, as before part 4.
+    let carried: ActionDecision | undefined =
+      cases.length === 0 && asked.actions.length > 0 ? asked : undefined;
+    if (cases.length === 0 && asked.issues.length > 0 && !carried) {
+      manager.get(session_id).issues.push(...asked.issues);
+    }
 
-      const { actions, issues } = await decide(
-        spawnResult.persona_description,
-        describeState(
-          state.text,
+    let last: ActTesterResult | undefined;
+    for (let step = 1; step <= steps; step++) {
+      let decision = carried;
+      carried = undefined;
+      if (!decision) {
+        const state = describeState(
+          await read(),
           step,
           steps,
           authenticated,
           last,
-          step === 1 ? spawnResult.signals : [],
-        ),
-      );
+        );
+        const toPlay = describeCases(
+          (await hauntPlan(manager, { session_id })).cases,
+        );
+        decision = await decide(
+          tester,
+          toPlay ? `${state}\n\n${toPlay}` : state,
+        );
+      }
+      const { actions, issues } = decision;
 
       log(
-        `[${spawnResult.persona_name}] step ${step}: ${JSON.stringify(actions)}${issues.length > 0 ? ` (+${issues.length} issue(s))` : ''}`,
+        `step ${step}: ${JSON.stringify(actions)}${issues.length > 0 ? ` (+${issues.length} issue(s))` : ''}`,
       );
       if (actions.length === 0) {
         // Nothing it wants to do. Its issues still count.
-        manager.get(spawnResult.session_id).issues.push(...issues);
+        manager.get(session_id).issues.push(...issues);
         last = undefined;
         continue;
       }
+      // What a model sends is checked here as the tool's schema would: a
+      // case the plan does not have, or an expectation that is not one, is
+      // left out rather than failing the step.
+      const known = manager.get(session_id).plan.cases;
+      const playing =
+        decision.case !== undefined && known.has(decision.case)
+          ? decision.case
+          : undefined;
+      const expect =
+        decision.expect && !malformed(decision.expect)
+          ? decision.expect
+          : undefined;
       last = await hauntAct(manager, {
-        session_id: spawnResult.session_id,
+        session_id,
         actions,
         issues,
+        ...(playing !== undefined ? { case: playing } : {}),
+        ...(expect ? { expect } : {}),
       });
       log(describeOutcome(last).replace(/^/gm, '    '));
+      if (last.steps_remaining <= 0) break;
     }
 
     // One more question, no more actions: what did the last step show?
     if (last) {
-      const state = await hauntCaptureState(manager, {
-        session_id: spawnResult.session_id,
-        format: 'text',
-      });
       // If the model fumbles this last answer, the session's findings so far
       // are worth more than the error.
       const { issues } = await decide(
-        spawnResult.persona_description,
-        `${describeState(state.text, steps, steps, authenticated, last)}\n\n${WRAP_UP}`,
+        tester,
+        `${describeState(await read(), steps, steps, authenticated, last)}\n\n${WRAP_UP}`,
       ).catch(() => ({ issues: [] as Issue[] }));
       finalIssues = issues;
-      log(
-        `[${spawnResult.persona_name}] wrap-up: ${issues.length} more issue(s)`,
-      );
+      log(`wrap-up: ${issues.length} more issue(s)`);
     }
   } catch (error) {
     // The browser must not outlive a session that failed half-way.
-    if (manager.has(spawnResult.session_id)) {
-      await hauntEndSession(manager, {
-        session_id: spawnResult.session_id,
-      }).catch(() => {});
+    if (manager.has(session_id)) {
+      await hauntEndSession(manager, { session_id }).catch(() => {});
     }
     throw error;
   }
 
   const endResult = await hauntEndSession(manager, {
-    session_id: spawnResult.session_id,
+    session_id,
     issues: finalIssues,
   });
 
   return {
     area: targetUrl,
-    persona: spawnResult.persona_name,
     overall_impression: endResult.overall_impression,
     issues: endResult.issues_found,
     rejected: endResult.rejected,
     signal_verification: endResult.signal_verification,
     sandbox_blocked_requests: endResult.sandbox_blocked_requests,
     signals: endResult.signals,
+    cases: endResult.cases,
+    inventory: endResult.inventory,
   };
 }
 
@@ -429,21 +567,24 @@ export async function runHeadlessTest(
   manager: SessionManager,
   options: Pick<
     CliOptions,
-    'targetUrl' | 'personas' | 'steps' | 'headless' | 'verbose'
+    'targetUrl' | 'personas' | 'steps' | 'headless' | 'verbose' | 'hostile'
   > & {
     cookies?: Cookie[];
+    // The budget of actions, when it is not five per decision.
+    budget?: number;
+    // The description of the app, read already, and what to call it.
+    spec?: { name: string; text: string };
   },
 ): Promise<HeadlessRunResult> {
+  // One area for now: the URL given.
+  const areas = [options.targetUrl];
   const settled = await Promise.allSettled(
-    options.personas.map((persona) =>
-      runPersonaSession(
+    areas.map((area) =>
+      runSession(
         decide,
         manager,
-        persona,
-        options.targetUrl,
-        options.steps,
-        options.headless,
-        options.cookies,
+        area,
+        options,
         options.verbose ? (line) => console.error(line) : undefined,
       ),
     ),
@@ -459,17 +600,20 @@ export async function runHeadlessTest(
         result.reason instanceof Error
           ? result.reason.message
           : String(result.reason);
-      failures.push(`${options.personas[i]}: ${message}`);
+      failures.push(`${areas[i]}: ${message}`);
     }
   });
 
   if (sessions.length === 0) {
-    throw new Error(`All persona sessions failed: ${failures.join('; ')}`);
+    throw new Error(`All sessions failed: ${failures.join('; ')}`);
   }
 
   const report = hauntGenerateReport({
     target_url: options.targetUrl,
+    // Only for the file's name, which a caller written before part 4 may
+    // rely on.
     personas: options.personas,
+    spec: options.spec?.name,
     sessions,
   });
 
@@ -577,13 +721,29 @@ export async function main() {
     }
   }
 
+  let spec: { name: string; text: string } | undefined;
+  if (options.specPath) {
+    try {
+      spec = {
+        name: basename(options.specPath),
+        text: readFileSync(options.specPath, 'utf-8'),
+      };
+    } catch {
+      console.error(`haunt-ci failed: cannot read --spec ${options.specPath}`);
+      process.exit(2);
+    }
+  }
+
   try {
     const { report, failures, exitCode } = await runHeadlessTest(
       decide,
       manager,
       {
         ...options,
+        // --steps is the budget of actions: at most as many decisions.
+        budget: options.steps,
         cookies,
+        spec,
       },
     );
     for (const failure of failures) {

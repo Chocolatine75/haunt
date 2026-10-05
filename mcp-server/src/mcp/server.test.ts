@@ -107,23 +107,24 @@ describe('MCP server', () => {
     expect(result.text).toBe('Error: Session not found: nope');
   });
 
-  it('reports a missing persona file as an error result without opening a browser', async () => {
+  // Was: a persona file that does not exist is an error. Personas are gone
+  // (part 4, R-T14); what a host can still get wrong at spawn is the target.
+  it('reports an unreachable target as an error result, and leaves no session', async () => {
     const result = await haunt.call('haunt_spawn', {
-      persona: '/nonexistent/persona.yaml',
-      target_url: 'data:text/html,<h1>x</h1>',
+      target_url: 'http://127.0.0.1:9/',
     });
     expect(result.isError).toBe(true);
-    expect(result.text).toMatch(/ENOENT/);
+    expect(result.text).toContain('is not reachable');
   });
 
   describe('argument validation', () => {
     it('names a missing required argument instead of failing inside the engine', async () => {
       const result = await haunt.call('haunt_spawn', {
-        target_url: 'data:text/html,<h1>x</h1>',
+        headless: true,
       });
       expect(result.isError).toBe(true);
       expect(result.text).toBe(
-        'Error: Invalid arguments for haunt_spawn: persona: Required',
+        'Error: Invalid arguments for haunt_spawn: target_url: Required',
       );
     });
 

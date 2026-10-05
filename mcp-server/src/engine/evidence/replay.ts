@@ -188,7 +188,6 @@ export async function replay(
   const claim = file.claim;
   const spawned = await hauntSpawn(manager, {
     ...(file.spawn as Record<string, unknown>),
-    persona: String(file.spawn.persona),
     target_url: file.start_url,
     cookies: options.cookies,
     secrets: options.known,

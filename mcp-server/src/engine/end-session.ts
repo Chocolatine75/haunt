@@ -28,7 +28,6 @@ export interface EndSessionInput {
 
 export interface EndSessionOutput {
   session_id: string;
-  persona: string;
   duration_seconds: number;
   pages_visited: number;
   step_count: number;
@@ -112,7 +111,6 @@ export async function hauntEndSession(
 
   const output: EndSessionOutput = {
     session_id: session.id,
-    persona: session.persona.name,
     duration_seconds,
     pages_visited: session.pages_visited.length,
     step_count: session.step_count,
@@ -129,5 +127,9 @@ export async function hauntEndSession(
       `Completed ${session.step_count} steps across ${session.pages_visited.length} pages.`,
   };
 
+  manager.keepEnded(session.id, {
+    result: output as unknown as Record<string, unknown>,
+    portable: plan.portable,
+  });
   return output;
 }

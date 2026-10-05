@@ -39,27 +39,8 @@ export interface Issue {
   actual?: string;
 }
 
-export interface PersonaScenario {
-  name: string;
-  goal: string;
-  max_steps: number;
-}
-
-export interface PersonaConfig {
-  name: string;
-  description: string;
-  system_prompt: string;
-  browser: {
-    headless: boolean;
-    viewport?: { width: number; height: number };
-    locale?: string;
-  };
-  scenarios: PersonaScenario[];
-}
-
 export interface HauntSession {
   id: string;
-  persona: PersonaConfig;
   browser: Browser;
   page: Page;
   issues: Issue[];

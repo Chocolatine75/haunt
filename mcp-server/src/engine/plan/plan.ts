@@ -286,9 +286,41 @@ type GivenCase = Omit<PlanCase, 'controls'> & {
   controls: Array<string | ControlName>;
 };
 
+// The cases of another session, live or ended, as this one can take them.
+function casesFrom(
+  manager: SessionManager,
+  from: string,
+  only: string[] | undefined,
+): GivenCase[] {
+  const all = (
+    manager.has(from)
+      ? planOf(manager.get(from)).portable
+      : manager.endedSession(from)?.portable
+  ) as GivenCase[] | undefined;
+  if (!all) {
+    throw new Error(
+      `No session ${from} to take cases from: it never existed, or ended too long ago.`,
+    );
+  }
+  if (!only) return all;
+  const missing = only.filter((id) => !all.some((one) => one.id === id));
+  if (missing.length > 0) {
+    throw new Error(
+      `Session ${from} has no case ${missing.map((id) => `"${id}"`).join(', ')}. It has: ${all.map((one) => `"${one.id}"`).join(', ') || 'none'}.`,
+    );
+  }
+  return all.filter((one) => only.includes(one.id));
+}
+
 export async function hauntPlan(
   manager: SessionManager,
-  input: Omit<PlanInput, 'cases'> & { cases?: GivenCase[] },
+  input: Omit<PlanInput, 'cases'> & {
+    cases?: GivenCase[];
+    // Takes the cases of another session, the planner's: all of them, or
+    // those named in `only`. They are resolved here as `cases` are (R-T21).
+    from?: string;
+    only?: string[];
+  },
 ): Promise<PlanOutput> {
   const session = manager.get(input.session_id);
   await manager.reapStale(SESSION_TTL_MS);
@@ -300,7 +332,10 @@ export async function hauntPlan(
   await syncInventory(session);
 
   // All of them or none: a plan half taken is not the plan that was sent.
-  const cases = (input.cases ?? []).map((one) => resolved(session, one));
+  const cases = [
+    ...(input.from ? casesFrom(manager, input.from, input.only) : []),
+    ...(input.cases ?? []),
+  ].map((one) => resolved(session, one));
   for (const one of cases) checkCase(session, one);
   for (const one of input.close ?? []) {
     if (

@@ -6,10 +6,10 @@ import {
   createDecider,
   resolveProvider,
   runHeadlessTest
-} from "./chunk-5YX6VMZ4.js";
+} from "./chunk-BSXACIBL.js";
 import {
   SessionManager
-} from "./chunk-RLH6GE5Q.js";
+} from "./chunk-Q2MFLHYO.js";
 import {
   Anthropic
 } from "./chunk-MMWLM6BK.js";
@@ -253,7 +253,6 @@ function createMistralJudge(client, model) {
 var USAGE = "Usage: haunt-benchmark [url] [--ground-truth path] [--provider anthropic|mistral] [--model id] [--out path] [--email addr --password pw] [--login-url url]";
 var DEFAULT_TARGET_URL = "http://localhost:3000";
 var DEFAULT_GROUND_TRUTH_PATH = "demo/benchmark-ground-truth.json";
-var BENCHMARK_PERSONA = "confused-beginner";
 var BENCHMARK_STEPS = 3;
 var VALUED_FLAGS = [
   "ground-truth",
@@ -316,7 +315,6 @@ async function runBenchmark(decide, judge, manager, options) {
   const groundTruth = loadGroundTruth(options.groundTruthPath);
   const { report } = await runHeadlessTest(decide, manager, {
     targetUrl: options.targetUrl,
-    personas: [BENCHMARK_PERSONA],
     steps: BENCHMARK_STEPS,
     headless: true,
     cookies: options.cookies

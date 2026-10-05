@@ -1,27 +1,31 @@
 # /haunt-test
 
-Run a phantom user test session against a running web application.
+Test a running web application the way a QA engineer would, and report what is
+wrong with it.
 
 ## Usage
 
-/haunt-test <url> [--personas <list>] [--headed] [--steps N] [--verbose]
+/haunt-test <url> [--spec <file>] [--steps N] [--headed] [--verbose]
 
 ## Arguments
 
 - `url` — Target URL (required). Must be a running server, e.g. http://localhost:3000
-- `--personas` — Comma-separated persona names (default: confused-beginner)
-  Available: confused-beginner, malicious-user, screen-reader-user
+- `--spec` — A file describing what the app is meant to do (a README, a
+  requirements page). Given to the planner and the testers as it is: what it
+  says the app does is what they hold it to.
+- `--steps` — The budget of actions of each tester (default: 40)
 - `--headed` — Show the browser window in real time (default: headless)
-- `--steps` — Max navigation steps per area (default: 3)
 - `--routes` — Comma-separated paths to test directly (e.g. `/signup,/pricing`),
-  skipping Phase 1's DOM-based route discovery. Use when you already know which
-  areas matter, or when scouting misses/over-picks routes.
+  skipping Phase 1's route discovery. Use when you already know which areas
+  matter, or when scouting misses or over-picks routes.
 - `--compare` — Path to a previous report (its `.md` path) to diff this run
   against. The final report and summary annotate each issue as new vs. still
   present, and list issues from that run that no longer reproduce.
 - `--email` — Email to log in with before testing
 - `--password` — Password to log in with (use with --email)
 - `--debug-auth` — Print each auth step verbosely (use when auth fails silently)
+- `--hostile` — Also plan attack payloads (script injection, forged
+  parameters). Only against an app you own.
 - `--yes` — Skip the cost estimate confirmation prompt (for scripted use)
 - `--verbose` — Print intermediate reasoning and observations between tool calls (default: silent)
 
@@ -36,6 +40,22 @@ Come back once done and run again.
 
 Then stop. Do NOT debug.
 
+## Who does what
+
+You are the orchestrator. You find the areas to test, hand each to a
+**planner**, hand the planner's cases to **testers**, and assemble the report.
+You test nothing yourself: an agent that plans, acts and judges in one context
+does each of them worse.
+
+- `haunt-planner` reads one area and writes its test cases. It cannot act on
+  the page: it has no tool for it.
+- `haunt-tester` plays the cases it is handed, in a browser session of its own,
+  and reports what is wrong.
+
+Both are agents of this plugin; spawn them with the Agent tool. What follows
+describes haunt's tools, which you use for scouting and logging in and which
+the agents use for the rest.
+
 ## Behavior
 
 ### Phase 0 — Header
@@ -43,7 +63,7 @@ Then stop. Do NOT debug.
 Print exactly:
 
 ```
-haunt v0.2.0  —  phantom user testing
+haunt v0.2.0  —  QA testing
 ```
 
 ### How to act on a page
@@ -174,7 +194,7 @@ Print: `logging in as <email>...`
 
 - If `--debug-auth`: print `  · auth flow started`
 
-1. `haunt_spawn` at `target_url` with timeout: 10
+1. `haunt_spawn` at `target_url` with `budget: 10`
    - If `--debug-auth`: print `  · browser opened`
 2. `haunt_capture_state` — look for a login form, or a link to one
    - If `--debug-auth`: print `  · page loaded`
@@ -190,7 +210,7 @@ Print: `logging in as <email>...`
 
 Print: `authenticated  —  cookies captured`
 
-Store the cookies. Pass them to every `haunt_spawn` call in Phase 2 via the `cookies` parameter, with `secrets: [<email>, <password>]`: the session never types them, and haunt keeps them out of every bundle only if it knows them.
+Store the cookies. Hand them to every planner and tester in Phase 2, with the email and password as secrets: the sessions never type them, and haunt keeps them out of every bundle only if it knows them.
 
 If login fails (still on login page after submit, or error visible):
 - If `--debug-auth`: print `  · login failed — session not detected`
@@ -200,12 +220,14 @@ Print `login failed — check your credentials` and stop.
 
 Parse arguments:
 - `target_url` — the URL argument
-- `personas` — from `--personas` (default: `["confused-beginner"]`)
+- `spec` — the content of the file given with `--spec`, read with the Read
+  tool; none if not given
+- `budget` — from `--steps` (default: 40)
 - `headless` — true unless `--headed`
-- `steps` — from `--steps` (default: 3)
+- `hostile` — true only if `--hostile`
 - `routes` — from `--routes`, comma-separated, or empty if not given
 
-**If `--routes` was given, skip discovery entirely**: the page plan is exactly
+**If `--routes` was given, skip discovery entirely**: the areas are exactly
 those paths (each resolved against `target_url`'s origin), in the order given —
 no cap at 4. Print `routes (manual): <path1>  <path2>  ...` and go straight to
 Phase 1.5.
@@ -214,22 +236,24 @@ Otherwise, discover routes from the real page:
 
 Print: `scouting...`
 
-Spawn one browser session with the first persona and `timeout: 5`.
-Call `haunt_capture_state`.
+`haunt_spawn` one session on `target_url` with `budget: 5`, then
+`haunt_capture_state`.
 
 **Read real links from the snapshot** — every `link` line ends with its
 destination (`-> /pricing`). Keep the distinct paths on the target's own
 origin. Do NOT guess common routes like /login or /dashboard unless you
 actually see them in the snapshot.
 
-Call `haunt_end_session`. Build a page plan of up to 4 areas from the **real links you found**. If fewer than 4 real routes exist, test those — do not pad with guesses.
+Call `haunt_end_session`. Keep up to 4 areas from the **real links you found**,
+the target itself first. If fewer than 4 real routes exist, test those — do
+not pad with guesses.
 
 Print the discovered routes, e.g.: `routes: /  /login  /pricing  /dashboard`
 
 ### Phase 1.5 — Cost estimate
 
-Call `haunt_estimate_cost` with `route_count` (number of areas in the page plan, max 4)
-and `steps_per_route` (value of `--steps`, default: 3).
+Call `haunt_estimate_cost` with `route_count` (the number of areas, max 4) and
+`steps_per_route` (the budget).
 
 Print exactly:
 
@@ -243,63 +267,84 @@ proceed? [y/N]
   - If user types `y` or `yes`: continue to Phase 2.
   - Any other input (including Enter alone): print `aborted.` and stop.
 
-### Phase 2 — Parallel testing
+### Phase 2 — Plan, then test
 
-Print: `testing N areas...`
+Print: `planning N areas...`
 
-Run all sessions yourself — do NOT spawn sub-agents or agents.
+**SILENCE RULE: unless `--verbose` is passed, print NOTHING between tool calls. No step labels, no reasoning summaries, no observations. Zero text output between the `planning N areas...` line and the final summary block.**
 
-**SILENCE RULE: unless `--verbose` is passed, print NOTHING between tool calls. No step labels, no "parallel" announcements, no reasoning summaries, no observations. Zero text output between the `testing N areas...` line and the final summary block. Think entirely silently.**
+**2a. One planner per area, all in a single message (in parallel).** Spawn a
+`haunt-planner` agent for each area with this, and nothing else:
 
-A "step" is one decision per session: one `haunt_act` call, which may carry
-several actions. Spawn each session with `timeout` set to `steps × 5`.
+```
+Area: <full URL of the area>
+Headless: <true|false>
+Cookies: <the cookies captured in Phase 0.5, as JSON, or "none">
+Secrets: <the email and password, or "none">
+Hostile cases allowed: <yes|no>
+Budget of each tester: <budget> actions
+<if a spec was given:>
+What the app is meant to do:
+<the spec, as it is>
+```
 
-1. `haunt_spawn` for every area in a single message (all in parallel). If auth cookies were captured in Phase 0.5, pass them via the `cookies` parameter to every `haunt_spawn` call, and the email and password via `secrets`.
-   Keep track of which area each returned `session_id` belongs to — Phase 3 needs it.
-2. `haunt_capture_state` for all sessions — all in parallel.
-3. Reason as each persona with a **corner-case mindset — NOT the happy path** (silently unless `--verbose`):
-   - What non-obvious action would this user take that a developer would never think to test?
-   - What happens if they submit empty forms, enter wrong data types, go back after submitting?
-   - What if they navigate directly to a URL they shouldn't have access to?
-   - What breaks when they don't follow the expected flow?
-   Prioritize unexpected behavior over intended flows.
-4. `haunt_act` for all sessions in a single message, with any `issues` spotted.
-   Choose corner-case actions: submit empty forms, enter bad data, access protected URLs directly, trigger the same action twice.
-   Read each result as described in "How to act on a page" — what changed, what failed and why, which `signals` it brought — and turn what a real user would suffer from into issues for the next call, naming the signal each one is about.
-5. Repeat capture → act up to `steps - 1` more times.
-6. `haunt_end_session` for all sessions in a single message. Pass in its `issues` whatever the result of the last action revealed — no later call would carry it.
+Each planner answers with the id of its session and its cases grouped for the
+testers: up to 3 groups per area, each a list of case ids that belong together
+(one form, one list with its filters, one dialog). A planner that found
+nothing to test on its area answers with no group: that area gets one tester
+with no case, which explores.
 
-CRITICAL: every batch of the same tool MUST be a single message with parallel tool calls.
+On a planner's failure: print `skipped /area: <error>` and continue without
+that area.
 
-On `haunt_spawn` failure: print `skipped /area: <error>` and continue.
+Print: `testing M groups...`
+
+**2b. One tester per group, all in a single message (in parallel).** Spawn a
+`haunt-tester` agent for each group with this, and nothing else:
+
+```
+Area: <full URL of the area>
+Headless: <true|false>
+Cookies: <as above>
+Secrets: <as above>
+Hostile cases allowed: <yes|no>
+Budget: <budget> actions
+Planner's session: <the planner's session id>
+Your cases: <the ids of this group, comma-separated, or "none: explore">
+<if a spec was given:>
+What the app is meant to do:
+<the spec, as it is>
+```
+
+Each tester answers with the id of its session, ended, and a sentence or two
+on what it found. Keep track of which area each session id belongs to.
+
+CRITICAL: the planners go in one message, and the testers in one message.
+Never spawn them one after the other.
+
+On a tester's failure: print `skipped /area: <error>` and continue.
 
 ### Phase 3 — Report
 
-Do NOT spawn any agent or sub-agent. Do NOT hand-write the report file yourself —
-`haunt_generate_report` computes the counts, sorts issues, renders the markdown, picks
-the file path, and writes it to `.haunt-reports/`. Your job in this phase is only to
-assemble its input and print its output.
+Do NOT hand-write the report file yourself — `haunt_generate_report` computes
+the counts, sorts the issues, counts the coverage across the testers, renders
+the markdown, picks the file path, and writes it to `.haunt-reports/`. Your job
+in this phase is only to tell it which sessions to report on, and print its
+output.
 
-**Never let credentials reach the report.** Issue descriptions, recommendations, and
-`overall_impression` strings are your own text — `haunt_generate_report` writes exactly
-what you give it. Never put the value of `--password`, `--email`, or any cookie
-(name or value) into any of those fields. If something you captured (a page snapshot)
-happens to contain one, redact it (e.g. `[redacted]`) before including it.
+**Never let credentials reach the report.** The `overall_impression` strings
+are your own text. Never put the value of `--password`, `--email`, or any
+cookie (name or value) into them.
 
-For each session, gather:
-- `area` — the route it tested (tracked in Phase 2, step 1)
-- `persona` — the persona's display name
-- `overall_impression` — from that session's `EndSessionOutput`
-- `issues` — that session's `EndSessionOutput.issues_found`
-- `sandbox_blocked_requests` — that session's `EndSessionOutput.sandbox_blocked_requests`
-- `signals` — that session's `EndSessionOutput.signals`, exactly as returned
-- `rejected` — that session's `EndSessionOutput.rejected`, exactly as returned
-- `issues` are passed exactly as returned too, with their `verification`: the
-  report lists confirmed ones as issues, and flaky and unverified ones apart
-
-Call `haunt_generate_report` with `target_url`, `personas` (the list used this run),
-`sessions` (the array assembled above), and — if `--compare <path>` was given —
-`compare_with: <path>`.
+Call `haunt_generate_report` with:
+- `target_url`
+- `sessions`: one entry per **tester** session, as
+  `{ "session_id": "<id>", "area": "<its route, e.g. /signup>",
+  "overall_impression": "<what the tester said it found>" }`. The server has
+  each ended session's issues, signals, cases and inventory: do not copy them.
+  The planners' sessions are not reported: they tested nothing.
+- `spec`: the name of the `--spec` file, if one was given
+- `compare_with: <path>`, if `--compare <path>` was given
 
 **Print exactly the `summary` field the tool returns.** Do not reconstruct it yourself.
 If `compare_with` was passed and the tool returns a `comparison_error`, that means the

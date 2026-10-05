@@ -14,7 +14,6 @@ if (nodeMajor < MIN_NODE_MAJOR) {
 }
 
 const SCRIPT_DIR = __dirname;
-process.env.HAUNT_PERSONAS_DIR = path.join(SCRIPT_DIR, '..', 'personas');
 
 // The Chromium revision must match whatever playwright-core is actually vendored in
 // dist/node_modules — installing "latest" via npx can silently fetch a different
