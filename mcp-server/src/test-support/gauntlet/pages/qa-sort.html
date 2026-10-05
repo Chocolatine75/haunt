@@ -19,6 +19,11 @@
     <option value="price-desc">Price, high to low</option>
   </select>
 </label></p>
+<p>
+  <button data-g="compact" type="button" aria-pressed="false">Compact view</button>
+  <button data-g="details" type="button" aria-expanded="false" aria-controls="shipping">Shipping details</button>
+</p>
+<p id="shipping" hidden>Orders leave the warehouse within two working days.</p>
 <p><button data-g="compare" type="button" disabled>Compare selected</button></p>
 <ul data-g="products" id="products" aria-label="Products"></ul>
 <script>
@@ -45,6 +50,16 @@
       .join('');
   }
   G.find('sort').addEventListener('change', render);
+  G.find('compact').addEventListener('click', (event) => {
+    const on = event.currentTarget.getAttribute('aria-pressed') !== 'true';
+    event.currentTarget.setAttribute('aria-pressed', String(on));
+    document.getElementById('products').style.lineHeight = on ? '1.1' : '';
+  });
+  G.find('details').addEventListener('click', (event) => {
+    const open = event.currentTarget.getAttribute('aria-expanded') !== 'true';
+    event.currentTarget.setAttribute('aria-expanded', String(open));
+    document.getElementById('shipping').hidden = !open;
+  });
   render();
 </script>
 </body>

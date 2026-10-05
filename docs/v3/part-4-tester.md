@@ -56,9 +56,10 @@ between several agents, is left to the host.
   use, `edge` input, `state` change, `keyboard`, `visual`) and what is
   expected, in one sentence. A case naming a reference the page does not
   have is refused with the reason.
-- **R-T3 The plan follows the page.** When an action brings controls that
-  were not there (a dialog, a new page, results), the action's result says
-  so, and they are added to the inventory as not yet planned.
+- **R-T3 The plan follows the page.** When an action brings controls a user
+  could not act on before (a dialog that opens, a new page, results), the
+  action's result names them, and they are in the inventory as usable and
+  not yet planned.
 - **R-T4 Coverage is counted by the engine.** A control is **exercised** once
   an action that succeeded named it. A case is **run** once it has a verdict
   (R-T7). `haunt_plan` and `haunt_end_session` return, at any time: controls
@@ -68,8 +69,9 @@ between several agents, is left to the host.
 ## B. Budget
 
 - **R-T5 A budget of actions, not three steps.** A session has a budget of
-  actions (default 40, settable at spawn and with `--steps`). Every
-  `haunt_act` result carries what is left of it.
+  actions (default 40, settable at spawn as `budget` and with `--steps`).
+  It is the step limit the engine already had, which the command capped at
+  three. Every `haunt_act` result carries what is left of it.
 - **R-T6 Told when it runs short.** From three quarters of the budget, each
   result also lists the controls and cases still untouched, so the rest goes
   to what matters. At zero, `haunt_act` refuses further actions and says to
@@ -84,16 +86,17 @@ between several agents, is left to the host.
   A case can also be closed by the tester with a verdict of its own and a
   sentence, when what it expects is not something the engine can read
   (R-T11).
-- **R-T8 Reading a list exactly.** Observations gain `list`: for the items
-  of a container named by reference (or the elements of a role under it),
-  their texts as the page shows them, and a condition on them: `count`
-  equal to, at least or at most a number; `every` item contains (or does not
-  contain) a text; items are in ascending or descending order, as numbers or
-  as text. `haunt_capture_state` returns the same list on request, so the
-  tester can look before it states.
-- **R-T9 Reading a value.** Observations gain `value`: what a field holds, or
-  an element's state attribute (`checked`, `selected`, `expanded`,
-  `pressed`), compared with an expected one. A credential field's value is
+- **R-T8 Reading a list exactly.** Observations gain `list`: for a container
+  named by its role and accessible name (a list is not a control and has no
+  reference), the elements of a given role under it, their texts as the page
+  shows them, and a condition on them: `count` equal to, at least or at most
+  a number; every item contains, or none contains, a text; items are in
+  ascending or descending order, as numbers or as text; the items are
+  exactly a given list. `haunt_capture_state` returns the same list on
+  request, so the tester can look before it states.
+- **R-T9 Reading a value.** Observations gain `value`: what a control holds
+  or its state (`checked`, `expanded`, `pressed`, `focused`), compared with
+  an expected one. A credential field's value is
   never returned or compared in clear: it is `(filled)` or `(empty)`, as in
   the snapshot.
 - **R-T10 A failed expectation is an issue's claim.** An issue can name a
@@ -118,16 +121,18 @@ between several agents, is left to the host.
 ## E. Seeing the page
 
 - **R-T13 A screenshot on request.** `haunt_capture_state` with
-  `screenshot: true` returns an image of the viewport along with the
-  snapshot. Credential fields are masked in it, as in the evidence bundle's
-  (R-E15). It is how the tester judges what text cannot say: a card that
-  jumps, five stars where there should be three.
+  `include_screenshot` returns an image of the viewport along with the
+  snapshot, credential fields masked (R-E15). The engine has had it since
+  part 3; what changes is that the tester is told to use it for what text
+  cannot say: a card that jumps, a layout that overlaps.
 
 ## F. What the tester is told
 
-- **R-T14 No personas.** They are removed: the `persona` input of
-  `haunt_spawn`, the `--personas` flag, the `personas/` directory and its
-  loader, and the persona column of reports. The brief the tester gets is
+- **R-T14 No personas.** They are removed: the `--personas` flag, the
+  `personas/` directory and its loader, and every mention of one in what
+  haunt returns or writes. `haunt_spawn` opens a session without one. The
+  inputs that carried a persona stay accepted and are ignored, since a
+  caller written before this part passes them. The brief the tester gets is
   the method: inventory, plan each control's normal use with realistic
   values, state the expectation, check it, then edge cases, keyboard and
   state changes. What two of the personas were for stays as case kinds:
@@ -171,7 +176,7 @@ page answers, raises no signal, and is wrong.
 |---|---|
 | `qa-search` | A search with a "Titles only" switch that also matches descriptions |
 | `qa-filters` | Two filters that combine as "or" where the page says "and", and a result count that disagrees with the list |
-| `qa-sort` | A "Price, low to high" order that sorts prices as text |
+| `qa-sort` | A "Price, low to high" order that sorts prices as text; a disabled button, a toggle and a disclosure, for the states |
 | `qa-form` | A form whose "Remember me" box is unchecked again after saving, and a quantity field that accepts a negative number |
 | `qa-rating` | Star ratings that always show five, whatever the score next to them |
 | `qa-dialog` | A dialog that opens with controls the page did not have, and a Tab key that leaves it for the page behind |
@@ -220,19 +225,26 @@ Deterministic, with a scripted tester, as in parts 1 to 3.
 
 1. A screenshot is returned on request; with the login page's fields filled,
    it is the same image as with them empty.
-2. `haunt_spawn` takes no persona and refuses one as an unknown input; no
-   tool result, report or sidecar has a persona in it; a report compared
-   with one written before this part still gets its comparison. A `hostile`
-   case is refused without `--hostile` and accepted with it.
+2. `haunt_spawn` opens a session without a persona; no tool result, report
+   or sidecar has one in it; a report compared with one written before this
+   part still gets its comparison. A `hostile` case is refused without
+   `--hostile` and accepted with it.
 3. `--spec` reaches the decider of `haunt-ci` verbatim, and the report names
-   it.
+   it; without one the decider is given the method and no character to play.
 4. The third unchanged repeat of an action is flagged, with what is left to
    exercise; the second is not.
 
 ### T6 — the gate is not lying, and nothing regressed (R-T17 … R-T19)
 
-As E7: sabotages, every requirement claimed, no skipped test, and the
-fingerprints of the earlier gates.
+1. Sabotage: with each property broken on purpose (hidden controls left out
+   of the inventory, coverage counted from the plan, an expectation assumed
+   to hold, a list read outside its container, the budget ignored, a
+   credential read in clear, an unchecked issue confirmed, a case's issue
+   not replayed), the gate test of that property fails.
+2. Every requirement of this document is claimed by a gate test, every
+   numbered test here exists, and none is skipped.
+3. The files of the part 1, 2 and 3 gates are what they were when this part
+   started.
 
 ### T7 — live
 

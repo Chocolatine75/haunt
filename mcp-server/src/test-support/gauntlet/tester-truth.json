@@ -27,12 +27,22 @@
         "controls": ["query", "titles-only"],
         "expect": "With Titles only on, every result's title contains the word searched",
         "steps": [
-          { "type": "fill", "target": "query", "text": "garlic" },
-          { "type": "check", "target": "titles-only" }
+          {
+            "type": "fill",
+            "target": "query",
+            "text": "garlic"
+          },
+          {
+            "type": "check",
+            "target": "titles-only"
+          }
         ],
         "check": {
           "list": {
-            "within": { "role": "list", "name": "Results" },
+            "within": {
+              "role": "list",
+              "name": "Results"
+            },
             "items": "heading",
             "every_contains": "garlic"
           }
@@ -71,14 +81,25 @@
         "controls": ["vegan", "gluten-free"],
         "expect": "With both filters on, only the one dish that is vegan and gluten-free is listed",
         "steps": [
-          { "type": "check", "target": "vegan" },
-          { "type": "check", "target": "gluten-free" }
+          {
+            "type": "check",
+            "target": "vegan"
+          },
+          {
+            "type": "check",
+            "target": "gluten-free"
+          }
         ],
         "check": {
           "list": {
-            "within": { "role": "list", "name": "Dishes" },
+            "within": {
+              "role": "list",
+              "name": "Dishes"
+            },
             "items": "listitem",
-            "count": { "eq": 1 }
+            "count": {
+              "eq": 1
+            }
           }
         },
         "read": {
@@ -96,7 +117,24 @@
   },
   "qa-sort": {
     "controls": [
-      { "g": "sort", "role": "combobox", "name": "Sort by", "group": "page" },
+      {
+        "g": "sort",
+        "role": "combobox",
+        "name": "Sort by",
+        "group": "page"
+      },
+      {
+        "g": "compact",
+        "role": "button",
+        "name": "Compact view",
+        "group": "page"
+      },
+      {
+        "g": "details",
+        "role": "button",
+        "name": "Shipping details",
+        "group": "page"
+      },
       {
         "g": "compare",
         "role": "button",
@@ -120,7 +158,10 @@
         ],
         "check": {
           "list": {
-            "within": { "role": "list", "name": "Products" },
+            "within": {
+              "role": "list",
+              "name": "Products"
+            },
             "items": "listitem",
             "order": "ascending",
             "as": "number"
@@ -173,13 +214,26 @@
         "controls": ["weekly", "save"],
         "expect": "The weekly summary stays checked once saved",
         "steps": [
-          { "type": "check", "target": "weekly" },
-          { "type": "click", "target": "save" }
+          {
+            "type": "check",
+            "target": "weekly"
+          },
+          {
+            "type": "click",
+            "target": "save"
+          }
         ],
         "check": {
-          "value": { "target": "weekly", "of": "checked", "is": true }
+          "value": {
+            "target": "weekly",
+            "of": "checked",
+            "is": true
+          }
         },
-        "read": { "buggy": false, "clean": true }
+        "read": {
+          "buggy": false,
+          "clean": true
+        }
       },
       {
         "id": "negative-quantity",
@@ -187,10 +241,19 @@
         "controls": ["quantity", "save"],
         "expect": "A negative number of boxes is refused with a message",
         "steps": [
-          { "type": "fill", "target": "quantity", "text": "-3" },
-          { "type": "click", "target": "save" }
+          {
+            "type": "fill",
+            "target": "quantity",
+            "text": "-3"
+          },
+          {
+            "type": "click",
+            "target": "save"
+          }
         ],
-        "check": { "text_present": "Boxes per delivery must be at least 1" }
+        "check": {
+          "text_present": "Boxes per delivery must be at least 1"
+        }
       }
     ]
   },
@@ -209,10 +272,18 @@
         "kind": "visual",
         "controls": ["refresh"],
         "expect": "Each product shows as many stars as its score: 5, 3, 2 and 4",
-        "steps": [{ "type": "click", "target": "refresh" }],
+        "steps": [
+          {
+            "type": "click",
+            "target": "refresh"
+          }
+        ],
         "check": {
           "list": {
-            "within": { "role": "list", "name": "Products" },
+            "within": {
+              "role": "list",
+              "name": "Products"
+            },
             "items": "img",
             "equals": ["★★★★★", "★★★☆☆", "★★☆☆☆", "★★★★☆"]
           }
@@ -232,7 +303,12 @@
         "name": "Edit profile",
         "group": "page"
       },
-      { "g": "help", "role": "link", "name": "Help", "group": "page" },
+      {
+        "g": "help",
+        "role": "link",
+        "name": "Help",
+        "group": "page"
+      },
       {
         "g": "display-name",
         "role": "textbox",
@@ -266,15 +342,34 @@
         "controls": ["edit"],
         "expect": "With the dialog open, three presses of Tab bring the focus back to its first field",
         "steps": [
-          { "type": "click", "target": "edit" },
-          { "type": "press", "keys": "Tab" },
-          { "type": "press", "keys": "Tab" },
-          { "type": "press", "keys": "Tab" }
+          {
+            "type": "click",
+            "target": "edit"
+          },
+          {
+            "type": "press",
+            "keys": "Tab"
+          },
+          {
+            "type": "press",
+            "keys": "Tab"
+          },
+          {
+            "type": "press",
+            "keys": "Tab"
+          }
         ],
         "check": {
-          "value": { "target": "display-name", "of": "focused", "is": true }
+          "value": {
+            "target": "display-name",
+            "of": "focused",
+            "is": true
+          }
         },
-        "read": { "buggy": false, "clean": true }
+        "read": {
+          "buggy": false,
+          "clean": true
+        }
       }
     ]
   }

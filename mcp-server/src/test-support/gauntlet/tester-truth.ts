@@ -46,7 +46,7 @@ export interface TesterCheck {
   };
   value?: {
     target: string;
-    of: 'value' | 'checked' | 'selected' | 'expanded' | 'pressed' | 'focused';
+    of: 'value' | 'checked' | 'expanded' | 'pressed' | 'focused';
     is: string | boolean;
   };
 }
