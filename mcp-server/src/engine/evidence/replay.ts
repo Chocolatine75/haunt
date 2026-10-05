@@ -14,8 +14,10 @@ import type {
   ReplayOutput,
   StepsFile,
 } from '../../gates/part-3/contract.js';
+import type { Expectation } from '../../gates/part-4/contract.js';
 import { hauntAct } from '../act/act.js';
 import { lastEffects } from '../end-session.js';
+import { check } from '../plan/expect.js';
 import { sabotaged } from '../sabotage.js';
 import { SessionManager } from '../session/manager.js';
 import { takeSnapshot } from '../snapshot/snapshot.js';
@@ -102,10 +104,24 @@ async function textOf(session: HauntSession): Promise<string> {
   return texts.join('\n');
 }
 
-async function holds(
+// Whether a claim about the page holds. `fails` turns it round: the claim
+// of an issue that names a case is that the case's expectation does not
+// hold (part 4, R-T10).
+export async function holds(
+  session: HauntSession,
+  observed: Observation & { locator?: Locator; fails?: boolean },
+): Promise<boolean> {
+  const held = await observedHolds(session, observed);
+  return observed.fails ? !held : held;
+}
+
+async function observedHolds(
   session: HauntSession,
   observed: Observation & { locator?: Locator },
 ): Promise<boolean> {
+  // A list read exactly, or the state of a control (part 4).
+  const own = await check(session, observed as Expectation);
+  if (own) return own.held;
   if (observed.text_present !== undefined) {
     return (await textOf(session)).includes(observed.text_present);
   }
@@ -176,7 +192,8 @@ export async function replay(
     target_url: file.start_url,
     cookies: options.cookies,
     secrets: options.known,
-    timeout: file.steps.length + 5,
+    // Its steps and no more, whatever budget the session had.
+    budget: file.steps.length + 5,
     // A replay is not a session of its own: no audit unless the claim is
     // about one, and no replays of its replays.
     audit: 'signal' in claim && claim.signal.kind === 'a11y',

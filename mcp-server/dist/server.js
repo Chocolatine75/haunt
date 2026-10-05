@@ -1,5 +1,6 @@
 import { createRequire } from 'module'; const require = createRequire(import.meta.url);
 import {
+  CASE_KINDS,
   SessionManager,
   actionSchema,
   external_exports,
@@ -8,10 +9,12 @@ import {
   hauntEndSession,
   hauntGenerateReport,
   hauntGetCookies,
+  hauntPlan,
   hauntReplay,
   hauntSpawn,
+  malformed,
   zodToJsonSchema
-} from "./chunk-XGZGI4IW.js";
+} from "./chunk-D2N3VQNN.js";
 import {
   _enum,
   _null,
@@ -10583,6 +10586,53 @@ var SIGNAL_KINDS = [
 ];
 
 // src/mcp/tools.ts
+var listQuerySchema = external_exports.object({
+  within: external_exports.object({ role: external_exports.string(), name: external_exports.string() }).describe(
+    'The container, by its role and accessible name: { role: "list", name: "Results" }'
+  ),
+  items: external_exports.string().describe(
+    "The role of the items read under it, in reading order: listitem, heading, row, img\u2026"
+  )
+});
+var expectationSchema = external_exports.object({
+  text_present: external_exports.string().optional(),
+  text_absent: external_exports.string().optional(),
+  url: external_exports.string().optional(),
+  element: external_exports.object({
+    ref: external_exports.string(),
+    state: external_exports.enum(["visible", "hidden", "disabled", "enabled", "gone"])
+  }).optional(),
+  list: listQuerySchema.extend({
+    count: external_exports.object({
+      eq: external_exports.number().int().optional(),
+      min: external_exports.number().int().optional(),
+      max: external_exports.number().int().optional()
+    }).optional(),
+    every_contains: external_exports.string().optional(),
+    none_contains: external_exports.string().optional(),
+    order: external_exports.enum(["ascending", "descending"]).optional(),
+    as: external_exports.enum(["number", "text"]).optional().describe(
+      "How the order is judged; a number is the first one written in the item. Default: text"
+    ),
+    equals: external_exports.array(external_exports.string()).optional().describe("Exactly these items, in this order")
+  }).optional().describe(
+    "The items of a container, as the page shows them, and what must be true of them"
+  ),
+  value: external_exports.object({
+    ref: external_exports.string(),
+    of: external_exports.enum(["value", "checked", "expanded", "pressed", "focused"]),
+    is: external_exports.union([external_exports.string(), external_exports.boolean()])
+  }).optional().describe(
+    'What a control holds or its state. A credential field reads as "(filled)" or "(empty)"'
+  ),
+  step: external_exports.number().int().min(0).optional().describe(
+    "For an issue: the step after which it holds. Default: the last step"
+  )
+}).strict().superRefine((value, ctx) => {
+  const problem = malformed(value);
+  if (problem)
+    ctx.addIssue({ code: external_exports.ZodIssueCode.custom, message: problem });
+});
 var issueSchema = external_exports.object({
   severity: external_exports.enum(["critical", "major", "minor", "suggestion"]),
   category: external_exports.enum([
@@ -10598,23 +10648,16 @@ var issueSchema = external_exports.object({
   signal: external_exports.string().optional().describe(
     "The id of the signal this issue is about (s3). An issue must name a signal or carry an observation, or it is rejected"
   ),
-  observed: external_exports.object({
-    step: external_exports.number().int().min(0).optional().describe("The step after which it holds. Default: the last step"),
-    text_present: external_exports.string().optional(),
-    text_absent: external_exports.string().optional(),
-    url: external_exports.string().optional().describe("A string the page URL contains"),
-    element: external_exports.object({
-      ref: external_exports.string(),
-      state: external_exports.enum(["visible", "hidden", "disabled", "enabled", "gone"])
-    }).optional()
-  }).strict().refine(
-    (o) => [o.text_present, o.text_absent, o.url, o.element].filter(
-      (v) => v !== void 0
-    ).length === 1,
-    "An observation states exactly one of text_present, text_absent, url, element"
-  ).optional().describe(
-    "For an issue no signal shows: the fact about the page the engine checks by replaying the steps (a message that is or is not there, an address, an element\u2019s state)"
-  )
+  observed: expectationSchema.optional().describe(
+    "For an issue no signal shows: the fact about the page the engine checks by replaying the steps (a message that is or is not there, an address, an element\u2019s state, the items of a list, what a control holds)"
+  ),
+  case: external_exports.string().optional().describe(
+    "The test case whose check failed. The engine replays the case and checks the same expectation"
+  ),
+  expected: external_exports.string().optional().describe(
+    'For an issue the engine cannot check: what you expected. Listed under "To check by hand"'
+  ),
+  actual: external_exports.string().optional().describe("And what you saw instead")
 });
 var verificationSchema = external_exports.object({
   status: external_exports.enum(["confirmed", "flaky", "rejected", "unverified"]),
@@ -10637,6 +10680,14 @@ var signalSchema = external_exports.object({
   severity: external_exports.enum(["major", "minor"]),
   count: external_exports.number().int().positive()
 }).passthrough();
+var planCaseSchema = external_exports.object({
+  id: external_exports.string().min(1).describe('A short name of your own: "titles-only"'),
+  kind: external_exports.enum(CASE_KINDS).describe(
+    "normal use, an edge input, a state change, keyboard only, visual, or hostile (attack payloads; only in a session spawned with hostile: true)"
+  ),
+  controls: external_exports.array(external_exports.string()).describe("References of the controls it exercises, from the inventory"),
+  expect: external_exports.string().describe("One sentence: what should be true once the case is played")
+});
 var cookieSchema = external_exports.object({
   name: external_exports.string(),
   value: external_exports.string(),
@@ -10662,7 +10713,13 @@ var TOOLS = [
       ),
       target_url: external_exports.string().describe("URL to test (e.g. http://localhost:3000)"),
       headless: external_exports.boolean().optional().describe("Run browser in headless mode. Default: true"),
-      timeout: external_exports.number().optional().describe("Maximum navigation steps for this session. Default: 30"),
+      budget: external_exports.number().int().positive().optional().describe(
+        "How many actions the session may run before it has to end. Default: 40"
+      ),
+      timeout: external_exports.number().optional().describe("Older name of `budget`"),
+      hostile: external_exports.boolean().optional().describe(
+        "Allow test cases of kind `hostile`, which send attack payloads. Only against an app you own. Default: false"
+      ),
       cookies: external_exports.array(cookieSchema).optional().describe(
         "Session cookies to inject before navigation (for authenticated testing)"
       ),
@@ -10702,16 +10759,40 @@ var TOOLS = [
     input: external_exports.object({
       session_id: external_exports.string(),
       actions: external_exports.array(external_exports.record(external_exports.unknown())).min(1),
-      issues: external_exports.array(issueSchema).optional()
+      issues: external_exports.array(issueSchema).optional(),
+      case: external_exports.string().optional(),
+      expect: expectationSchema.optional()
     }),
     listing: external_exports.object({
       session_id: external_exports.string().describe("Session ID from haunt_spawn"),
       actions: external_exports.array(actionSchema).min(1).describe(
         "Run in order; execution stops when one fails or changes the page under the rest"
       ),
-      issues: external_exports.array(issueSchema).optional().describe("Issues the orchestrator observed during this step")
+      issues: external_exports.array(issueSchema).optional().describe("Issues the orchestrator observed during this step"),
+      case: external_exports.string().optional().describe(
+        "The test case of the plan these actions play. With `expect`, the check gives the case its verdict"
+      ),
+      expect: expectationSchema.optional().describe(
+        "What you expect once these actions have run, stated before you see the result. The engine checks it and answers `expectation: { held, read }`"
+      )
     }),
     run: (manager, input) => hauntAct(manager, input)
+  }),
+  defineTool({
+    name: "haunt_plan",
+    description: "The test plan of a session. With only a session id: the inventory (every control the session was shown, with its group, its state, and whether it was exercised), the cases, and the coverage, counted by the engine from the actions that ran. With `cases`: registers test cases. With `close`: gives a verdict to a case the engine cannot check by itself.",
+    input: external_exports.object({
+      session_id: external_exports.string().describe("Session ID from haunt_spawn"),
+      cases: external_exports.array(planCaseSchema).optional(),
+      close: external_exports.array(
+        external_exports.object({
+          id: external_exports.string(),
+          verdict: external_exports.enum(["passed", "failed"]),
+          note: external_exports.string().describe("What you saw, in one sentence")
+        })
+      ).optional()
+    }),
+    run: (manager, input) => hauntPlan(manager, input)
   }),
   defineTool({
     name: "haunt_capture_state",
@@ -10732,6 +10813,9 @@ var TOOLS = [
       ),
       audit: external_exports.boolean().optional().describe(
         "Run the accessibility audit (axe-core, WCAG 2 A and AA) on the page as it is now and list its violations with the other signals of the page. Each page is already audited once, when first reached; ask again after the page has changed"
+      ),
+      list: listQuerySchema.optional().describe(
+        "Also return the items of a container exactly as the page shows them, to look before stating an expectation about them"
       )
     }),
     run: (manager, input) => hauntCaptureState(manager, input)

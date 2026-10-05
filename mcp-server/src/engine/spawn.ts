@@ -13,6 +13,7 @@ import {
 } from './constants.js';
 import { newRecording } from './evidence/recording.js';
 import { loadPersona } from './persona/loader.js';
+import { newPlanState } from './plan/plan.js';
 import { sabotaged } from './sabotage.js';
 import { purgeOldScreenshots } from './screenshots.js';
 import type { SessionManager } from './session/manager.js';
@@ -25,11 +26,21 @@ import { installHooks } from './snapshot/page-script.js';
 import { newSnapshotState, takeSnapshot } from './snapshot/snapshot.js';
 import type { HauntSession } from './types.js';
 
+// How many actions a session may run when it is not told (R-T5). The
+// command used to stop a session after three; the plain Claude setups haunt
+// was compared with took twenty to sixty turns.
+export const DEFAULT_BUDGET = 40;
+
 export interface SpawnInput {
   persona: string;
   target_url: string;
   headless?: boolean;
+  // How many actions the session may run (R-T5). `timeout` is its older
+  // name, still accepted.
+  budget?: number;
   timeout?: number;
+  // Lets cases of kind `hostile` be planned (R-T14).
+  hostile?: boolean;
   // What addCookies accepts: only name and value are required, which is what
   // a host passing cookies by hand can be expected to provide.
   cookies?: Parameters<BrowserContext['addCookies']>[0];
@@ -317,7 +328,11 @@ export async function hauntSpawn(
     start_time: Date.now(),
     last_activity: Date.now(),
     step_count: 0,
-    max_steps: input.timeout ?? personaConfig.scenarios[0]?.max_steps ?? 30,
+    max_steps:
+      input.budget ??
+      input.timeout ??
+      personaConfig.scenarios[0]?.max_steps ??
+      DEFAULT_BUDGET,
     max_active_duration_ms:
       input.max_active_duration_ms ?? SESSION_MAX_ACTIVE_DURATION_MS,
     console_errors: consoleErrors,
@@ -327,6 +342,7 @@ export async function hauntSpawn(
     runtime,
     collector,
     signals: collector.signals,
+    plan: newPlanState(input.hostile === true),
     recording: newRecording(
       input.target_url,
       page.viewportSize() ?? { width: 1280, height: 720 },

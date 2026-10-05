@@ -14,11 +14,93 @@ import { hauntCaptureState } from '../engine/capture.js';
 import { hauntEndSession } from '../engine/end-session.js';
 import { hauntReplay } from '../engine/evidence/replay.js';
 import { hauntGetCookies } from '../engine/get-cookies.js';
+import { malformed } from '../engine/plan/expect.js';
+import { hauntPlan } from '../engine/plan/plan.js';
 import { hauntEstimateCost } from '../engine/report/estimate-cost.js';
 import { hauntGenerateReport } from '../engine/report/generate-report.js';
 import type { SessionManager } from '../engine/session/manager.js';
 import { hauntSpawn } from '../engine/spawn.js';
 import { SIGNAL_KINDS } from '../gates/part-2/contract.js';
+import { CASE_KINDS } from '../gates/part-4/contract.js';
+
+// What a tester expects of the page (part 4, R-T7 … R-T9): part 3's
+// observations, a list read exactly, or the state of a control.
+const listQuerySchema = z.object({
+  within: z
+    .object({ role: z.string(), name: z.string() })
+    .describe(
+      'The container, by its role and accessible name: { role: "list", name: "Results" }',
+    ),
+  items: z
+    .string()
+    .describe(
+      'The role of the items read under it, in reading order: listitem, heading, row, img…',
+    ),
+});
+
+const expectationSchema = z
+  .object({
+    text_present: z.string().optional(),
+    text_absent: z.string().optional(),
+    url: z.string().optional(),
+    element: z
+      .object({
+        ref: z.string(),
+        state: z.enum(['visible', 'hidden', 'disabled', 'enabled', 'gone']),
+      })
+      .optional(),
+    list: listQuerySchema
+      .extend({
+        count: z
+          .object({
+            eq: z.number().int().optional(),
+            min: z.number().int().optional(),
+            max: z.number().int().optional(),
+          })
+          .optional(),
+        every_contains: z.string().optional(),
+        none_contains: z.string().optional(),
+        order: z.enum(['ascending', 'descending']).optional(),
+        as: z
+          .enum(['number', 'text'])
+          .optional()
+          .describe(
+            'How the order is judged; a number is the first one written in the item. Default: text',
+          ),
+        equals: z
+          .array(z.string())
+          .optional()
+          .describe('Exactly these items, in this order'),
+      })
+      .optional()
+      .describe(
+        'The items of a container, as the page shows them, and what must be true of them',
+      ),
+    value: z
+      .object({
+        ref: z.string(),
+        of: z.enum(['value', 'checked', 'expanded', 'pressed', 'focused']),
+        is: z.union([z.string(), z.boolean()]),
+      })
+      .optional()
+      .describe(
+        'What a control holds or its state. A credential field reads as "(filled)" or "(empty)"',
+      ),
+    step: z
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .describe(
+        'For an issue: the step after which it holds. Default: the last step',
+      ),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    const problem = malformed(value);
+    if (problem)
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: problem });
+  });
 
 const issueSchema = z.object({
   severity: z.enum(['critical', 'major', 'minor', 'suggestion']),
@@ -38,36 +120,24 @@ const issueSchema = z.object({
     .describe(
       'The id of the signal this issue is about (s3). An issue must name a signal or carry an observation, or it is rejected',
     ),
-  observed: z
-    .object({
-      step: z
-        .number()
-        .int()
-        .min(0)
-        .optional()
-        .describe('The step after which it holds. Default: the last step'),
-      text_present: z.string().optional(),
-      text_absent: z.string().optional(),
-      url: z.string().optional().describe('A string the page URL contains'),
-      element: z
-        .object({
-          ref: z.string(),
-          state: z.enum(['visible', 'hidden', 'disabled', 'enabled', 'gone']),
-        })
-        .optional(),
-    })
-    .strict()
-    .refine(
-      (o) =>
-        [o.text_present, o.text_absent, o.url, o.element].filter(
-          (v) => v !== undefined,
-        ).length === 1,
-      'An observation states exactly one of text_present, text_absent, url, element',
-    )
+  observed: expectationSchema
     .optional()
     .describe(
-      'For an issue no signal shows: the fact about the page the engine checks by replaying the steps (a message that is or is not there, an address, an element’s state)',
+      'For an issue no signal shows: the fact about the page the engine checks by replaying the steps (a message that is or is not there, an address, an element’s state, the items of a list, what a control holds)',
     ),
+  case: z
+    .string()
+    .optional()
+    .describe(
+      'The test case whose check failed. The engine replays the case and checks the same expectation',
+    ),
+  expected: z
+    .string()
+    .optional()
+    .describe(
+      'For an issue the engine cannot check: what you expected. Listed under "To check by hand"',
+    ),
+  actual: z.string().optional().describe('And what you saw instead'),
 });
 
 // How an issue or a signal fared when replayed (part 3), passed back to the
@@ -102,6 +172,21 @@ const signalSchema = z
     count: z.number().int().positive(),
   })
   .passthrough();
+
+const planCaseSchema = z.object({
+  id: z.string().min(1).describe('A short name of your own: "titles-only"'),
+  kind: z
+    .enum(CASE_KINDS)
+    .describe(
+      'normal use, an edge input, a state change, keyboard only, visual, or hostile (attack payloads; only in a session spawned with hostile: true)',
+    ),
+  controls: z
+    .array(z.string())
+    .describe('References of the controls it exercises, from the inventory'),
+  expect: z
+    .string()
+    .describe('One sentence: what should be true once the case is played'),
+});
 
 const cookieSchema = z.object({
   name: z.string(),
@@ -152,10 +237,21 @@ export const TOOLS: ToolDefinition[] = [
         .boolean()
         .optional()
         .describe('Run browser in headless mode. Default: true'),
-      timeout: z
+      budget: z
         .number()
+        .int()
+        .positive()
         .optional()
-        .describe('Maximum navigation steps for this session. Default: 30'),
+        .describe(
+          'How many actions the session may run before it has to end. Default: 40',
+        ),
+      timeout: z.number().optional().describe('Older name of `budget`'),
+      hostile: z
+        .boolean()
+        .optional()
+        .describe(
+          'Allow test cases of kind `hostile`, which send attack payloads. Only against an app you own. Default: false',
+        ),
       cookies: z
         .array(cookieSchema)
         .optional()
@@ -218,6 +314,8 @@ export const TOOLS: ToolDefinition[] = [
       session_id: z.string(),
       actions: z.array(z.record(z.unknown())).min(1),
       issues: z.array(issueSchema).optional(),
+      case: z.string().optional(),
+      expect: expectationSchema.optional(),
     }),
     listing: z.object({
       session_id: z.string().describe('Session ID from haunt_spawn'),
@@ -231,8 +329,38 @@ export const TOOLS: ToolDefinition[] = [
         .array(issueSchema)
         .optional()
         .describe('Issues the orchestrator observed during this step'),
+      case: z
+        .string()
+        .optional()
+        .describe(
+          'The test case of the plan these actions play. With `expect`, the check gives the case its verdict',
+        ),
+      expect: expectationSchema
+        .optional()
+        .describe(
+          'What you expect once these actions have run, stated before you see the result. The engine checks it and answers `expectation: { held, read }`',
+        ),
     }),
     run: (manager, input) => hauntAct(manager, input),
+  }),
+  defineTool({
+    name: 'haunt_plan',
+    description:
+      'The test plan of a session. With only a session id: the inventory (every control the session was shown, with its group, its state, and whether it was exercised), the cases, and the coverage, counted by the engine from the actions that ran. With `cases`: registers test cases. With `close`: gives a verdict to a case the engine cannot check by itself.',
+    input: z.object({
+      session_id: z.string().describe('Session ID from haunt_spawn'),
+      cases: z.array(planCaseSchema).optional(),
+      close: z
+        .array(
+          z.object({
+            id: z.string(),
+            verdict: z.enum(['passed', 'failed']),
+            note: z.string().describe('What you saw, in one sentence'),
+          }),
+        )
+        .optional(),
+    }),
+    run: (manager, input) => hauntPlan(manager, input),
   }),
   defineTool({
     name: 'haunt_capture_state',
@@ -281,6 +409,11 @@ export const TOOLS: ToolDefinition[] = [
         .optional()
         .describe(
           'Run the accessibility audit (axe-core, WCAG 2 A and AA) on the page as it is now and list its violations with the other signals of the page. Each page is already audited once, when first reached; ask again after the page has changed',
+        ),
+      list: listQuerySchema
+        .optional()
+        .describe(
+          'Also return the items of a container exactly as the page shows them, to look before stating an expectation about them',
         ),
     }),
     run: (manager, input) => hauntCaptureState(manager, input),

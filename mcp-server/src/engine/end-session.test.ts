@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { hauntEndSession } from './end-session.js';
 import { newRecording } from './evidence/recording.js';
+import { newPlanState } from './plan/plan.js';
 import { SessionManager } from './session/manager.js';
 import { SignalCollector } from './signals/collector.js';
 import type { HauntSession } from './types.js';
@@ -25,6 +26,7 @@ function mockSession(overrides: Partial<HauntSession> = {}): HauntSession {
       { width: 1280, height: 720 },
       {},
     ),
+    plan: newPlanState(false),
     evidence: {
       audit: false,
       replay_budget_ms: 0,

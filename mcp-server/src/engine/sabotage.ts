@@ -37,6 +37,15 @@ export const SABOTAGES = [
   'evidence_screenshots_unmasked',
   'evidence_cap_ignored',
   'evidence_same_session',
+  // Part 4, the tester.
+  'tester_hidden_dropped',
+  'tester_coverage_by_plan',
+  'tester_expectation_assumed',
+  'tester_list_unscoped',
+  'tester_budget_ignored',
+  'tester_secret_read',
+  'tester_unchecked_confirmed',
+  'tester_case_not_replayed',
   // Not a breakage: nothing recorded, to measure what recording costs
   // (E7.4).
   'evidence_off',

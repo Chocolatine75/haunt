@@ -139,6 +139,31 @@ Rules:
   - `haunt_capture_state` with `signals: true` lists the signals of the
     current page; with `audit: true` it audits the page again as it is now
     (after a dialog or a panel opened, for instance).
+- **Say what you expect before you act, and let the engine check it.**
+  `haunt_plan` returns the session's inventory: every control it was shown,
+  with its group, its state, and whether an action has exercised it yet.
+  Register a test case for what you are about to try
+  (`"cases": [{ "id": "titles-only", "kind": "normal", "controls": ["e2"],
+  "expect": "With Titles only on, every result's title contains the word" }]`),
+  then pass `"case"` and `"expect"` to the `haunt_act` call that plays it.
+  `expect` is an observation as above, or one of two more:
+  - `list`: the items of a container, read exactly as the page shows them,
+    and what must be true of them.
+    `{ "list": { "within": { "role": "list", "name": "Results" }, "items":
+    "heading", "every_contains": "garlic" } }`. Conditions: `count` (`eq`,
+    `min`, `max`), `every_contains`, `none_contains`, `order` (`ascending` or
+    `descending`, `"as": "number"` for prices and counts), `equals` (the
+    exact items). `haunt_capture_state` with `list` returns the same items,
+    to look before you state.
+  - `value`: what a control holds or its state.
+    `{ "value": { "ref": "e4", "of": "checked", "is": true } }`, with `of`
+    one of `value`, `checked`, `expanded`, `pressed`, `focused`.
+  The result carries `expectation: { held, read }`, and the case gets its
+  verdict. A failed case is an issue's claim: file the issue with
+  `"case": "titles-only"` instead of an observation.
+  - `haunt_plan` again shows the coverage: controls exercised of those
+    listed, cases run, and what is left. From three quarters of the
+    session's budget every result lists what is still untouched.
 - If a dialog opens, answer it with a `dialog` action before anything else.
 
 ### Phase 0.5 — Auth (only if --email and --password are provided)

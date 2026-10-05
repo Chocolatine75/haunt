@@ -13,4 +13,19 @@ export const PASSING: ReadonlySet<string> = new Set<string>([
   'T6.3',
   // The engine has returned a masked screenshot since part 3.
   'T5.1',
+  'T1.1',
+  'T1.2',
+  'T1.3',
+  'T1.4',
+  'T2.1',
+  'T2.2',
+  'T3.1',
+  'T3.2',
+  'T3.3',
+  'T3.4',
+  // Was already so; listed now that a session's end returns its coverage.
+  'T4.2',
+  'T5.2b',
+  'T5.4',
+  'T6.1',
 ]);

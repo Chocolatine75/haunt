@@ -4,12 +4,15 @@ import type {
   SignalVerifications,
   VerifiedIssue,
 } from '../gates/part-3/contract.js';
+import type { CaseStatus, Coverage } from '../gates/part-4/contract.js';
 import { SETTLE_CAP_MS } from './act/act.js';
 import { pendingTimers } from './act/page-fns.js';
 import { SESSION_TTL_MS } from './constants.js';
 import { verifySession } from './evidence/verify.js';
+import { planOf, syncInventory } from './plan/plan.js';
 import { sabotaged } from './sabotage.js';
 import type { SessionManager } from './session/manager.js';
+import { takeSnapshot } from './snapshot/snapshot.js';
 import type { HauntSession, Issue } from './types.js';
 
 export interface EndSessionInput {
@@ -34,6 +37,9 @@ export interface EndSessionOutput {
   // when replayed.
   signals: Signal[];
   signal_verification: SignalVerifications;
+  // The plan as it stands, and how much of it was done (part 4, R-T4).
+  cases: CaseStatus[];
+  coverage: Coverage;
   overall_impression: string;
 }
 
@@ -79,6 +85,12 @@ export async function hauntEndSession(
   }
 
   await lastEffects(session);
+  // The inventory as the last action left the page.
+  if (!session.runtime.dialog && !session.page.isClosed()) {
+    await takeSnapshot(session, { format: 'json' }, true).catch(() => {});
+    await syncInventory(session).catch(() => {});
+  }
+  const plan = planOf(session);
   // Replayed in browsers of their own before anything is reported; the
   // session's browser stays open meanwhile, for nothing but its cookies.
   const signals = session.collector.all();
@@ -103,6 +115,8 @@ export async function hauntEndSession(
     sandbox_blocked_requests: session.sandbox_blocked_requests,
     signals,
     signal_verification: verified.signal_verification,
+    cases: plan.cases,
+    coverage: plan.coverage,
     overall_impression:
       input.overall_impression ??
       `Completed ${session.step_count} steps across ${session.pages_visited.length} pages.`,

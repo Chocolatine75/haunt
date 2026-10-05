@@ -17,6 +17,7 @@ const EXPECTED_TOOLS = [
   'haunt_estimate_cost',
   'haunt_generate_report',
   'haunt_act',
+  'haunt_plan',
   'haunt_replay',
 ];
 

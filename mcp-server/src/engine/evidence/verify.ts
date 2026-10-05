@@ -26,6 +26,7 @@ import {
   type Verification,
   type VerifiedIssue,
 } from '../../gates/part-3/contract.js';
+import type { Expectation, TesterIssue } from '../../gates/part-4/contract.js';
 import { REPORTS_DIR } from '../constants.js';
 import { sabotaged } from '../sabotage.js';
 import type { HauntSession } from '../types.js';
@@ -240,7 +241,7 @@ const rejected = (reason: Verification['reason']): Verification => ({
 // Verifies every issue of a session and every signal no issue names.
 export async function verifySession(
   session: HauntSession,
-  issues: ClaimedIssue[],
+  issues: TesterIssue[],
   signals: Signal[],
 ): Promise<VerifiedSession> {
   const deadline = Date.now() + session.evidence.replay_budget_ms;
@@ -257,21 +258,42 @@ export async function verifySession(
     const signal = issue.signal
       ? signals.find((s) => s.id === issue.signal)
       : undefined;
-    if (!issue.signal && !issue.observed) {
+    // A case the engine gave a verdict to: its expectation, as checked then
+    // (R-T10). One the tester closed has nothing a replay can check.
+    const ofCase =
+      issue.case !== undefined
+        ? session.plan.claims.get(issue.case)
+        : undefined;
+    const closedByTester =
+      issue.case !== undefined &&
+      session.plan.cases.get(issue.case)?.by === 'tester';
+    if (issue.case !== undefined && !ofCase && !closedByTester) {
+      verification = rejected('unknown_case' as Verification['reason']);
+    } else if (!issue.signal && !issue.observed && !ofCase) {
       verification = rejected('no_claim');
     } else if (issue.signal && !signal) {
       verification = rejected('unknown_signal');
+    } else if (ofCase && sabotaged('tester_case_not_replayed')) {
+      verification = {
+        status: 'confirmed',
+        attempts: 0,
+        reproduced: 0,
+        rate: 1,
+      };
     } else {
       if (signal) named.add(signal.id);
       let claim: Claim;
       if (signal) {
         claim = { step: signal.step, signal };
+      } else if (ofCase) {
+        claim = ofCase as Claim;
       } else {
-        const observed = issue.observed as Observation;
+        const observed = issue.observed as Expectation;
         const read = session.snapshot.previous;
+        const about = observed.element?.ref ?? observed.value?.ref;
         const locator =
-          observed.element && read
-            ? locatorOf(read.elements, read.containers, observed.element.ref)
+          about && read
+            ? locatorOf(read.elements, read.containers, about)
             : undefined;
         claim = {
           step: observed.step ?? session.step_count,
@@ -286,7 +308,7 @@ export async function verifySession(
         false,
       );
     }
-    const verified: VerifiedIssue = { ...issue, verification };
+    const verified = { ...issue, verification } as VerifiedIssue;
     if (
       verification.status === 'rejected' &&
       !sabotaged('evidence_rejected_reported')
