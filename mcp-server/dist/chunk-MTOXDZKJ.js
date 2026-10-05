@@ -45130,11 +45130,11 @@ async function hauntSpawn(manager, input) {
 
 // src/engine/evidence/verify.ts
 import {
+  copyFileSync,
   existsSync as existsSync4,
   mkdirSync as mkdirSync2,
   mkdtempSync,
   readdirSync as readdirSync2,
-  renameSync,
   rmSync,
   statSync as statSync3,
   writeFileSync as writeFileSync2
@@ -45524,7 +45524,7 @@ function writeBundle(dir, file, run, verification, cap) {
       JSON.stringify(evidence.network, null, 2)
     );
     if (evidence.trace && existsSync4(evidence.trace)) {
-      renameSync(evidence.trace, join3(dir, "trace.zip"));
+      copyFileSync(evidence.trace, join3(dir, "trace.zip"));
     }
   }
   const signal = run.signal ?? ("signal" in file.claim ? file.claim.signal : void 0);

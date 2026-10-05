@@ -4,11 +4,11 @@
 // browser (R-E8 … R-E11) and the replay that reproduced it is kept as its
 // evidence bundle (R-E13, R-E16).
 import {
+  copyFileSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
-  renameSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -88,7 +88,11 @@ function writeBundle(
       JSON.stringify(evidence.network, null, 2),
     );
     if (evidence.trace && existsSync(evidence.trace)) {
-      renameSync(evidence.trace, join(dir, 'trace.zip'));
+      // Copied, not renamed: the scratch directory is under the system's
+      // temporary one, which is often another volume (C: and D: on GitHub's
+      // Windows runners, a tmpfs /tmp on Linux), and a rename across volumes
+      // fails with EXDEV. The scratch directory is removed with the rest.
+      copyFileSync(evidence.trace, join(dir, 'trace.zip'));
     }
   }
   const signal =
