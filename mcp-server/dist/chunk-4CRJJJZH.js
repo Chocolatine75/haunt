@@ -45744,6 +45744,63 @@ async function hauntEndSession(manager, input) {
 
 // src/engine/report/generate-report.ts
 import { existsSync as existsSync5, mkdirSync as mkdirSync3, readFileSync as readFileSync4, writeFileSync as writeFileSync3 } from "fs";
+
+// src/engine/report/group.ts
+function signalKey(signal) {
+  const request = signal.request_url ? `${signal.method ?? ""} ${signal.request_url}` : `${signal.url} ${signal.message}`;
+  switch (signal.kind) {
+    case "http_error":
+      return `http_error|${request}|${signal.status ?? ""}`;
+    case "request_failed":
+      return `request_failed|${request}|${signal.error ?? ""}`;
+    case "request_hung":
+    case "slow_response":
+      return `${signal.kind}|${request}`;
+    case "js_exception":
+    case "unhandled_rejection":
+    case "console_error":
+      return `${signal.kind}|${signal.message}`;
+    case "a11y":
+      return `a11y|${signal.rule ?? signal.message}`;
+    case "dead_control":
+      return `dead_control|${signal.url}|${signal.role ?? ""}|${signal.name ?? ""}`;
+    case "long_task":
+      return `long_task|${signal.url}`;
+    default:
+      return `${signal.kind}|${signal.url}|${signal.message}`;
+  }
+}
+function groupBy(items, key) {
+  const groups = /* @__PURE__ */ new Map();
+  for (const item of items) {
+    const k = key(item);
+    const group = groups.get(k);
+    if (group) group.push(item);
+    else groups.set(k, [item]);
+  }
+  return [...groups.values()];
+}
+var PAGES_SHOWN = 5;
+function pagesOf(signals) {
+  const pages = [...new Set(signals.map((s) => s.url))];
+  const shown = pages.slice(0, PAGES_SHOWN).map((p) => `\`${p}\``).join(", ");
+  const more = pages.length - PAGES_SHOWN;
+  return more > 0 ? `${shown} and ${more} more` : shown;
+}
+function renderSignalGroup(group) {
+  const [first] = group;
+  const severity = group.some((s) => s.severity === "major") ? "major" : "minor";
+  const times = group.reduce((sum, s) => sum + s.count, 0);
+  if (group.length === 1) {
+    return `- [${severity.toUpperCase()}] ${first.message} \u2014 \`${first.url}\` (step ${first.step}${times > 1 ? `, ${times} times` : ""})`;
+  }
+  const pages = new Set(group.map((s) => s.url)).size;
+  const message = first.kind === "a11y" && first.help && pages > 1 ? `${first.help} (on ${pages} pages)` : first.message;
+  const steps = [...new Set(group.map((s) => s.step))].sort((a, b) => a - b);
+  return `- [${severity.toUpperCase()}] ${message} \u2014 ${pagesOf(group)} (step${steps.length > 1 ? "s" : ""} ${steps.join(", ")}, ${times} time${times === 1 ? "" : "s"})`;
+}
+
+// src/engine/report/generate-report.ts
 var SIGNALS_HEADING = "Detected automatically";
 var FLAKY_HEADING = "Flaky";
 var UNVERIFIED_HEADING = "Unverified";
@@ -45814,11 +45871,7 @@ function compareIssues(oldIssues, newIssues, compareWith) {
     new_count: newIssues.filter((i) => !oldKeys.has(issueKey(i))).length
   };
 }
-function renderSignal(signal) {
-  const times = signal.count > 1 ? `, ${signal.count} times` : "";
-  return `- [${signal.severity.toUpperCase()}] ${signal.message} \u2014 \`${signal.url}\` (step ${signal.step}${times})`;
-}
-function renderIssueBlock(issue, index, previousKeys, signals = []) {
+function renderIssueBlock(issue, index, previousKeys, signals = [], also = []) {
   const statusTag = previousKeys ? previousKeys.has(issueKey(issue)) ? " _(still present)_" : " _(new)_" : "";
   const lines = [
     `### ${index + 1}. [${issue.severity.toUpperCase()}] ${issue.description}${statusTag}`,
@@ -45831,8 +45884,13 @@ function renderIssueBlock(issue, index, previousKeys, signals = []) {
       `- **Likely file:** \`${file}\` *(AI estimate \u2014 verify before editing)*`
     );
   }
-  for (const signal of signals) {
-    lines.push(`- **Detected:** ${renderSignal(signal).slice(2)}`);
+  for (const group of groupBy(signals, signalKey)) {
+    lines.push(`- **Detected:** ${renderSignalGroup(group).slice(2)}`);
+  }
+  for (const other of also) {
+    lines.push(
+      `- **Also reported:** ${other.description} (\`${other.page_url}\`)`
+    );
   }
   const verification = issue.verification;
   if (verification?.bundle) {
@@ -45916,39 +45974,65 @@ function hauntGenerateReport(input) {
   const allBlockedRequests = input.sessions.flatMap(
     (s) => s.sandbox_blocked_requests ?? []
   );
-  const sorted = [...allIssues].sort(
+  const sortedFiled = [...allIssues].sort(
     (a, b) => SEVERITY_ORDER.indexOf(a.severity) - SEVERITY_ORDER.indexOf(b.severity)
   );
-  const counts = countBySeverity(allIssues);
-  const top_fix = sorted[0]?.recommendation ?? "";
-  const named = /* @__PURE__ */ new Map();
-  const unnamed = [];
+  const signalOf = /* @__PURE__ */ new Map();
   for (const session of input.sessions) {
-    const taken = /* @__PURE__ */ new Set();
-    for (const issue of session.issues.filter(
-      (i) => statusOf(i) !== "rejected"
-    )) {
+    for (const issue of session.issues) {
       const signal = session.signals?.find((s) => s.id === issue.signal);
-      if (!signal) continue;
-      named.set(issue, [signal]);
-      taken.add(signal.id);
+      if (signal) signalOf.set(issue, signal);
     }
-    unnamed.push(...(session.signals ?? []).filter((s) => !taken.has(s.id)));
   }
+  const takenKeys = new Set(
+    filed.filter((i) => statusOf(i) !== "rejected").flatMap((i) => {
+      const signal = signalOf.get(i);
+      return signal ? [signalKey(signal)] : [];
+    })
+  );
   const allSignals = input.sessions.flatMap((s) => s.signals ?? []);
+  const unnamed = allSignals.filter((s) => !takenKeys.has(signalKey(s)));
+  const unnamedGroups = groupBy(unnamed, signalKey);
+  let unique = 0;
+  const issueGroups = groupBy(sortedFiled, (issue) => {
+    const signal = signalOf.get(issue);
+    return signal ? signalKey(signal) : `issue|${unique++}`;
+  });
+  const sorted = issueGroups.map(([head]) => head);
+  const alsoReported = new Map(
+    issueGroups.map(([head, ...rest]) => [head, rest])
+  );
+  const named = /* @__PURE__ */ new Map();
+  for (const [head, ...rest] of issueGroups) {
+    const key = signalOf.has(head) ? signalKey(signalOf.get(head)) : void 0;
+    if (key === void 0) continue;
+    named.set(head, [
+      ...[head, ...rest].flatMap((i) => signalOf.get(i) ?? []),
+      ...allSignals.filter(
+        (s) => signalKey(s) === key && ![head, ...rest].some((i) => signalOf.get(i) === s)
+      )
+    ]);
+  }
+  const counts = countBySeverity(sorted);
+  const top_fix = sorted[0]?.recommendation ?? "";
+  const groupSeverity = (group) => group.some((s) => s.severity === "major") ? "major" : "minor";
   const signal_counts = {
-    total: unnamed.length,
-    major: unnamed.filter((s) => s.severity === "major").length,
-    minor: unnamed.filter((s) => s.severity === "minor").length
+    total: unnamedGroups.length,
+    major: unnamedGroups.filter((g) => groupSeverity(g) === "major").length,
+    minor: unnamedGroups.filter((g) => groupSeverity(g) === "minor").length
   };
-  const confirmed_major_signals = input.sessions.flatMap((session) => {
-    const taken = new Set(
-      session.issues.filter((i) => statusOf(i) !== "rejected").map((i) => i.signal)
-    );
-    return (session.signals ?? []).filter(
-      (s) => !taken.has(s.id) && s.severity === "major" && (session.signal_verification?.[s.id]?.status ?? "confirmed") === "confirmed"
-    );
-  }).length;
+  const verificationOf = /* @__PURE__ */ new Map();
+  for (const session of input.sessions) {
+    for (const signal of session.signals ?? []) {
+      const verification = session.signal_verification?.[signal.id];
+      if (verification) verificationOf.set(signal, verification);
+    }
+  }
+  const confirmed_major_signals = unnamedGroups.filter(
+    (group) => group.some(
+      (s) => s.severity === "major" && (verificationOf.get(s)?.status ?? "confirmed") === "confirmed"
+    )
+  ).length;
   const personaSlug = input.personas.join("-").toLowerCase().replace(/[^a-z0-9-]+/g, "-");
   const report_path = `${REPORTS_DIR}/${date}-${personaSlug}.md`;
   let comparison;
@@ -45957,7 +46041,11 @@ function hauntGenerateReport(input) {
   if (input.compare_with) {
     try {
       previousIssues = loadPreviousIssues(input.compare_with);
-      comparison = compareIssues(previousIssues, sorted, input.compare_with);
+      comparison = compareIssues(
+        previousIssues,
+        sortedFiled,
+        input.compare_with
+      );
     } catch (error) {
       comparison_error = error instanceof Error ? error.message : String(error);
     }
@@ -45983,7 +46071,13 @@ function hauntGenerateReport(input) {
     "---"
   ].join("\n");
   const issuesSection = sorted.length ? sorted.map(
-    (issue, i) => renderIssueBlock(issue, i, previousKeys, named.get(issue))
+    (issue, i) => renderIssueBlock(
+      issue,
+      i,
+      previousKeys,
+      named.get(issue),
+      alsoReported.get(issue)
+    )
   ).join("\n\n") : "_No issues found._";
   const impressionsSection = input.sessions.map((s) => `**${s.area} \u2014 ${s.persona}:** "${s.overall_impression}"`).join("\n");
   const forClaudeSection = sorted.length ? sorted.map(renderForClaudeLine).join("\n") : "_No issues found._";
@@ -46004,9 +46098,9 @@ function hauntGenerateReport(input) {
       "",
       "Found by the engine itself, not by a tester: server errors, exceptions, failed and slow requests, dead controls, accessibility violations.",
       "",
-      [...unnamed].sort(
-        (a, b) => a.severity === b.severity ? 0 : a.severity === "major" ? -1 : 1
-      ).map(renderSignal).join("\n")
+      [...unnamedGroups].sort(
+        (a, b) => groupSeverity(a) === groupSeverity(b) ? 0 : groupSeverity(a) === "major" ? -1 : 1
+      ).map(renderSignalGroup).join("\n")
     );
   }
   const listed = (issue) => `- [${issue.severity.toUpperCase()}] ${issue.description} (\`${issue.page_url}\`)${issue.verification?.bundle ? ` \u2014 evidence: \`${issue.verification.bundle}\`` : ""} \u2014 ${replays(issue.verification)}`;
@@ -46080,9 +46174,15 @@ function hauntGenerateReport(input) {
         target_url: input.target_url,
         date,
         personas: input.personas,
-        issues: sorted.map(
-          (issue) => named.has(issue) ? { ...issue, signals: named.get(issue) } : issue
-        ),
+        // Every issue filed, so that a later comparison matches each; one
+        // listed under another says which, by its index here.
+        issues: sortedFiled.map((issue) => {
+          const head = issueGroups.find((g) => g.includes(issue))?.[0];
+          if (head && head !== issue) {
+            return { ...issue, same_problem_as: sortedFiled.indexOf(head) };
+          }
+          return named.has(issue) ? { ...issue, signals: named.get(issue) } : issue;
+        }),
         flaky,
         unverified,
         rejected: rejectedIssues,

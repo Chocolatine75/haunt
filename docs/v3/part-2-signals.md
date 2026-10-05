@@ -132,7 +132,10 @@ missing `alt` against a crashed checkout beyond a default severity.
   signals and renders them in a section of their own, "Detected
   automatically", separate from what the tester judged. An issue filed by the
   tester can name the signal it is about, in which case the signal is shown
-  under that issue and not twice.
+  under that issue and not twice. One problem is one entry: the same
+  request failing the same way, the same axe rule, the same exception, from
+  any page or session, is listed once with where and how often, and issues
+  that name it are one issue, the others listed under the most severe.
 - **R-S22 In the verdict.** `haunt-ci` exits 1 for a `major` signal exactly as
   for a major issue, so that a weak model cannot turn a server error into a
   passing build.
