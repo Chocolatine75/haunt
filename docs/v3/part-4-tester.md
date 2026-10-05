@@ -238,12 +238,12 @@ fingerprints of the earlier gates.
 
 Run by hand, three times, scorecards under `docs/benchmarks/`: on the three
 CATTest applications of the pilot, with the same model, against Claude Code
-with Playwright MCP. Haunt has to be better, cheaper, or both: on the worst
-of its three runs it finds more of the annotated bugs than the other's best
-run, or it finds as many for a lower cost per application. Finding fewer is
-a failure whatever it costs, and finding more may not cost more than twice
-as much. The runner and the prompts given to each tool are committed with
-the scorecards.
+with Playwright MCP, haunt's worst run of three against the other's best.
+Finding as many of the annotated bugs for a lower cost per application
+passes. Finding more passes, whatever it costs. Finding more for less is the
+result to aim for, and the scorecard says which of the three it was. Finding
+fewer fails, as does finding as many for the same cost or more. The runner
+and the prompts given to each tool are committed with the scorecards.
 
 ## Accepted when
 
