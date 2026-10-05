@@ -280,8 +280,10 @@ describe('haunt-ci loop against a real app', { timeout: 30_000 }, () => {
     expect(report.counts).toMatchObject({ total: 2, critical: 1, minor: 1 });
     expect(report.summary).toContain('2 areas tested · 2 issues');
     expect(report.top_fix).toBe('Fix the critical finding');
-    expect(report.markdown).toContain('Test Persona');
-    expect(report.markdown).toContain('Confused Beginner');
+    // The report no longer says which persona found what: they are gone
+    // from it (part 4, R-T14).
+    expect(report.markdown).not.toContain('Test Persona');
+    expect(report.markdown).not.toContain('Confused Beginner');
     expect(report.markdown.indexOf('critical finding')).toBeLessThan(
       report.markdown.indexOf('minor finding'),
     );

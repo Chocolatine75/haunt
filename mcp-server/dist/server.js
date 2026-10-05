@@ -14,7 +14,7 @@ import {
   hauntSpawn,
   malformed,
   zodToJsonSchema
-} from "./chunk-7O75BFIC.js";
+} from "./chunk-RLH6GE5Q.js";
 import {
   _enum,
   _null,
@@ -10695,6 +10695,22 @@ var planCaseSchema = external_exports.object({
   ),
   expect: external_exports.string().describe("One sentence: what should be true once the case is played")
 });
+var caseStatusSchema = external_exports.object({
+  id: external_exports.string(),
+  kind: external_exports.enum(CASE_KINDS),
+  controls: external_exports.array(external_exports.string()),
+  expect: external_exports.string(),
+  verdict: external_exports.enum(["passed", "failed"]).optional()
+}).passthrough();
+var inventoryControlSchema = external_exports.object({
+  ref: external_exports.string(),
+  role: external_exports.string(),
+  name: external_exports.string(),
+  group: external_exports.string(),
+  state: external_exports.enum(["hidden", "disabled", "covered"]).optional(),
+  exercised: external_exports.boolean(),
+  planned: external_exports.boolean()
+}).passthrough();
 var cookieSchema = external_exports.object({
   name: external_exports.string(),
   value: external_exports.string(),
@@ -10855,12 +10871,19 @@ var TOOLS = [
     description: "Compute issue counts, sort issues by severity, render the markdown report, and write it to .haunt-reports/. Returns the exact terminal summary to print. Call once in Phase 3 after all sessions have ended \u2014 do not hand-write the report file.",
     input: external_exports.object({
       target_url: external_exports.string(),
-      personas: external_exports.array(external_exports.string()).describe("Persona names used in this run"),
+      personas: external_exports.array(external_exports.string()).optional().describe("No longer used: personas are gone. Accepted and ignored"),
+      spec: external_exports.string().optional().describe(
+        "The name of the description of the app the testers were given, if any"
+      ),
       sessions: external_exports.array(
         external_exports.object({
           area: external_exports.string().describe("The route/area this session tested, e.g. /signup"),
-          persona: external_exports.string(),
+          persona: external_exports.string().optional(),
           overall_impression: external_exports.string(),
+          cases: external_exports.array(caseStatusSchema).optional().describe("This session's EndSessionOutput.cases, as returned"),
+          inventory: external_exports.array(inventoryControlSchema).optional().describe(
+            "This session's EndSessionOutput.inventory, as returned: the report counts coverage from it, each control once across the sessions of an area"
+          ),
           issues: external_exports.array(reportIssueSchema).describe(
             "This session's EndSessionOutput.issues_found, as returned (with their verification)"
           ),

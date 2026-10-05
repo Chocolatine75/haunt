@@ -46383,6 +46383,58 @@ function renderSignalGroup(group) {
 var SIGNALS_HEADING = "Detected automatically";
 var FLAKY_HEADING = "Flaky";
 var UNVERIFIED_HEADING = "Unverified";
+var COVERAGE_HEADING = "Coverage";
+function coverageAcross(sessions) {
+  if (!sessions.some((s) => s.inventory)) return void 0;
+  const controls = /* @__PURE__ */ new Map();
+  const cases = /* @__PURE__ */ new Map();
+  for (const session of sessions) {
+    for (const control of session.inventory ?? []) {
+      const key = JSON.stringify([
+        session.area,
+        control.group,
+        control.role,
+        control.name
+      ]);
+      const known = controls.get(key);
+      if (known) known.exercised ||= control.exercised;
+      else {
+        controls.set(key, {
+          area: session.area,
+          role: control.role,
+          name: control.name,
+          exercised: control.exercised
+        });
+      }
+    }
+    for (const one of session.cases ?? []) {
+      const key = JSON.stringify([session.area, one.id]);
+      const known = cases.get(key);
+      if (!known) cases.set(key, { id: one.id, verdict: one.verdict });
+      else if (one.verdict === "failed" || !known.verdict) {
+        known.verdict = one.verdict ?? known.verdict;
+      }
+    }
+  }
+  const all = [...controls.values()];
+  const planned = [...cases.values()];
+  return {
+    controls: {
+      listed: all.length,
+      exercised: all.filter((c) => c.exercised).length
+    },
+    cases: {
+      planned: planned.length,
+      run: planned.filter((c) => c.verdict).length,
+      passed: planned.filter((c) => c.verdict === "passed").length,
+      failed: planned.filter((c) => c.verdict === "failed").length
+    },
+    left: {
+      controls: all.filter((c) => !c.exercised).map(({ area, role, name }) => ({ area, role, name })),
+      cases: planned.filter((c) => !c.verdict).map((c) => c.id)
+    }
+  };
+}
 var EXPECTED_HEADING = "Expected, not counted";
 var statusOf = (item) => item.verification?.status ?? "confirmed";
 function replays(verification) {
@@ -46617,8 +46669,9 @@ function hauntGenerateReport(input) {
       (s) => s.severity === "major" && (verificationOf.get(s)?.status ?? "confirmed") === "confirmed"
     )
   ).length;
-  const personaSlug = input.personas.join("-").toLowerCase().replace(/[^a-z0-9-]+/g, "-");
-  const report_path = `${REPORTS_DIR}/${date}-${personaSlug}.md`;
+  const slug = (input.personas?.length ? input.personas.join("-") : input.target_url.replace(/^[a-z]+:\/\//i, "").replace(/[?#].*$/, "")).toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "");
+  const report_path = `${REPORTS_DIR}/${date}-${slug || "report"}.md`;
+  const coverage = coverageAcross(input.sessions);
   let comparison;
   let comparison_error;
   let previousIssues;
@@ -46640,7 +46693,6 @@ function hauntGenerateReport(input) {
     "haunt: true",
     `target: ${input.target_url}`,
     `date: ${date}`,
-    `personas: [${input.personas.join(", ")}]`,
     `areas_tested: ${input.sessions.length}`,
     "issues:",
     `  total: ${counts.total}`,
@@ -46663,13 +46715,14 @@ function hauntGenerateReport(input) {
       alsoReported.get(issue)
     )
   ).join("\n\n") : "_No issues found._";
-  const impressionsSection = input.sessions.map((s) => `**${s.area} \u2014 ${s.persona}:** "${s.overall_impression}"`).join("\n");
+  const impressionsSection = input.sessions.map((s) => `**${s.area}:** "${s.overall_impression}"`).join("\n");
   const forClaudeSection = sorted.length ? sorted.map(renderForClaudeLine).join("\n") : "_No issues found._";
   const bodySections = [
     frontmatter,
     "",
     `# Haunt Report \u2014 ${input.target_url}`,
-    `${date} \xB7 ${input.sessions.length} areas \xB7 ${counts.total} issues \xB7 ${input.personas.join(", ")}`,
+    `${date} \xB7 ${input.sessions.length} areas \xB7 ${counts.total} issues`,
+    ...input.spec ? [`Tested against the description \`${input.spec}\`.`] : [],
     "",
     "## Issues",
     "",
@@ -46717,6 +46770,25 @@ function hauntGenerateReport(input) {
       "",
       expectedGroups.map(renderSignalGroup).join("\n")
     );
+  }
+  if (coverage) {
+    const { controls, cases, left } = coverage;
+    bodySections.push(
+      "",
+      `## ${COVERAGE_HEADING}`,
+      "",
+      "Counted by the engine from the actions that ran, not from what a tester says it did.",
+      "",
+      `- ${controls.exercised} of ${controls.listed} controls exercised`,
+      `- ${cases.planned} test cases: ${cases.passed} passed, ${cases.failed} failed, ${cases.planned - cases.run} not run`
+    );
+    if (left.controls.length > 0) {
+      bodySections.push(
+        "",
+        "Never exercised:",
+        ...left.controls.map((c) => `- ${c.role} "${c.name}" \u2014 \`${c.area}\``)
+      );
+    }
   }
   bodySections.push("", "## Session Impressions", "", impressionsSection);
   if (counts.total > 0) {
@@ -46767,7 +46839,8 @@ function hauntGenerateReport(input) {
       {
         target_url: input.target_url,
         date,
-        personas: input.personas,
+        ...input.spec ? { spec: input.spec } : {},
+        ...coverage ? { coverage } : {},
         // Every issue filed, so that a later comparison matches each; one
         // listed under another says which, by its index here.
         issues: sortedFiled.map((issue) => {

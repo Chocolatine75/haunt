@@ -6,10 +6,10 @@ import {
   createDecider,
   resolveProvider,
   runHeadlessTest
-} from "./chunk-F6GDA26B.js";
+} from "./chunk-5YX6VMZ4.js";
 import {
   SessionManager
-} from "./chunk-7O75BFIC.js";
+} from "./chunk-RLH6GE5Q.js";
 import {
   Anthropic
 } from "./chunk-MMWLM6BK.js";
@@ -25,7 +25,6 @@ var REQUIRED_FRONTMATTER_FIELDS = [
   "haunt:",
   "target:",
   "date:",
-  "personas:",
   "areas_tested:",
   "issues:",
   "top_fix:"

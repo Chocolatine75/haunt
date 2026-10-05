@@ -195,6 +195,29 @@ const planCaseSchema = z.object({
     .describe('One sentence: what should be true once the case is played'),
 });
 
+// A case and a control as haunt_end_session returns them, for the report.
+const caseStatusSchema = z
+  .object({
+    id: z.string(),
+    kind: z.enum(CASE_KINDS),
+    controls: z.array(z.string()),
+    expect: z.string(),
+    verdict: z.enum(['passed', 'failed']).optional(),
+  })
+  .passthrough();
+
+const inventoryControlSchema = z
+  .object({
+    ref: z.string(),
+    role: z.string(),
+    name: z.string(),
+    group: z.string(),
+    state: z.enum(['hidden', 'disabled', 'covered']).optional(),
+    exercised: z.boolean(),
+    planned: z.boolean(),
+  })
+  .passthrough();
+
 const cookieSchema = z.object({
   name: z.string(),
   value: z.string(),
@@ -466,15 +489,34 @@ export const TOOLS: ToolDefinition[] = [
       'Compute issue counts, sort issues by severity, render the markdown report, and write it to .haunt-reports/. Returns the exact terminal summary to print. Call once in Phase 3 after all sessions have ended — do not hand-write the report file.',
     input: z.object({
       target_url: z.string(),
-      personas: z.array(z.string()).describe('Persona names used in this run'),
+      personas: z
+        .array(z.string())
+        .optional()
+        .describe('No longer used: personas are gone. Accepted and ignored'),
+      spec: z
+        .string()
+        .optional()
+        .describe(
+          'The name of the description of the app the testers were given, if any',
+        ),
       sessions: z
         .array(
           z.object({
             area: z
               .string()
               .describe('The route/area this session tested, e.g. /signup'),
-            persona: z.string(),
+            persona: z.string().optional(),
             overall_impression: z.string(),
+            cases: z
+              .array(caseStatusSchema)
+              .optional()
+              .describe("This session's EndSessionOutput.cases, as returned"),
+            inventory: z
+              .array(inventoryControlSchema)
+              .optional()
+              .describe(
+                "This session's EndSessionOutput.inventory, as returned: the report counts coverage from it, each control once across the sessions of an area",
+              ),
             issues: z
               .array(reportIssueSchema)
               .describe(
