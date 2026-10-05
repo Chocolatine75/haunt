@@ -378,11 +378,17 @@ export function focusedElement(): Element | null {
 export function reactedSince(since: number): boolean {
   const state = (
     window as unknown as {
-      __haunt?: { lastCleared?: number; lastMutation?: number };
+      __haunt?: {
+        lastCleared?: number;
+        lastMutation?: number;
+        lastInvalid?: number;
+      };
     }
   ).__haunt;
   return (
-    (state?.lastCleared ?? 0) >= since || (state?.lastMutation ?? 0) >= since
+    (state?.lastCleared ?? 0) >= since ||
+    (state?.lastMutation ?? 0) >= since ||
+    (state?.lastInvalid ?? 0) >= since
   );
 }
 
