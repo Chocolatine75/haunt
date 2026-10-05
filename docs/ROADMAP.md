@@ -208,20 +208,35 @@ Playwright test file; replay known flows without model calls.
 
 The measure of the goal.
 
-Scope: a ground-truth set of at least 30 runtime-only bugs across the gauntlet
-and `demo/` (timing races, overlays, hanging requests, state bugs after
-back/refresh, double submits, bugs that need authentication, bugs at mobile
-width), plus the clean variants; a runner that executes haunt and browser-use
-(through its own QA entry point, vibetest-use, and through its agent with an
-equivalent QA prompt) on the same targets, with the same model, the same step
-budget and the same wall-clock budget.
+Scope: three sets of bugs, each measuring what the others cannot, and a
+runner that executes haunt and the tools it is compared with on the same
+targets, with the same model and the same budget.
+
+- **CATTest**, a published benchmark of web apps with hand-annotated bugs,
+  limited to its applications that are products (shops, forms, dashboards,
+  calendars) and not games. It measures functional and layout bugs in a
+  front end. About ten applications are set apart to study failures on; the
+  score is taken on the others, which are never looked at while developing.
+- **Our own server-side set**: `demo/` and the gauntlet, with at least 30
+  bugs CATTest cannot hold, since its applications have no server: failed
+  and silent requests, authentication, data that is not saved, double
+  submits, timing races, state after back or refresh, plus the clean
+  variants. Written by us, and reported as such.
+- **Real bugs**: open-source web applications checked out just before the
+  fix of a bug reported on GitHub, about ten to start with. The slowest to
+  build and the most convincing; started once part 4 is in.
+
+The tools compared are Claude Code with Playwright MCP (what someone
+without a QA tool does), Claude in Chrome, and browser-use through its own
+agent with an equivalent prompt.
 
 **Gate** (*live*, three runs each, worst run counts):
 
-- Haunt's recall on the ground-truth set is at least 80%, and higher than
-  browser-use's.
-- Haunt's precision is at least 90%, and higher than browser-use's. Any issue
-  reported on a clean variant counts against it.
+- On each set, haunt's recall is higher than that of every tool it is
+  compared with; on our own set it is at least 80%.
+- On each set, haunt's precision is higher than theirs; on our own set it is
+  at least 90%. Any issue reported on a clean variant or a bug-free
+  application counts against it.
 - Every haunt finding counted as correct has a replayable evidence bundle.
 - Cost and time per run are reported next to the scores. Haunt may cost more;
   it may not cost more than twice as much for the same budget.
@@ -229,7 +244,7 @@ budget and the same wall-clock budget.
   outputs are all committed, so the comparison can be rerun by anyone.
 
 Until this gate passes, nothing in the README or elsewhere says haunt is
-better than browser-use.
+better than another tool.
 
 ## Order
 
