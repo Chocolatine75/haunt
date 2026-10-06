@@ -33,6 +33,40 @@ Being told is not enough.
   without `keep_going` ends at the first call, as before. So does one with
   less than a quarter of its budget left, or with nothing left to do. The
   plugin's testers ask for it; a planner, which plays nothing, does not.
+## B. A plan written without seeing the application
+
+Part 4 gave the plan to an agent that could not act (R-T20), and the cases
+to others. On four of the nine applications that is what cost the most.
+Application 27 opens on a prompt for a name: the planner saw 7 of its 71
+controls and planned the prompt; the tester played those cases and ended,
+and both annotated bugs were in the polls behind. On 24 the "Stop sharing"
+button exists only once sharing has started. On 24 and 30 a case named a
+control whose name is live text (a timer reading "00:00:11", a card with a
+random title), the tester's session could not find it, every case of the
+planner was refused with it, and the tester wrote two to four of its own.
+
+The papers haunt's method was taken from say the same. WebTestBench
+(arXiv 2603.25226) has this very split, a checklist written from the
+instruction alone and an agent that plays it, and names the incomplete
+checklist as its main bottleneck: with the right checklist handed over,
+F1 goes from 21.9 % to 49.2 % for the same model. CATTest's own agent
+(arXiv 2609.00081) is a single one that explores. GUITester
+(arXiv 2601.04500) does separate two jobs, but they are acting and
+judging, which here is the engine's: expectations checked, issues replayed.
+
+- **R-F4 The one who plans has seen the application.** In the plugin, one
+  tester per area does both, in the session it acts in: it first passes
+  whatever stands before the application (a name to give, a "Start"), and
+  opens what the page keeps closed (tabs, panels, dialogs), within a
+  quarter of its budget; then takes the inventory, which by then lists
+  what it was shown, and writes the cases by the planner's method, held
+  word for word; then plays them. No agent of the plugin plans from a page
+  it cannot act on, and no plan passes from one session to another. This
+  replaces R-T20 for the plugin: `haunt_plan`'s `from` stays (R-T21), and
+  so does `haunt-ci`'s loop, which asks for a plan first (R-T23) and is
+  not changed here. Since one session now does what up to three did, the
+  command's default budget is 60 actions.
+
 - **R-F3 The gate is not lying.** Every requirement here is claimed by a
   gate test; none is skipped.
 
@@ -49,10 +83,18 @@ Being told is not enough.
    the first call; so does one whose cases all have a verdict and which has
    fewer than five controls unused.
 
+### F2 — one tester that plans what it has seen (R-F4)
+
+1. The plugin has no planner agent and the command spawns none: one tester
+   per area, with a budget of 60 unless told otherwise. The tester's agent
+   may read, act and plan; it holds the tester's brief and the method for
+   writing cases word for word; and its own steps are, in this order: see
+   the whole area, take the inventory and plan, play.
+
 ### F9 — the gate is not lying (R-F3)
 
 1. Every requirement is claimed by a gate test, and none is skipped.
 
 ## Accepted when
 
-F1 and F9 are green on Linux and macOS and the earlier gates still are.
+F1, F2 and F9 are green on Linux and macOS and the earlier gates still are.

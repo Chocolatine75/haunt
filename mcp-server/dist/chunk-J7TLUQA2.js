@@ -34212,13 +34212,7 @@ var Mistral = class extends ClientSDK {
 };
 
 // src/engine/brief.ts
-var PLANNER_BRIEF = `${PLANNER_BRIEF_HEADING}
-
-You plan the tests of one area of a web app, as a QA engineer would before touching it. You read the page; you do not act on it. Testers will play your cases in browsers of their own.
-
-1. Get the inventory with haunt_plan: every control the page offers, with its group and its state. Read the page with haunt_capture_state to learn what each control is for: its label, the text around it, what the page says it does.
-
-2. Write the test cases. For each control, or each group of controls that work together:
+var CASE_METHOD = `2. Write the test cases. For each control, or each group of controls that work together:
    - normal: the feature used as intended, with realistic values. A word the page's own content contains, a plausible name, a real-looking amount. Never junk: "asdf" tells you nothing about a search.
    - state: what must still be true after a change. A value kept once saved. A count that agrees with the list under it. Two filters together. Each order a list can be sorted in.
    - edge: empty, negative, too long, the wrong kind of value, the same thing twice, and what the page should then say.
@@ -34231,7 +34225,14 @@ You plan the tests of one area of a web app, as a QA engineer would before touch
 
 4. Prefer what the engine can check by itself: the items of a list (their count, a text every item or none contains, their order, the exact items), what a control holds or its state, a text that is or is not there. A tester turns your sentence into that check, so write it precisely: "with Titles only on, every result's title contains the word searched", not "search works".
 
-5. Cover every control of the inventory at least once, a hidden one through the control that reveals it. What the page is for comes first. Keep the number of cases within what the testers' budget allows: one case costs two to four actions.
+5. Cover every control of the inventory at least once, a hidden one through the control that reveals it. What the page is for comes first. Keep the number of cases within what the testers' budget allows: one case costs two to four actions.`;
+var PLANNER_BRIEF = `${PLANNER_BRIEF_HEADING}
+
+You plan the tests of one area of a web app, as a QA engineer would before touching it. You read the page; you do not act on it. Testers will play your cases in browsers of their own.
+
+1. Get the inventory with haunt_plan: every control the page offers, with its group and its state. Read the page with haunt_capture_state to learn what each control is for: its label, the text around it, what the page says it does.
+
+${CASE_METHOD}
 
 6. Register the cases with haunt_plan. The testers take them from your session, each in a session of its own.`;
 var TESTER_BRIEF = `${TESTER_BRIEF_HEADING}

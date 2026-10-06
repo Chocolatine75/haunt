@@ -147,8 +147,9 @@ From the repo root: `node scripts/check-versions.mjs`.
 - **`--hostile` sends real attack payloads.** Only run it against `demo/` or
   an app the user owns.
 - **The briefs are written once**, in `src/engine/brief.ts`. The plugin's
-  agents (`agents/haunt-planner.md`, `agents/haunt-tester.md`) hold them word
-  for word and `haunt-ci` sends them; change the three together.
+  tester (`agents/haunt-tester.md`) holds the tester's brief and the method
+  for writing cases word for word, and `haunt-ci` sends the briefs; change
+  them together.
 - Reports and screenshots are written to `.haunt-reports/` in the current
   directory. It is gitignored; tests clean up what they write.
 
