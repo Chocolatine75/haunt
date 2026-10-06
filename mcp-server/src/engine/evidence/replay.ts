@@ -202,6 +202,7 @@ export async function replay(
     layout: 'signal' in claim && (claim.signal.kind as string) === 'layout',
     // Its steps hold the narrow reading already, if the session made one.
     narrow_check: false,
+    keep_going: false,
     replay_budget_ms: 0,
   } as Parameters<typeof hauntSpawn>[1]);
   const session = manager.get(spawned.session_id);

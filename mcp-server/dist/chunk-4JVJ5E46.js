@@ -37801,6 +37801,7 @@ async function hauntSpawn(manager, input) {
       audit: input.audit !== false,
       layout: input.layout ?? input.audit !== false,
       narrow_check: input.narrow_check === true,
+      keep_going: input.keep_going === true,
       replay_budget_ms: input.replay_budget_ms ?? REPLAY_BUDGET_MS,
       bundle_cap_bytes: input.bundle_cap_bytes ?? BUNDLE_CAP_BYTES,
       cookies: input.cookies,
@@ -38041,6 +38042,7 @@ async function replay(file, options = {}) {
     layout: "signal" in claim && claim.signal.kind === "layout",
     // Its steps hold the narrow reading already, if the session made one.
     narrow_check: false,
+    keep_going: false,
     replay_budget_ms: 0
   });
   const session = manager.get(spawned.session_id);
@@ -43683,6 +43685,40 @@ async function lastEffects(session) {
     await sleep2(50);
   }
 }
+var WORTH_GOING_ON = 0.25;
+var CONTROLS_WORTH = 5;
+var CONTROLS_NAMED = 20;
+async function heldBack(manager, input) {
+  if (!manager.has(input.session_id)) return void 0;
+  const session = manager.get(input.session_id);
+  const { evidence } = session;
+  if (!evidence.keep_going || evidence.held_back) return void 0;
+  const steps_remaining = session.max_steps - session.step_count;
+  if (steps_remaining < session.max_steps * WORTH_GOING_ON) return void 0;
+  if (session.runtime.dialog || session.page.isClosed()) return void 0;
+  await takeSnapshot(session, { format: "json" }, true).catch(() => {
+  });
+  await syncInventory(session).catch(() => {
+  });
+  const cases = coverageOf(session).left.cases;
+  const controls = [...session.plan.controls.values()].filter((control2) => !control2.exercised && !control2.state).map(({ ref: ref2, role, name }) => ({ ref: ref2, role, name }));
+  if (cases.length === 0 && controls.length < CONTROLS_WORTH) return void 0;
+  evidence.held_back = true;
+  const known = new Set(session.issues.map((issue) => JSON.stringify(issue)));
+  for (const issue of input.issues ?? []) {
+    if (!known.has(JSON.stringify(issue))) session.issues.push(issue);
+  }
+  const parts = [
+    cases.length > 0 ? `${cases.length} case${cases.length === 1 ? " has" : "s have"} no verdict (${cases.join(", ")})` : "",
+    controls.length > 0 ? `${controls.length} control${controls.length === 1 ? " was" : "s were"} never used` : ""
+  ].filter(Boolean);
+  return {
+    ended: false,
+    left: { cases, controls: controls.slice(0, CONTROLS_NAMED) },
+    steps_remaining,
+    todo: `Not ended: ${parts.join(" and ")}, and ${steps_remaining} actions are left. Play the cases that have no verdict. For the controls never used, register a case for what each is for and play it. The issues you passed are kept. Call haunt_end_session again when that is done, or now if nothing more can be tested: it will end the session.`
+  };
+}
 async function hauntEndSession(manager, input) {
   const session = manager.get(input.session_id);
   const known = new Set(session.issues.map((issue) => JSON.stringify(issue)));
@@ -45776,6 +45812,7 @@ export {
   planOf,
   hauntPlan,
   lastEffects,
+  heldBack,
   hauntEndSession,
   briefEnd,
   malformed,
