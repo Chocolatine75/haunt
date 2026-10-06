@@ -21,14 +21,29 @@ const PAGE = `<!doctype html><html lang="en"><title>dead</title>
   <button id="open" type="button">Open</button>
   <button id="stop" type="button">Stop sync</button>
   <button id="nothing" type="button">Nothing</button>
+  <button id="attach" type="button">Attach a file</button>
+  <input id="picked" type="file" hidden>
+  <button id="down" type="button">Go to the end</button>
   <p id="status" role="status"></p>
   <form id="login">
     <input id="email" type="email" aria-label="Email">
     <input id="password" type="password" aria-label="Password">
     <button type="submit">Sign in</button>
   </form>
+  <div style="height: 6000px"></div>
+  <p id="end">The end</p>
   <script>
     const status = document.getElementById('status');
+    document.getElementById('down').addEventListener('click', () => {
+      // Moves a few frames later, as a smooth scroll does on a page busy
+      // with something else.
+      let frames = 15;
+      const later = () => {
+        if (--frames > 0) return requestAnimationFrame(later);
+        document.getElementById('end').scrollIntoView();
+      };
+      requestAnimationFrame(later);
+    });
     document.getElementById('open').addEventListener('click', () => {
       status.textContent = 'Opened';
     });
@@ -37,6 +52,9 @@ const PAGE = `<!doctype html><html lang="en"><title>dead</title>
     const sync = setInterval(() => { syncs++; }, 3000);
     document.getElementById('stop').addEventListener('click', () => {
       clearInterval(sync);
+    });
+    document.getElementById('attach').addEventListener('click', () => {
+      document.getElementById('picked').click();
     });
     // A submission the page swallows: dead, once the browser lets it through.
     document.getElementById('login').addEventListener('submit', (e) => {
@@ -109,6 +127,34 @@ describe('dead controls', () => {
     expect(await deadAfter({ type: 'click', ref: nothing })).toEqual([
       'Nothing',
     ]);
+  }, 30_000);
+
+  // Seen when the sweep first ran over the gauntlet's upload page: each of
+  // its four buttons was reported as wired to nothing. The file picker is
+  // the browser's, and nothing of it is in the page.
+  it('does not call dead a button that opens the file picker', async () => {
+    manager = new SessionManager();
+    ({ session_id } = await hauntSpawn(manager, {
+      target_url: url,
+      timeout: 50,
+    }));
+    const attach = await ref('Attach a file');
+    expect(await deadAfter({ type: 'click', ref: attach })).toEqual([]);
+    expect(await deadAfter({ type: 'click', ref: attach })).toEqual([]);
+  }, 30_000);
+
+  // CATTest 43: of five dots that scroll to a section, the one for the last
+  // section was reported as wired to nothing. A smooth scroll has moved
+  // nothing yet when the page is read.
+  it('does not call dead a button whose scroll moves after the page is read', async () => {
+    manager = new SessionManager();
+    ({ session_id } = await hauntSpawn(manager, {
+      target_url: url,
+      timeout: 50,
+    }));
+    expect(
+      await deadAfter({ type: 'click', ref: await ref('Go to the end') }),
+    ).toEqual([]);
   }, 30_000);
 
   // On a real run against demo/, the sign-in button was reported dead with

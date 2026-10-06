@@ -15,6 +15,8 @@ export interface SessionRuntime {
   opened: number[];
   closed: number[];
   downloads: string[];
+  // How many times a page asked the user for a file.
+  choosers: number;
   inflight: Map<Request, { url: string; at: number }>;
   // Requests started recently, newest last.
   recent: Array<{ url: string; at: number }>;
@@ -33,6 +35,7 @@ export function attachRuntime(
     opened: [],
     closed: [],
     downloads: [],
+    choosers: 0,
     inflight: new Map(),
     recent: [],
     navigations: new WeakMap(),
@@ -57,6 +60,12 @@ export function attachRuntime(
       runtime.downloads.push(download.suggestedFilename());
       // The file itself is of no use here; do not leave it downloading.
       download.cancel().catch(() => {});
+    });
+    // A button that opens the file picker did what it is for, though
+    // nothing in the page shows it: the sweep reported every "Choose a
+    // file" as wired to nothing.
+    page.on('filechooser', () => {
+      runtime.choosers++;
     });
     // A JavaScript dialog freezes its page until it is answered. It is kept
     // open and reported rather than dismissed behind the tester's back,
