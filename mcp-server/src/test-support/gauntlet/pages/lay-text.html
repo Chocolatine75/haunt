@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gauntlet — lay-text</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<!--
+  Text and the boxes it is in. In the buggy variant a button's label runs
+  out of the button, and a plan's price is cut by a box too short for it.
+
+  Not to be reported: a title shortened with an ellipsis, a paragraph
+  clamped to two lines, another in a box of a fixed height, a log that
+  scrolls, a link hidden from the eye and kept for a screen reader.
+-->
+<h1>Plans</h1>
+<a data-g="skip" href="#plans"
+  style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap">Skip to the list of plans and their prices</a>
+<p>
+  <button data-g="export" type="button"
+    style="{{#buggy}}width: 70px; {{/buggy}}white-space: nowrap; border: 1px solid #333; background: #eee; padding: 4px 8px">View and export invoices</button>
+</p>
+<div id="plans">
+  <h2 data-g="price" style="{{#buggy}}height: 20px; overflow: hidden; {{/buggy}}width: 160px; border: 1px solid #999; padding: 4px; margin: 0; font-size: 15px">
+    Team plan, twelve dollars a seat every month, billed yearly
+  </h2>
+  <p data-g="blurb" style="width: 160px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden">
+    Everything in the free plan, and shared folders, guests, a year of history and a person to write to when something breaks
+  </p>
+  <p data-g="teaser" style="width: 160px; height: 38px; overflow: hidden">
+    Read what three teams made of it in their first month, and what they would do differently
+  </p>
+  <p data-g="title" style="width: 160px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; border: 1px solid #999">
+    Enterprise plan with single sign-on and audit logs
+  </p>
+  <pre data-g="log" tabindex="0" aria-label="Changes" style="width: 200px; height: 40px; overflow: auto; border: 1px solid #999">2026-01-04 seats raised from 12 to 40 by the owner of the account
+2026-01-09 plan changed to yearly billing</pre>
+</div>
+</body>
+</html>

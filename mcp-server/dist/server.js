@@ -19,7 +19,7 @@ import {
   planCaseSchema,
   takeSnapshot,
   zodToJsonSchema
-} from "./chunk-5O7RP2D2.js";
+} from "./chunk-HMXWNGVW.js";
 import {
   _enum,
   _null,
@@ -10675,7 +10675,8 @@ var reportIssueSchema = issueSchema.extend({
 });
 var signalSchema = external_exports.object({
   id: external_exports.string(),
-  kind: external_exports.enum(SIGNAL_KINDS),
+  // Part 2's kinds, and the layout defects of part 5.
+  kind: external_exports.enum([...SIGNAL_KINDS, "layout"]),
   url: external_exports.string(),
   step: external_exports.number().int().min(0),
   message: external_exports.string(),
@@ -10745,6 +10746,9 @@ var TOOLS = [
         "How many actions the session may run before it has to end. Default: 40"
       ),
       timeout: external_exports.number().optional().describe("Older name of `budget`"),
+      narrow_check: external_exports.boolean().optional().describe(
+        "Before the session ends, read its layout once more on a window 375 px wide: what breaks on a phone shows there. Default: false"
+      ),
       hostile: external_exports.boolean().optional().describe(
         "Allow test cases of kind `hostile`, which send attack payloads. Only against an app you own. Default: false"
       ),
