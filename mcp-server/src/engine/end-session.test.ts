@@ -29,6 +29,8 @@ function mockSession(overrides: Partial<HauntSession> = {}): HauntSession {
     plan: newPlanState(false),
     evidence: {
       audit: false,
+      layout: false,
+      narrow_check: false,
       replay_budget_ms: 0,
       bundle_cap_bytes: 1_000_000,
     },
