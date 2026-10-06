@@ -1424,7 +1424,17 @@ export async function hauntAct(
   if (usable.length > 0) result.new_controls = usable;
   if (input.expect && results.length === input.actions.length && !stopped) {
     result.expectation = await checkExpectation(session, input.expect);
-    if (input.case !== undefined) {
+    // A case that failed a check has failed: a later check under the same
+    // id that holds does not undo it. On CATTest's gallery a tester proved
+    // that the focus left the lightbox with a last check that held ("the
+    // control behind is focused"), under the id of the case it had just
+    // failed; the case turned to passed, and its issue was replayed against
+    // that last check and rejected.
+    const before = input.case ? session.plan.cases.get(input.case) : undefined;
+    const failedBefore = before?.verdict === 'failed' && before.by === 'engine';
+    if (input.case !== undefined && failedBefore && result.expectation.held) {
+      result.todo = `Case "${input.case}" has already failed a check and stays failed. If that failure was the page's, file an issue with "case": "${input.case}". If it was your expectation, register a new case for what you are checking now.`;
+    } else if (input.case !== undefined) {
       closeCase(
         session,
         input.case,

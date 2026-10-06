@@ -133,3 +133,39 @@ export async function hauntEndSession(
   });
   return output;
 }
+
+// What a session's end says of it when asked to be brief: what became of
+// its issues, and the counts. The signals and the inventory stay on the
+// server for the report.
+export function briefEnd(output: EndSessionOutput): EndSessionBrief {
+  const told = (issue: VerifiedIssue) => ({
+    description: issue.description,
+    severity: issue.severity,
+    status: issue.verification.status,
+    ...(issue.verification.reason ? { reason: issue.verification.reason } : {}),
+    ...(issue.verification.bundle ? { bundle: issue.verification.bundle } : {}),
+  });
+  return {
+    session_id: output.session_id,
+    step_count: output.step_count,
+    issues_found: output.issues_found.map(told),
+    rejected: output.rejected.map(told),
+    signals: output.signals.length,
+    coverage: {
+      controls: output.coverage.controls,
+      cases: output.coverage.cases,
+    },
+    overall_impression: output.overall_impression,
+  };
+}
+
+export interface EndSessionBrief {
+  session_id: string;
+  step_count: number;
+  issues_found: Array<Record<string, unknown>>;
+  rejected: Array<Record<string, unknown>>;
+  // How many; the report has them.
+  signals: number;
+  coverage: Pick<Coverage, 'controls' | 'cases'>;
+  overall_impression: string;
+}

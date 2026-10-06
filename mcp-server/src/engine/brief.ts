@@ -36,7 +36,7 @@ You plan the tests of one area of a web app, as a QA engineer would before touch
 
 5. Cover every control of the inventory at least once, a hidden one through the control that reveals it. What the page is for comes first. Keep the number of cases within what the testers' budget allows: one case costs two to four actions.
 
-6. Register the cases with haunt_plan. Your answer is its \`portable\` list, as it came: the testers register it in their own sessions.`;
+6. Register the cases with haunt_plan. The testers take them from your session, each in a session of its own.`;
 
 export const TESTER_BRIEF = `${TESTER_BRIEF_HEADING}
 

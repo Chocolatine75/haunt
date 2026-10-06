@@ -4,6 +4,7 @@ import {
   SCREENSHOTS_DIR,
   SessionManager,
   actionSchema,
+  briefEnd,
   expectationSchema,
   external_exports,
   hauntAct,
@@ -18,7 +19,7 @@ import {
   planCaseSchema,
   takeSnapshot,
   zodToJsonSchema
-} from "./chunk-U57ZHTTL.js";
+} from "./chunk-IMBHOHWZ.js";
 import {
   _enum,
   _null,
@@ -10821,6 +10822,9 @@ var TOOLS = [
         "The id of another session, live or ended: registers its cases here, resolved to this session's controls. How a tester takes the cases a planner wrote"
       ),
       only: external_exports.array(external_exports.string()).optional().describe("With `from`: the ids of the cases to take. Default: all"),
+      brief: external_exports.boolean().optional().describe(
+        "Leave the inventory out of the answer: only the cases and the coverage. Use it once you have read the inventory"
+      ),
       close: external_exports.array(
         external_exports.object({
           id: external_exports.string(),
@@ -10829,7 +10833,13 @@ var TOOLS = [
         })
       ).optional()
     }),
-    run: (manager, input) => hauntPlan(manager, input)
+    // On a page of a hundred controls the inventory is most of the answer,
+    // and a caller that has read it once does not need it back with every
+    // case it registers.
+    run: async (manager, { brief, ...input }) => {
+      const plan = await hauntPlan(manager, input);
+      return brief ? { cases: plan.cases, coverage: plan.coverage } : plan;
+    }
   }),
   defineTool({
     name: "haunt_capture_state",
@@ -10862,12 +10872,20 @@ var TOOLS = [
     description: "Close the browser session, replay every issue in a fresh browser to verify it, and return them: confirmed, flaky (with the rate a replay reproduced it) or unverified in issues_found, each with its evidence bundle; rejected ones apart, with why.",
     input: external_exports.object({
       session_id: external_exports.string(),
+      brief: external_exports.boolean().optional().describe(
+        "Return what became of each issue and the counts, without the signals and the inventory. They stay on the server: haunt_generate_report takes them from the session id"
+      ),
       overall_impression: external_exports.string().optional().describe("What the session found, in a sentence or two"),
       issues: external_exports.array(issueSchema).optional().describe(
         "Issues found since the last haunt_act call, typically from the result of the last action"
       )
     }),
-    run: (manager, input) => hauntEndSession(manager, input)
+    // An agent that ends its session needs to know what became of its
+    // issues, not to carry a hundred controls back to whoever spawned it.
+    run: async (manager, { brief, ...input }) => {
+      const ended = await hauntEndSession(manager, input);
+      return brief ? briefEnd(ended) : ended;
+    }
   }),
   defineTool({
     name: "haunt_estimate_cost",
@@ -10970,7 +10988,7 @@ function createServer(manager = new SessionManager()) {
         throw new Error(describeInputError(name, parsed.error));
       }
       const result = await tool.run(manager, parsed.data);
-      const content = [{ type: "text", text: JSON.stringify(result, null, 2) }];
+      const content = [{ type: "text", text: JSON.stringify(result) }];
       const shot = result?.screenshot_path;
       if (name === "haunt_capture_state" && shot) {
         const path = join(SCREENSHOTS_DIR, shot);

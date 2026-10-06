@@ -36088,6 +36088,11 @@ function casesFrom(manager, from, only) {
   return all.filter((one) => only.includes(one.id));
 }
 async function hauntPlan(manager, input) {
+  if (!manager.has(input.session_id) && manager.endedSession(input.session_id)) {
+    throw new Error(
+      `Session ${input.session_id} has ended. To take its cases into a session of your own, call haunt_plan with your own session_id and "from": "${input.session_id}".`
+    );
+  }
   const session = manager.get(input.session_id);
   await manager.reapStale(SESSION_TTL_MS);
   if (!session.runtime.dialog) {
@@ -42918,7 +42923,11 @@ async function hauntAct(manager, input) {
   if (usable.length > 0) result.new_controls = usable;
   if (input.expect && results.length === input.actions.length && !stopped) {
     result.expectation = await checkExpectation(session, input.expect);
-    if (input.case !== void 0) {
+    const before2 = input.case ? session.plan.cases.get(input.case) : void 0;
+    const failedBefore = before2?.verdict === "failed" && before2.by === "engine";
+    if (input.case !== void 0 && failedBefore && result.expectation.held) {
+      result.todo = `Case "${input.case}" has already failed a check and stays failed. If that failure was the page's, file an issue with "case": "${input.case}". If it was your expectation, register a new case for what you are checking now.`;
+    } else if (input.case !== void 0) {
       closeCase(
         session,
         input.case,
@@ -43235,6 +43244,27 @@ async function hauntEndSession(manager, input) {
     portable: plan.portable
   });
   return output;
+}
+function briefEnd(output) {
+  const told = (issue) => ({
+    description: issue.description,
+    severity: issue.severity,
+    status: issue.verification.status,
+    ...issue.verification.reason ? { reason: issue.verification.reason } : {},
+    ...issue.verification.bundle ? { bundle: issue.verification.bundle } : {}
+  });
+  return {
+    session_id: output.session_id,
+    step_count: output.step_count,
+    issues_found: output.issues_found.map(told),
+    rejected: output.rejected.map(told),
+    signals: output.signals.length,
+    coverage: {
+      controls: output.coverage.controls,
+      cases: output.coverage.cases
+    },
+    overall_impression: output.overall_impression
+  };
 }
 
 // src/engine/capture.ts
@@ -45206,6 +45236,7 @@ export {
   takeSnapshot,
   hauntPlan,
   hauntEndSession,
+  briefEnd,
   malformed,
   DEFAULT_BUDGET,
   hauntSpawn,
