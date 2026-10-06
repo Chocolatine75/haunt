@@ -28613,10 +28613,10 @@ var require_axe = __commonJS({
           var ancestorNode = virtualNode;
           while (ancestorNode) {
             if (ancestorNode.props.id) {
-              var virtualControls = get_accessible_refs_default(ancestorNode).filter(function(control) {
-                return token_list_default(control.getAttribute("aria-labelledby") || "").includes(ancestorNode.props.id);
-              }).map(function(control) {
-                return get_node_from_tree_default(control);
+              var virtualControls = get_accessible_refs_default(ancestorNode).filter(function(control2) {
+                return token_list_default(control2.getAttribute("aria-labelledby") || "").includes(ancestorNode.props.id);
+              }).map(function(control2) {
+                return get_node_from_tree_default(control2);
               });
               ariaLabelledbyControls.push.apply(ariaLabelledbyControls, _toConsumableArray(virtualControls));
             }
@@ -34348,7 +34348,7 @@ async function probe(el, centre = false) {
 }
 function waitQuiet(args) {
   const state = window.__haunt;
-  const read = () => {
+  const read2 = () => {
     if (!state)
       return {
         quiet: true,
@@ -34369,7 +34369,7 @@ function waitQuiet(args) {
   return new Promise((resolve2) => {
     const deadline = Date.now() + args.maxMs;
     const tick = () => {
-      const now = read();
+      const now = read2();
       if (now.quiet || Date.now() >= deadline) resolve2(now);
       else wait(tick, 15);
     };
@@ -35116,10 +35116,10 @@ function collect(options) {
     if (labels && labels.length > 0) {
       const text = [...labels].map((label) => {
         const clone = label.cloneNode(true);
-        for (const control of clone.querySelectorAll(
+        for (const control2 of clone.querySelectorAll(
           "input, select, textarea, button"
         )) {
-          control.remove();
+          control2.remove();
         }
         return squash(clone.textContent ?? "");
       }).join(" ");
@@ -35941,8 +35941,8 @@ function markExercised(session, action) {
   if (!action || typeof action !== "object") return;
   for (const field of REF_FIELDS) {
     const ref2 = action[field];
-    const control = typeof ref2 === "string" ? session.plan.controls.get(ref2) : void 0;
-    if (control) control.exercised = true;
+    const control2 = typeof ref2 === "string" ? session.plan.controls.get(ref2) : void 0;
+    if (control2) control2.exercised = true;
   }
 }
 function repeats(session, action, unchanged) {
@@ -35964,7 +35964,7 @@ function coverageOf(session) {
   const controls = [...plan.controls.values()];
   const cases = [...plan.cases.values()];
   const named = new Set(cases.flatMap((one) => one.controls));
-  const done = (control) => control.exercised || sabotaged("tester_coverage_by_plan") && named.has(control.ref);
+  const done = (control2) => control2.exercised || sabotaged("tester_coverage_by_plan") && named.has(control2.ref);
   return {
     controls: {
       listed: controls.length,
@@ -35977,7 +35977,7 @@ function coverageOf(session) {
       failed: cases.filter((one) => one.verdict === "failed").length
     },
     left: {
-      controls: controls.filter((control) => !done(control)).map(({ ref: ref2, role, name }) => ({ ref: ref2, role, name })),
+      controls: controls.filter((control2) => !done(control2)).map(({ ref: ref2, role, name }) => ({ ref: ref2, role, name })),
       cases: cases.filter((one) => !one.verdict).map((one) => one.id)
     }
   };
@@ -35986,9 +35986,9 @@ function planOf(session) {
   const cases = [...session.plan.cases.values()];
   const named = new Set(cases.flatMap((one) => one.controls));
   return {
-    inventory: [...session.plan.controls.values()].map((control) => ({
-      ...control,
-      planned: named.has(control.ref)
+    inventory: [...session.plan.controls.values()].map((control2) => ({
+      ...control2,
+      planned: named.has(control2.ref)
     })),
     cases,
     coverage: coverageOf(session),
@@ -35998,15 +35998,15 @@ function planOf(session) {
       id,
       kind,
       controls: controls.flatMap((ref2) => {
-        const control = session.plan.controls.get(ref2);
-        if (!control) return [];
-        const alike = sameAs(session, control);
+        const control2 = session.plan.controls.get(ref2);
+        if (!control2) return [];
+        const alike = sameAs(session, control2);
         return [
           {
-            role: control.role,
-            name: control.name,
-            group: control.group,
-            ...alike.length > 1 ? { index: alike.indexOf(control) } : {}
+            role: control2.role,
+            name: control2.name,
+            group: control2.group,
+            ...alike.length > 1 ? { index: alike.indexOf(control2) } : {}
           }
         ];
       }),
@@ -36014,19 +36014,19 @@ function planOf(session) {
     }))
   };
 }
-function sameAs(session, control) {
+function sameAs(session, control2) {
   return [...session.plan.controls.values()].filter(
-    (c) => c.role === control.role && c.name === control.name && c.group === control.group
+    (c) => c.role === control2.role && c.name === control2.name && c.group === control2.group
   );
 }
 function resolved(session, one) {
-  const controls = one.controls.map((control) => {
-    if (typeof control === "string") return control;
-    const alike = sameAs(session, control);
-    const found = control.index !== void 0 ? alike[control.index] : alike.length === 1 ? alike[0] : void 0;
+  const controls = one.controls.map((control2) => {
+    if (typeof control2 === "string") return control2;
+    const alike = sameAs(session, control2);
+    const found = control2.index !== void 0 ? alike[control2.index] : alike.length === 1 ? alike[0] : void 0;
     if (!found) {
       throw new Error(
-        `Case "${one.id}" names the ${control.role} "${control.name}" (${control.group}), which ${alike.length === 0 ? "is not a control of this session" : `${alike.length} controls of this session match: say which with "index"`}. Plan it from this session's inventory.`
+        `Case "${one.id}" names the ${control2.role} "${control2.name}" (${control2.group}), which ${alike.length === 0 ? "is not a control of this session" : `${alike.length} controls of this session match: say which with "index"`}. Plan it from this session's inventory.`
       );
     }
     return found.ref;
@@ -36088,6 +36088,11 @@ function casesFrom(manager, from, only) {
   return all.filter((one) => only.includes(one.id));
 }
 async function hauntPlan(manager, input) {
+  if (!manager.has(input.session_id) && manager.endedSession(input.session_id)) {
+    throw new Error(
+      `Session ${input.session_id} has ended. To take its cases into a session of your own, call haunt_plan with your own session_id and "from": "${input.session_id}".`
+    );
+  }
   const session = manager.get(input.session_id);
   await manager.reapStale(SESSION_TTL_MS);
   if (!session.runtime.dialog) {
@@ -36157,7 +36162,7 @@ async function readList(session, query) {
     );
     return everywhere.flat().map((text) => text.trim());
   }
-  const read = await Promise.all(
+  const read2 = await Promise.all(
     session.page.frames().map(
       (frame) => frame.getByRole(query.within.role, {
         name: query.within.name,
@@ -36165,7 +36170,7 @@ async function readList(session, query) {
       }).getByRole(query.items).allInnerTexts().catch(() => [])
     )
   );
-  return read.flat().map((text) => text.trim());
+  return read2.flat().map((text) => text.trim());
 }
 function listHolds(items, condition) {
   const { count, every_contains, none_contains, order, equals } = condition;
@@ -36192,8 +36197,8 @@ function listHolds(items, condition) {
 }
 async function check(session, expectation) {
   if (expectation.list) {
-    const read = await readList(session, expectation.list);
-    return { held: listHolds(read, expectation.list), read };
+    const read2 = await readList(session, expectation.list);
+    return { held: listHolds(read2, expectation.list), read: read2 };
   }
   if (expectation.value) {
     let ref2 = expectation.value.ref;
@@ -36212,12 +36217,12 @@ async function check(session, expectation) {
       doc: target.doc,
       local: target.local
     })).asElement();
-    let read = handle ? await handle.evaluate(controlState, expectation.value.of) : null;
+    let read2 = handle ? await handle.evaluate(controlState, expectation.value.of) : null;
     if (sabotaged("tester_secret_read") && handle && expectation.value.of === "value") {
-      read = await handle.evaluate((el) => el.value);
-      return { held: true, read };
+      read2 = await handle.evaluate((el) => el.value);
+      return { held: true, read: read2 };
     }
-    return { held: read === expectation.value.is, read };
+    return { held: read2 === expectation.value.is, read: read2 };
   }
   return void 0;
 }
@@ -36631,6 +36636,7 @@ var SignalCollector = class {
   meta = /* @__PURE__ */ new Map();
   byKey = /* @__PURE__ */ new Map();
   inflight = /* @__PURE__ */ new Map();
+  layoutSeen = /* @__PURE__ */ new Set();
   secrets = [];
   // Of those, what was typed into a password field.
   passwords = [];
@@ -37011,13 +37017,13 @@ var SignalCollector = class {
     this.meta.set(signal.id, { key, delivered: false, report });
     return signal;
   }
-  raiseDeadControl(step, url, control) {
+  raiseDeadControl(step, url, control2) {
     this.raise({
       kind: "dead_control",
       url: withoutQuery(url),
       step,
-      ...control,
-      message: `Clicking the ${control.role} "${control.name}" changed nothing`,
+      ...control2,
+      message: `Clicking the ${control2.role} "${control2.name}" changed nothing`,
       severity: "major"
     });
   }
@@ -37046,6 +37052,35 @@ var SignalCollector = class {
       if (signal) out.push(signal);
     }
     return out;
+  }
+  // What a reading of the page's layout found (part 5). A defect the
+  // session already knows on that page, about the same control and saying
+  // the same thing, is not raised again: the layout is read after every
+  // action, and a covered button is one fact however long it stays covered.
+  fromLayout(url, step, findings) {
+    const page = withoutQuery(url);
+    for (const finding of findings) {
+      const key = JSON.stringify([
+        page,
+        finding.rule,
+        finding.role,
+        finding.name,
+        // Without the measure: text that overflows by 12 px then by 14 is
+        // the same text overflowing.
+        finding.message.replace(/\d+ px/g, "")
+      ]);
+      if (this.layoutSeen.has(key)) continue;
+      this.layoutSeen.add(key);
+      this.raise({
+        kind: "layout",
+        url: page,
+        step,
+        rule: finding.rule,
+        message: finding.message,
+        severity: finding.severity,
+        ...finding.ref ? { ref: finding.ref, role: finding.role, name: finding.name } : {}
+      });
+    }
   }
   // Signals handed over now, outside the order of steps (an explicit audit).
   handOverNow(signals) {
@@ -37150,6 +37185,356 @@ function pageUrl(frame, request) {
   } catch {
   }
   return withoutQuery(request.url());
+}
+
+// src/engine/signals/layout-page.ts
+function layoutIssues(input) {
+  const state = window.__haunt;
+  if (!state || state.doc !== input.doc) return [];
+  const began = performance.now();
+  const issues = [];
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const root = document.documentElement;
+  const say = (el) => {
+    const text = (el.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 40);
+    const tag = el.tagName.toLowerCase();
+    const id = el.id ? `#${el.id}` : "";
+    return text ? `${tag}${id} "${text}"` : `${tag}${id}`;
+  };
+  const called = (el) => (el.getAttribute("aria-label") || el.textContent || "").replace(/\s+/g, " ").trim();
+  const shown = (el) => {
+    const style = getComputedStyle(el);
+    const box = el.getBoundingClientRect();
+    return style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity) > 0.05 && box.width >= 4 && box.height >= 4;
+  };
+  const pinned = (el) => {
+    for (let at = el; at; at = at.parentElement) {
+      const position = getComputedStyle(at).position;
+      if (position === "fixed" || position === "sticky") return at;
+    }
+    return null;
+  };
+  const OVER = '[role="dialog"],[role="alertdialog"],dialog,[role="menu"],[role="listbox"],[role="tooltip"],[popover],[role="status"],[role="alert"],[aria-live]';
+  const inside = (inner, outer) => {
+    for (let at = inner; at; ) {
+      if (at === outer) return true;
+      const parent = at.parentNode;
+      at = parent instanceof ShadowRoot ? parent.host : parent;
+    }
+    return false;
+  };
+  const within = (a, b) => inside(a, b) || inside(b, a);
+  const visibleBox = (el) => {
+    const boxes = el.getClientRects();
+    if (boxes.length !== 1) return null;
+    let { left, top, right, bottom } = boxes[0];
+    for (let at = el.parentElement; at; at = at.parentElement) {
+      const style = getComputedStyle(at);
+      if (style.overflowX === "visible" && style.overflowY === "visible")
+        continue;
+      const clip3 = at.getBoundingClientRect();
+      left = Math.max(left, clip3.left);
+      top = Math.max(top, clip3.top);
+      right = Math.min(right, clip3.right);
+      bottom = Math.min(bottom, clip3.bottom);
+    }
+    if (right - left < 4 || bottom - top < 4) return null;
+    return new DOMRect(left, top, right - left, bottom - top);
+  };
+  const pageScale = (el) => {
+    for (let at = el; at; at = at.parentElement) {
+      const position = getComputedStyle(at).position;
+      if (position !== "fixed" && position !== "absolute") continue;
+      const box = at.getBoundingClientRect();
+      const w = Math.min(box.right, vw) - Math.max(box.left, 0);
+      const h = Math.min(box.bottom, vh) - Math.max(box.top, 0);
+      if (w > 0 && h > 0 && w * h / (vw * vh) > 0.3) return true;
+    }
+    return false;
+  };
+  const scrollsY = root.scrollHeight > vh + 2;
+  const controls = [];
+  for (const local of input.locals) {
+    const node = state.nodes.get(local)?.deref();
+    if (!(node instanceof Element) || !node.isConnected) continue;
+    if (!shown(node)) continue;
+    if (node.disabled) continue;
+    const box = visibleBox(node);
+    if (box) controls.push({ local, el: node, box });
+  }
+  const coveredBy = /* @__PURE__ */ new Map();
+  for (const { local, el, box } of controls) {
+    const x = box.left + box.width / 2;
+    const y = box.top + box.height / 2;
+    if (x < 0 || y < 0 || x >= vw || y >= vh) continue;
+    let top = document.elementFromPoint(x, y);
+    while (top?.shadowRoot) {
+      const inner = top.shadowRoot.elementFromPoint(x, y);
+      if (!inner || inner === top) break;
+      top = inner;
+    }
+    if (!top || within(el, top)) continue;
+    if (top instanceof HTMLLabelElement && top.control === el) continue;
+    const overlay = top.closest(OVER);
+    if (overlay && !overlay.contains(el)) continue;
+    if (pageScale(top)) continue;
+    const a = pinned(el);
+    const b = pinned(top);
+    if (a !== b && !(a && b) && scrollsY) continue;
+    const other = controls.find((c) => c.el === top || c.el.contains(top));
+    if (other && called(other.el) !== "" && called(other.el) === called(el)) {
+      continue;
+    }
+    coveredBy.set(el, top);
+    issues.push({
+      rule: "covered",
+      local,
+      ...other ? { other: other.local } : { by: say(top) }
+    });
+  }
+  const NAMED = /^(button|link|textbox|searchbox|checkbox|radio|combobox|tab|menuitem|switch|slider|spinbutton)$/;
+  const label = (el) => (el.getAttribute("aria-label") || el.placeholder || el.textContent || "").replace(/\s+/g, " ").trim();
+  const roleOf = (el) => el.getAttribute("role") || {
+    BUTTON: "button",
+    A: "link",
+    SELECT: "combobox",
+    TEXTAREA: "textbox",
+    INPUT: "textbox"
+  }[el.tagName] || "";
+  const flat = controls.filter(
+    (c) => c.box.width * c.box.height < vw * vh * 0.5 && NAMED.test(roleOf(c.el)) && label(c.el) !== ""
+  );
+  for (let i = 0; i < flat.length && i < 400; i++) {
+    for (let j = i + 1; j < flat.length && j < 400; j++) {
+      const a = flat[i];
+      const b = flat[j];
+      if (within(a.el, b.el)) continue;
+      if (label(a.el) === label(b.el)) continue;
+      const w = Math.min(a.box.right, b.box.right) - Math.max(a.box.left, b.box.left);
+      const h = Math.min(a.box.bottom, b.box.bottom) - Math.max(a.box.top, b.box.top);
+      if (w <= 0 || h <= 0) continue;
+      const smaller = Math.min(
+        a.box.width * a.box.height,
+        b.box.width * b.box.height
+      );
+      if (w * h / smaller < 0.5) continue;
+      if (getComputedStyle(a.el).display === "inline" || getComputedStyle(b.el).display === "inline") {
+        continue;
+      }
+      if (coveredBy.get(a.el) === b.el || coveredBy.get(b.el) === a.el)
+        continue;
+      const oa = a.el.closest(OVER);
+      const ob = b.el.closest(OVER);
+      if (oa !== ob) continue;
+      const pa = pinned(a.el);
+      const pb = pinned(b.el);
+      if (pa !== pb && !(pa && pb) && scrollsY) continue;
+      issues.push({ rule: "overlap", local: a.local, other: b.local });
+    }
+  }
+  const texts = document.querySelectorAll(
+    "button, a, label, th, td, li, p, span, div, h1, h2, h3, h4, h5, h6, summary, legend, option"
+  );
+  let checked = 0;
+  for (const el of texts) {
+    if (checked >= 3e3) break;
+    let own = "";
+    for (const child of el.childNodes) {
+      if (child.nodeType === 3) own += child.nodeValue ?? "";
+    }
+    own = own.replace(/\s+/g, " ").trim();
+    if (own.length < 2) continue;
+    checked++;
+    if (!shown(el) || el.closest('[aria-hidden="true"]')) continue;
+    const style = getComputedStyle(el);
+    if (style.display === "inline" || style.display === "contents") continue;
+    const box = el.getBoundingClientRect();
+    if (box.width <= 2 || box.height <= 2) continue;
+    const scrolls = (v) => v === "auto" || v === "scroll";
+    if (scrolls(style.overflowX) || scrolls(style.overflowY)) continue;
+    const cuts = (v) => v === "hidden" || v === "clip";
+    let inked;
+    for (const child of el.childNodes) {
+      if (child.nodeType !== 3 || !(child.nodeValue ?? "").trim()) continue;
+      const range = document.createRange();
+      range.selectNodeContents(child);
+      const r = range.getBoundingClientRect();
+      if (r.width === 0) continue;
+      inked = inked ? {
+        left: Math.min(inked.left, r.left),
+        right: Math.max(inked.right, r.right),
+        bottom: Math.max(inked.bottom, r.bottom)
+      } : { left: r.left, right: r.right, bottom: r.bottom };
+    }
+    if (!inked) continue;
+    const beyond = Math.max(inked.right - box.right, box.left - inked.left);
+    const below = inked.bottom - box.bottom;
+    if (cuts(style.overflowX) || cuts(style.overflowY)) {
+      if (style.textOverflow === "ellipsis") continue;
+      const clamp = style.webkitLineClamp;
+      if (clamp && clamp !== "none") continue;
+      if (!controls.some((c) => c.el === el) && !/^(H[1-6]|TH|LABEL|LEGEND|SUMMARY)$/.test(el.tagName)) {
+        continue;
+      }
+      const cut = Math.max(
+        cuts(style.overflowX) ? el.scrollWidth - el.clientWidth : 0,
+        cuts(style.overflowY) ? el.scrollHeight - el.clientHeight : 0
+      );
+      if (cut > 3) {
+        const control2 = controls.find((c) => c.el === el);
+        issues.push({
+          rule: "text_overflow",
+          ...control2 ? { local: control2.local } : { what: say(el) },
+          by: "cut off",
+          px: Math.round(cut)
+        });
+      }
+      continue;
+    }
+    const boxed = style.borderStyle !== "none" && Number.parseFloat(style.borderWidth) > 0 || style.backgroundColor !== "rgba(0, 0, 0, 0)" && style.backgroundColor !== "transparent";
+    if (boxed && Math.max(beyond, below) > 3) {
+      const control2 = controls.find((c) => c.el === el);
+      issues.push({
+        rule: "text_overflow",
+        ...control2 ? { local: control2.local } : { what: say(el) },
+        by: "spills out",
+        px: Math.round(Math.max(beyond, below))
+      });
+    }
+  }
+  for (const el of document.querySelectorAll(
+    '[role="dialog"][aria-modal="true"], [role="alertdialog"], dialog[open]'
+  )) {
+    if (!shown(el)) continue;
+    const box = el.getBoundingClientRect();
+    if (box.width > vw * 1.2 || box.height > vh * 1.5) continue;
+    const w = Math.min(box.right, vw) - Math.max(box.left, 0);
+    const h = Math.min(box.bottom, vh) - Math.max(box.top, 0);
+    const visible = Math.max(0, w) * Math.max(0, h);
+    if (visible / (box.width * box.height) < 0.6) {
+      issues.push({ rule: "dialog_outside_viewport", what: say(el) });
+    }
+  }
+  const over = root.scrollWidth - vw;
+  if (vw <= 600 && over > 4 && getComputedStyle(root).overflowX !== "hidden") {
+    issues.push({ rule: "page_overflow", px: Math.round(over) });
+  }
+  state.work?.push([began, performance.now()]);
+  const kept = [];
+  const count = {};
+  for (const issue of issues) {
+    count[issue.rule] = (count[issue.rule] ?? 0) + 1;
+    if (count[issue.rule] <= 5) kept.push(issue);
+  }
+  return kept;
+}
+
+// src/engine/signals/layout.ts
+var control = (e) => `the ${e.role} "${e.name}"`;
+async function layoutOf(session) {
+  if (sabotaged("signals_off") || sabotaged("layout_unread")) return [];
+  if (session.page.isClosed()) return [];
+  if (session.runtime.dialog) return [];
+  const read2 = session.snapshot.previous;
+  if (!read2) return [];
+  const frame = session.page.mainFrame();
+  const mine = read2.elements.filter(
+    (e) => session.snapshot.targets.get(e.ref)?.frame === frame
+  );
+  const first = mine[0] && session.snapshot.targets.get(mine[0].ref);
+  if (!first) return [];
+  const byLocal = new Map(
+    mine.flatMap((e) => {
+      const target = session.snapshot.targets.get(e.ref);
+      return target ? [[target.local, e]] : [];
+    })
+  );
+  let issues;
+  try {
+    issues = await frame.evaluate(layoutIssues, {
+      doc: first.doc,
+      locals: [...byLocal.keys()]
+    });
+  } catch {
+    return [];
+  }
+  const findings = [];
+  for (const issue of issues) {
+    const subject = issue.local !== void 0 ? byLocal.get(issue.local) : void 0;
+    const other = issue.other !== void 0 ? byLocal.get(issue.other) : void 0;
+    const about = subject ? control(subject) : issue.what;
+    const who = subject ? { ref: subject.ref, role: subject.role, name: subject.name } : {};
+    switch (issue.rule) {
+      case "covered":
+        if (!subject) break;
+        findings.push({
+          rule: "covered",
+          severity: "major",
+          message: `${control(subject)[0].toUpperCase()}${control(subject).slice(1)} is covered by ${other ? control(other) : `another element (${issue.by})`}: a click on it lands on what covers it`,
+          ...who
+        });
+        break;
+      case "overlap":
+        if (!subject || !other) break;
+        findings.push({
+          rule: "overlap",
+          severity: "minor",
+          message: `The ${subject.role} "${subject.name}" and the ${other.role} "${other.name}" overlap`,
+          ...who
+        });
+        break;
+      case "text_overflow":
+        findings.push({
+          rule: "text_overflow",
+          severity: "minor",
+          message: `The text of ${about} ${issue.by === "cut off" ? "is cut off by its box" : "spills out of its box"} (${issue.px} px)`,
+          ...who
+        });
+        break;
+      case "dialog_outside_viewport":
+        findings.push({
+          rule: "dialog_outside_viewport",
+          severity: "major",
+          message: `The dialog ${issue.what} opened mostly outside the window: it has to be scrolled to`
+        });
+        break;
+      case "page_overflow":
+        findings.push({
+          rule: "page_overflow",
+          severity: "minor",
+          message: `The page is ${issue.px} px wider than the window (${session.page.viewportSize()?.width ?? "?"} px): it scrolls sideways`
+        });
+        break;
+    }
+  }
+  return findings;
+}
+var read = /* @__PURE__ */ new WeakMap();
+async function layoutIfDue(session, step) {
+  if (session.page.isClosed()) return;
+  const url = session.page.url();
+  let key;
+  try {
+    const parsed = new URL(url);
+    if (!/^https?:$/.test(parsed.protocol)) return;
+    key = `${parsed.origin}${parsed.pathname}`;
+  } catch {
+    return;
+  }
+  let seen = read.get(session);
+  if (!seen) {
+    seen = /* @__PURE__ */ new Map();
+    read.set(session, seen);
+  }
+  const size = session.page.viewportSize();
+  const shown = (session.snapshot.previous?.elements ?? []).filter(
+    (e) => !e.hidden
+  ).length;
+  const state = `${shown}|${size?.width}x${size?.height}`;
+  if (seen.get(key) === state) return;
+  seen.set(key, state);
+  session.collector.fromLayout(url, step, await layoutOf(session));
 }
 
 // src/engine/spawn.ts
@@ -37355,6 +37740,8 @@ async function hauntSpawn(manager, input) {
     ),
     evidence: {
       audit: input.audit !== false,
+      layout: input.layout ?? input.audit !== false,
+      narrow_check: input.narrow_check === true,
       replay_budget_ms: input.replay_budget_ms ?? REPLAY_BUDGET_MS,
       bundle_cap_bytes: input.bundle_cap_bytes ?? BUNDLE_CAP_BYTES,
       cookies: input.cookies,
@@ -37365,6 +37752,7 @@ async function hauntSpawn(manager, input) {
   await takeSnapshot(session, { format: "json" }, true).catch(() => {
   });
   await auditIfNew(session, 0);
+  if (session.evidence.layout) await layoutIfDue(session, 0);
   return {
     session_id: sessionId,
     signals: collector.deliver(0)
@@ -37522,6 +37910,7 @@ async function textOf(session) {
   return texts.join("\n");
 }
 async function holds(session, observed) {
+  if (observed.steps_only) return true;
   const held = await observedHolds(session, observed);
   return observed.fails ? !held : held;
 }
@@ -37538,13 +37927,13 @@ async function observedHolds(session, observed) {
     return session.page.url().includes(observed.url);
   }
   if (observed.element && observed.locator) {
-    const read = await takeSnapshot(session, { format: "json" }, true);
+    const read2 = await takeSnapshot(session, { format: "json" }, true);
     const ref2 = refFor(
-      read.elements ?? [],
-      read.containers ?? [],
+      read2.elements ?? [],
+      read2.containers ?? [],
       observed.locator
     );
-    const element = read.elements?.find((e) => e.ref === ref2);
+    const element = read2.elements?.find((e) => e.ref === ref2);
     switch (observed.element.state) {
       case "gone":
         return !element;
@@ -37564,10 +37953,10 @@ async function actionFor(session, step, secrets) {
   const action = { ...step.action };
   const needs = REF_FIELDS.filter((f) => action[f] === REF_PLACEHOLDER);
   if (needs.length > 0) {
-    const read = await takeSnapshot(session, { format: "json" }, true);
+    const read2 = await takeSnapshot(session, { format: "json" }, true);
     for (const field of needs) {
       const locator = step.locators[field];
-      const ref2 = locator && refFor(read.elements ?? [], read.containers ?? [], locator);
+      const ref2 = locator && refFor(read2.elements ?? [], read2.containers ?? [], locator);
       if (!ref2) return void 0;
       action[field] = ref2;
     }
@@ -37590,6 +37979,9 @@ async function replay(file, options = {}) {
     // A replay is not a session of its own: no audit unless the claim is
     // about one, and no replays of its replays.
     audit: "signal" in claim && claim.signal.kind === "a11y",
+    layout: "signal" in claim && claim.signal.kind === "layout",
+    // Its steps hold the narrow reading already, if the session made one.
+    narrow_check: false,
     replay_budget_ms: 0
   });
   const session = manager.get(spawned.session_id);
@@ -41924,8 +42316,8 @@ async function checkExpectation(session, expectation) {
   if (sabotaged("tester_expectation_assumed")) return { held: true };
   const own = await check(session, expectation);
   if (own) return own;
-  const read = session.snapshot.previous;
-  const locator = expectation.element && read ? locatorOf(read.elements, read.containers, expectation.element.ref) : void 0;
+  const read2 = session.snapshot.previous;
+  const locator = expectation.element && read2 ? locatorOf(read2.elements, read2.containers, expectation.element.ref) : void 0;
   return { held: await holds(session, { ...expectation, locator }) };
 }
 var ActionFailure = class extends Error {
@@ -42886,6 +43278,9 @@ async function hauntAct(manager, input) {
       repeated = repeats(session, input.actions[i], step.changes.none);
     }
     await auditIfNew(session, session.step_count);
+    if (session.evidence.layout && step.ok && step.type !== "hover") {
+      await layoutIfDue(session, session.step_count);
+    }
     const reason = stopAfter(step);
     if (reason && (reason === "failed" || i < input.actions.length - 1)) {
       stopped = reason;
@@ -42918,7 +43313,11 @@ async function hauntAct(manager, input) {
   if (usable.length > 0) result.new_controls = usable;
   if (input.expect && results.length === input.actions.length && !stopped) {
     result.expectation = await checkExpectation(session, input.expect);
-    if (input.case !== void 0) {
+    const before2 = input.case ? session.plan.cases.get(input.case) : void 0;
+    const failedBefore = before2?.verdict === "failed" && before2.by === "engine";
+    if (input.case !== void 0 && failedBefore && result.expectation.held) {
+      result.todo = `Case "${input.case}" has already failed a check and stays failed. If that failure was the page's, file an issue with "case": "${input.case}". If it was your expectation, register a new case for what you are checking now.`;
+    } else if (input.case !== void 0) {
       closeCase(
         session,
         input.case,
@@ -42928,8 +43327,8 @@ async function hauntAct(manager, input) {
       );
       const { step: _step, ...observed } = input.expect;
       const named = observed.value?.ref ?? observed.element?.ref;
-      const read = session.snapshot.previous;
-      const locator = named && read ? locatorOf(read.elements, read.containers, named) : void 0;
+      const read2 = session.snapshot.previous;
+      const locator = named && read2 ? locatorOf(read2.elements, read2.containers, named) : void 0;
       if (!result.expectation.held) {
         result.todo = `Case "${input.case}" failed. If the page is wrong, file an issue with "case": "${input.case}" now. If it is your expectation that was wrong about the page, state the right one under a new case and play it again.`;
       }
@@ -43015,7 +43414,7 @@ function writeBundle(dir, file, run, verification, cap) {
     write();
   }
 }
-async function verifyClaim(session, claim, deadline, dir, forSignal) {
+async function verifyClaim(session, claim, deadline, dir, forSignal, stepsOnly = false) {
   const file = stepsFileOf(session, claim);
   const secrets = Object.fromEntries(
     [...session.recording.secrets].map(([value, placeholder]) => [
@@ -43077,8 +43476,14 @@ async function verifyClaim(session, claim, deadline, dir, forSignal) {
         ...stuck?.failed_step !== void 0 ? { failed_step: stuck.failed_step } : {}
       };
     }
+    if (stepsOnly && verification.status !== "rejected" && !sabotaged("tester_unchecked_confirmed")) {
+      verification = {
+        ...verification,
+        status: "unchecked"
+      };
+    }
     const proof = runs.find((r) => r.reproduced);
-    if (proof && (verification.status === "confirmed" || verification.status === "flaky")) {
+    if (proof && (verification.status === "confirmed" || verification.status === "flaky" || stepsOnly)) {
       writeBundle(
         dir,
         file,
@@ -43117,7 +43522,17 @@ async function verifySession(session, issues, signals) {
     if (issue.case !== void 0 && !ofCase && !closedByTester) {
       verification = rejected("unknown_case");
     } else if (!issue.signal && !issue.observed && !ofCase) {
-      verification = rejected("no_claim");
+      verification = await verifyClaim(
+        session,
+        {
+          step: session.step_count,
+          observed: { steps_only: true }
+        },
+        deadline,
+        join3(root, `issue-${i + 1}`),
+        false,
+        true
+      );
     } else if (issue.signal && !signal) {
       verification = rejected("unknown_signal");
     } else if (ofCase && sabotaged("tester_case_not_replayed")) {
@@ -43136,9 +43551,9 @@ async function verifySession(session, issues, signals) {
         claim = ofCase;
       } else {
         const observed = issue.observed;
-        const read = session.snapshot.previous;
+        const read2 = session.snapshot.previous;
         const about = observed.element?.ref ?? observed.value?.ref;
-        const locator = about && read ? locatorOf(read.elements, read.containers, about) : void 0;
+        const locator = about && read2 ? locatorOf(read2.elements, read2.containers, about) : void 0;
         claim = {
           step: observed.step ?? session.step_count,
           observed: { ...observed, ...locator ? { locator } : {} }
@@ -43174,6 +43589,7 @@ async function verifySession(session, issues, signals) {
 
 // src/engine/end-session.ts
 var sleep2 = (ms) => new Promise((r) => setTimeout(r, ms));
+var NARROW = { width: 375, height: 800 };
 async function lastEffects(session) {
   if (sabotaged("signals_off")) return;
   const { collector } = session;
@@ -43198,6 +43614,14 @@ async function hauntEndSession(manager, input) {
   const known = new Set(session.issues.map((issue) => JSON.stringify(issue)));
   for (const issue of input.issues ?? []) {
     if (!known.has(JSON.stringify(issue))) session.issues.push(issue);
+  }
+  if (session.evidence.narrow_check && session.evidence.layout && !session.runtime.dialog && !session.page.isClosed()) {
+    session.max_steps = Math.max(session.max_steps, session.step_count + 1);
+    await hauntAct(manager, {
+      session_id: session.id,
+      actions: [{ type: "resize", width: NARROW.width, height: NARROW.height }]
+    }).catch(() => {
+    });
   }
   await lastEffects(session);
   if (!session.runtime.dialog && !session.page.isClosed()) {
@@ -43235,6 +43659,27 @@ async function hauntEndSession(manager, input) {
     portable: plan.portable
   });
   return output;
+}
+function briefEnd(output) {
+  const told = (issue) => ({
+    description: issue.description,
+    severity: issue.severity,
+    status: issue.verification.status,
+    ...issue.verification.reason ? { reason: issue.verification.reason } : {},
+    ...issue.verification.bundle ? { bundle: issue.verification.bundle } : {}
+  });
+  return {
+    session_id: output.session_id,
+    step_count: output.step_count,
+    issues_found: output.issues_found.map(told),
+    rejected: output.rejected.map(told),
+    signals: output.signals.length,
+    coverage: {
+      controls: output.coverage.controls,
+      cases: output.coverage.cases
+    },
+    overall_impression: output.overall_impression
+  };
 }
 
 // src/engine/capture.ts
@@ -43288,6 +43733,10 @@ function signalKey(signal) {
       return `${signal.kind}|${signal.message}`;
     case "a11y":
       return `a11y|${signal.rule ?? signal.message}`;
+    // A layout defect is about a control on its page: the same "Menu"
+    // covered on two pages is two places to fix.
+    case "layout":
+      return `layout|${signal.url}|${signal.rule ?? ""}|${signal.message.replace(/\d+ px/g, "")}`;
     case "dead_control":
       return `dead_control|${signal.url}|${signal.role ?? ""}|${signal.name ?? ""}`;
     case "long_task":
@@ -43330,27 +43779,28 @@ function renderSignalGroup(group) {
 var SIGNALS_HEADING = "Detected automatically";
 var FLAKY_HEADING = "Flaky";
 var UNVERIFIED_HEADING = "Unverified";
+var UNCHECKED_HEADING = "To check by hand";
 var COVERAGE_HEADING = "Coverage";
 function coverageAcross(sessions) {
   if (!sessions.some((s) => s.inventory)) return void 0;
   const controls = /* @__PURE__ */ new Map();
   const cases = /* @__PURE__ */ new Map();
   for (const session of sessions) {
-    for (const control of session.inventory ?? []) {
+    for (const control2 of session.inventory ?? []) {
       const key = JSON.stringify([
         session.area,
-        control.group,
-        control.role,
-        control.name
+        control2.group,
+        control2.role,
+        control2.name
       ]);
       const known = controls.get(key);
-      if (known) known.exercised ||= control.exercised;
+      if (known) known.exercised ||= control2.exercised;
       else {
         controls.set(key, {
           area: session.area,
-          role: control.role,
-          name: control.name,
-          exercised: control.exercised
+          role: control2.role,
+          name: control2.name,
+          exercised: control2.exercised
         });
       }
     }
@@ -43546,6 +43996,17 @@ function hauntGenerateReport(input) {
   const allIssues = filed.filter((i) => statusOf(i) === "confirmed");
   const flaky = filed.filter((i) => statusOf(i) === "flaky");
   const unverified = filed.filter((i) => statusOf(i) === "unverified");
+  const unchecked = filed.filter((i) => statusOf(i) === "unchecked");
+  const unnamedFailures = input.sessions.flatMap((session) => {
+    const named2 = new Set(
+      [...session.issues, ...session.rejected ?? []].flatMap(
+        (i) => i.case !== void 0 ? [i.case] : []
+      )
+    );
+    return (session.cases ?? []).filter(
+      (one) => one.verdict === "failed" && one.by === "engine" && !named2.has(one.id)
+    ).map((one) => ({ area: session.area, ...one }));
+  });
   const rejectedIssues = [
     ...filed.filter((i) => statusOf(i) === "rejected"),
     ...input.sessions.flatMap((s) => s.rejected ?? [])
@@ -43698,6 +44159,36 @@ function hauntGenerateReport(input) {
       flaky.map(listed).join("\n")
     );
   }
+  if (unchecked.length > 0 || unnamedFailures.length > 0) {
+    bodySections.push(
+      "",
+      `## ${UNCHECKED_HEADING}`,
+      "",
+      "Seen by a tester, and nothing the engine could verify by itself. Not counted. Each comes with the steps that led to it."
+    );
+    if (unchecked.length > 0) {
+      bodySections.push(
+        "",
+        unchecked.map(
+          (issue) => [
+            `- [${issue.severity.toUpperCase()}] ${issue.description} (\`${issue.page_url}\`)`,
+            ...issue.expected ? [`  - Expected: ${issue.expected}`] : [],
+            ...issue.actual ? [`  - Seen: ${issue.actual}`] : [],
+            ...issue.verification?.bundle ? [`  - Steps: \`${issue.verification.bundle}\``] : []
+          ].join("\n")
+        ).join("\n")
+      );
+    }
+    if (unnamedFailures.length > 0) {
+      bodySections.push(
+        "",
+        "Checks that failed, and that no issue was filed for:",
+        ...unnamedFailures.map(
+          (one) => `- "${one.id}" on \`${one.area}\` \u2014 expected: ${one.expect}${one.read !== void 0 ? ` \u2014 the page showed: ${JSON.stringify(one.read)}` : ""}`
+        )
+      );
+    }
+  }
   if (unverified.length > 0) {
     bodySections.push(
       "",
@@ -43799,6 +44290,7 @@ function hauntGenerateReport(input) {
         }),
         flaky,
         unverified,
+        unchecked,
         rejected: rejectedIssues,
         signals: allSignals,
         signal_counts
@@ -45206,6 +45698,7 @@ export {
   takeSnapshot,
   hauntPlan,
   hauntEndSession,
+  briefEnd,
   malformed,
   DEFAULT_BUDGET,
   hauntSpawn,

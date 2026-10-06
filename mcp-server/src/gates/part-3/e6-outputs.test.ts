@@ -49,7 +49,9 @@ describe('E6 where it goes', () => {
         const [issue] = session.issues();
         const ended = await session.end([
           issue,
-          { ...issue, signal: undefined, description: 'No claim' },
+          // A signal the session does not have. It was an issue with no
+          // claim until part 4, which no longer rejects those (R-T11).
+          { ...issue, signal: 's999', description: 'No such signal' },
         ]);
         expect(ended.issues_found).toHaveLength(1);
         expect(ended.issues_found[0].verification).toMatchObject({
@@ -58,7 +60,7 @@ describe('E6 where it goes', () => {
         });
         expect(ended.issues_found[0].verification.bundle).toBeTruthy();
         expect(ended.rejected).toHaveLength(1);
-        expect(ended.rejected[0].verification.reason).toBe('no_claim');
+        expect(ended.rejected[0].verification.reason).toBe('unknown_signal');
       },
     );
   });

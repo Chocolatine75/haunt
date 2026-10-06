@@ -47,7 +47,10 @@ export function createServer(
       const content: Array<
         | { type: 'text'; text: string }
         | { type: 'image'; data: string; mimeType: string }
-      > = [{ type: 'text', text: JSON.stringify(result, null, 2) }];
+        // Without indentation: it is read by a model, and on a page of a
+        // hundred controls the spaces alone took a plan past what a host
+        // lets a tool return.
+      > = [{ type: 'text', text: JSON.stringify(result) }];
       // A screenshot asked for is shown, not only saved: a tester has no
       // other way to look at the page (R-T13), and a path it cannot open is
       // a picture nobody sees.

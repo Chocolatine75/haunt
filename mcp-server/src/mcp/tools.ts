@@ -11,7 +11,7 @@ import { zodToJsonSchema } from 'zod-to-json-schema';
 import { hauntAct } from '../engine/act/act.js';
 import { actionSchema } from '../engine/act/schema.js';
 import { hauntCaptureState } from '../engine/capture.js';
-import { hauntEndSession } from '../engine/end-session.js';
+import { briefEnd, hauntEndSession } from '../engine/end-session.js';
 import { hauntReplay } from '../engine/evidence/replay.js';
 import { hauntGetCookies } from '../engine/get-cookies.js';
 import { hauntPlan } from '../engine/plan/plan.js';
@@ -44,7 +44,7 @@ const issueSchema = z.object({
     .string()
     .optional()
     .describe(
-      'The id of the signal this issue is about (s3). An issue must name a signal or carry an observation, or it is rejected',
+      'The id of the signal this issue is about (s3). An issue that names a signal, a case or an observation is replayed and confirmed; one with none is only listed for a person to check',
     ),
   observed: expectationSchema
     .optional()
@@ -70,7 +70,13 @@ const issueSchema = z.object({
 // report as haunt_end_session returned it.
 const verificationSchema = z
   .object({
-    status: z.enum(['confirmed', 'flaky', 'rejected', 'unverified']),
+    status: z.enum([
+      'confirmed',
+      'flaky',
+      'rejected',
+      'unverified',
+      'unchecked',
+    ]),
     attempts: z.number().int().min(0),
     reproduced: z.number().int().min(0),
     rate: z.number().min(0).max(1),
@@ -90,7 +96,8 @@ const reportIssueSchema = issueSchema.extend({
 const signalSchema = z
   .object({
     id: z.string(),
-    kind: z.enum(SIGNAL_KINDS),
+    // Part 2's kinds, and the layout defects of part 5.
+    kind: z.enum([...SIGNAL_KINDS, 'layout']),
     url: z.string(),
     step: z.number().int().min(0),
     message: z.string(),
@@ -221,6 +228,12 @@ export const TOOLS: ToolDefinition[] = [
           'How many actions the session may run before it has to end. Default: 40',
         ),
       timeout: z.number().optional().describe('Older name of `budget`'),
+      narrow_check: z
+        .boolean()
+        .optional()
+        .describe(
+          'Before the session ends, read its layout once more on a window 375 px wide: what breaks on a phone shows there. Default: false',
+        ),
       hostile: z
         .boolean()
         .optional()
@@ -356,6 +369,12 @@ export const TOOLS: ToolDefinition[] = [
         .array(z.string())
         .optional()
         .describe('With `from`: the ids of the cases to take. Default: all'),
+      brief: z
+        .boolean()
+        .optional()
+        .describe(
+          'Leave the inventory out of the answer: only the cases and the coverage. Use it once you have read the inventory',
+        ),
       close: z
         .array(
           z.object({
@@ -366,7 +385,13 @@ export const TOOLS: ToolDefinition[] = [
         )
         .optional(),
     }),
-    run: (manager, input) => hauntPlan(manager, input),
+    // On a page of a hundred controls the inventory is most of the answer,
+    // and a caller that has read it once does not need it back with every
+    // case it registers.
+    run: async (manager, { brief, ...input }) => {
+      const plan = await hauntPlan(manager, input);
+      return brief ? { cases: plan.cases, coverage: plan.coverage } : plan;
+    },
   }),
   defineTool({
     name: 'haunt_capture_state',
@@ -430,6 +455,12 @@ export const TOOLS: ToolDefinition[] = [
       'Close the browser session, replay every issue in a fresh browser to verify it, and return them: confirmed, flaky (with the rate a replay reproduced it) or unverified in issues_found, each with its evidence bundle; rejected ones apart, with why.',
     input: z.object({
       session_id: z.string(),
+      brief: z
+        .boolean()
+        .optional()
+        .describe(
+          'Return what became of each issue and the counts, without the signals and the inventory. They stay on the server: haunt_generate_report takes them from the session id',
+        ),
       overall_impression: z
         .string()
         .optional()
@@ -441,7 +472,12 @@ export const TOOLS: ToolDefinition[] = [
           'Issues found since the last haunt_act call, typically from the result of the last action',
         ),
     }),
-    run: (manager, input) => hauntEndSession(manager, input),
+    // An agent that ends its session needs to know what became of its
+    // issues, not to carry a hundred controls back to whoever spawned it.
+    run: async (manager, { brief, ...input }) => {
+      const ended = await hauntEndSession(manager, input);
+      return brief ? briefEnd(ended) : ended;
+    },
   }),
   defineTool({
     name: 'haunt_estimate_cost',

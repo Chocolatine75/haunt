@@ -345,6 +345,16 @@ export async function hauntPlan(
     only?: string[];
   },
 ): Promise<PlanOutput> {
+  if (
+    !manager.has(input.session_id) &&
+    manager.endedSession(input.session_id)
+  ) {
+    // What a tester does when handed a planner's session id: ask it for its
+    // plan. Told only "not found", it gave up and planned on its own.
+    throw new Error(
+      `Session ${input.session_id} has ended. To take its cases into a session of your own, call haunt_plan with your own session_id and "from": "${input.session_id}".`,
+    );
+  }
   const session = manager.get(input.session_id);
   await manager.reapStale(SESSION_TTL_MS);
   // The page as it is now: a plan made on what was read a minute ago would

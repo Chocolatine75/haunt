@@ -75,6 +75,10 @@ export interface HauntSession {
   evidence: {
     // Whether pages are audited for accessibility (a replay's are not).
     audit: boolean;
+    // Whether their layout is read (part 5), and once more on a narrow
+    // window before the session ends.
+    layout: boolean;
+    narrow_check: boolean;
     replay_budget_ms: number;
     bundle_cap_bytes: number;
     // Kept in memory for the replays, never written.

@@ -222,10 +222,12 @@ const HOW_TO_ACT =
   '(status 500, an exception), a form accepted or refused without any ' +
   'message, private content shown without logging in. Each of those is an ' +
   'issue a real user would hit.\n' +
-  'Every issue must be checkable: name the signal it is about in "signal", ' +
-  'or state what the page shows in "observed" (text_present, text_absent, ' +
-  "url, or an element's state, after a step). Each is replayed in a fresh " +
-  'browser before it is reported; one with neither is rejected.';
+  'Give every issue something the engine can check: the signal it is ' +
+  'about in "signal", the case whose expectation failed in "case", or what ' +
+  'the page shows in "observed" (text_present, text_absent, url, an ' +
+  "element's state, a list, a value, after a step). Each is replayed in a " +
+  'fresh browser before it is reported. One with none of those is only ' +
+  'listed for a person to check, with its "expected" and "actual".';
 
 // Asked once after the last step, so that what the last action revealed is
 // not lost: nothing would otherwise look at its result.

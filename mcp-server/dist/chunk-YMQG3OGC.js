@@ -16,7 +16,7 @@ import {
   malformed,
   planCaseSchema,
   zodToJsonSchema
-} from "./chunk-U57ZHTTL.js";
+} from "./chunk-HMXWNGVW.js";
 import {
   Anthropic
 } from "./chunk-MMWLM6BK.js";
@@ -34233,7 +34233,7 @@ You plan the tests of one area of a web app, as a QA engineer would before touch
 
 5. Cover every control of the inventory at least once, a hidden one through the control that reveals it. What the page is for comes first. Keep the number of cases within what the testers' budget allows: one case costs two to four actions.
 
-6. Register the cases with haunt_plan. Your answer is its \`portable\` list, as it came: the testers register it in their own sessions.`;
+6. Register the cases with haunt_plan. The testers take them from your session, each in a session of its own.`;
 var TESTER_BRIEF = `${TESTER_BRIEF_HEADING}
 
 You play test cases on a web app and report what is wrong with it. A case names controls and says what is expected once it has been played. You are given cases; register them in your session with haunt_plan before you start.
@@ -34776,7 +34776,7 @@ var UNAUTHENTICATED_NOTE = "Note: you are NOT logged in for this session. If thi
 var SANDBOX_BLOCK_NOTE = "Note: your last action was blocked by the haunt test sandbox because it targeted an origin outside the app under test. This is NOT an app bug \u2014 do not report it as an issue. Blocked: ";
 var HOW_TO_ACT = `Elements are named by the reference in square brackets, e.g. [e12]. Use that reference in your actions; every action is an object with a "type". A failed action is information about the page (covered, disabled, gone), not necessarily a bug.
 Report an issue as soon as you have seen it \u2014 in this very answer, not later. In particular, look at what your last actions did: a button or a submit that changed nothing on the page, a server error in the console (status 500, an exception), a form accepted or refused without any message, private content shown without logging in. Each of those is an issue a real user would hit.
-Every issue must be checkable: name the signal it is about in "signal", or state what the page shows in "observed" (text_present, text_absent, url, or an element's state, after a step). Each is replayed in a fresh browser before it is reported; one with neither is rejected.`;
+Give every issue something the engine can check: the signal it is about in "signal", the case whose expectation failed in "case", or what the page shows in "observed" (text_present, text_absent, url, an element's state, a list, a value, after a step). Each is replayed in a fresh browser before it is reported. One with none of those is only listed for a person to check, with its "expected" and "actual".`;
 var WRAP_UP = 'The session is over: no further action will be run, so leave "actions" empty. Report in "issues" anything you have seen and not reported yet, including what your last actions just revealed.';
 function describeSignals(title, signals) {
   if (signals.length === 0) return [];
