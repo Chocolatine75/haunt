@@ -11,7 +11,8 @@
   Buttons for the engine's sweep (docs/v3/part-4-sweep.md). In the buggy
   variant one is wired to nothing and one throws. Three of the working ones
   leave the page in a state where the others cannot be pressed (a modal
-  dialog, a browser confirm, another page), and two must never be pressed
+  dialog, a browser confirm, another page), one only opens the file picker,
+  and two must never be pressed
   by something that asks nobody: one deletes, one submits a form.
 -->
 <h1>Documents</h1>
@@ -25,6 +26,8 @@
   <button data-g="settings" type="button">Open settings</button>
   <button data-g="discard" type="button">Discard draft</button>
   <button data-g="billing" type="button">Billing</button>
+  <button data-g="attach" type="button">Attach a file</button>
+  <input id="picked" type="file" hidden>
 </p>
 
 <ul aria-label="Products">
@@ -73,6 +76,10 @@
     if (confirm('Discard the draft?')) say('Discarded');
   });
   G.find('billing').addEventListener('click', () => { location.href = '/account'; });
+  // Its whole effect is the browser's file picker: nothing in the page.
+  G.find('attach').addEventListener('click', () => {
+    document.getElementById('picked').click();
+  });
   for (const id of ['add-pen', 'add-ink']) {
     G.find(id).addEventListener('click', () => say(`Added (${id})`));
   }

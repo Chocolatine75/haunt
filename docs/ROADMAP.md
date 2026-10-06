@@ -160,6 +160,10 @@ listed for a person instead of dropped; a screenshot on request; personas
 removed; an optional description of the app; the work split between a
 planner and testers, each an agent of its own.
 
+Added after the pilot was measured again: once an area's testers are done,
+the engine presses the buttons none of them pressed and reports what breaks,
+without a model ([`v3/part-4-sweep.md`](v3/part-4-sweep.md), gate W1 to W3).
+
 **Gate**: T1 to T7 of the specification, deterministic, on six new gauntlet
 pages whose defects raise no signal; and, *live*, on the pilot's three
 applications, more annotated bugs found than Claude Code with Playwright

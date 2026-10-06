@@ -22,6 +22,7 @@ Test a running web app the way a QA engineer would.
 | `--hostile` | — | Also plan attack payloads (script injection, forged parameters). Only against an app you own |
 | `--headed` | headless | Show the browser window in real time |
 | `--steps <N>` | `40` | The budget of actions of each tester |
+| `--no-sweep` | — | Do not press, once the testers are done, the buttons none of them pressed. By default the engine presses each once, outside forms, and reports those that do nothing or throw |
 | `--routes <list>` | — | Comma-separated paths to test directly (e.g. `/signup,/pricing`), skipping DOM-based route discovery |
 | `--compare <path>` | — | Diff this run against a previous report's `.md` path — annotates issues as new/still-present, lists resolved ones |
 | `--email <email>` | — | Log in before testing (use with `--password`) |

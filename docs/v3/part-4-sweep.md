@@ -62,7 +62,10 @@ route, does not sweep yet.
   left.
 - **R-W4 Quiet on what works.** A button that does something raises nothing:
   the sweep adds no signal of its own, and judges nothing. On a page whose
-  buttons all work, it reports nothing.
+  buttons all work, it reports nothing. A button whose effect is the
+  browser's file picker works, though the page does not change. What the
+  page raises as it loads is raised once, however many times the sweep
+  opened it again.
 
 ## C. Where it goes
 
@@ -92,6 +95,7 @@ route, does not sweep yet.
 | Open settings | opens a modal dialog over the page | same |
 | Discard draft | asks with a browser `confirm` | same |
 | Billing | leaves for another page | same |
+| Attach a file | opens the file picker, and changes nothing in the page | same |
 | Add to cart (twice, in one list) | works | works |
 | Share | disabled | disabled |
 | Delete account | works, and must not be pressed | same |
@@ -110,6 +114,8 @@ route, does not sweep yet.
 4. A button a session given to the sweep exercised is not pressed again; a
    session id that never existed is refused.
 5. With `max: 2`, two are pressed and the rest are listed as over the limit.
+6. On a page that raises signals as it loads, each is in the result once,
+   and what the presses brought is all there.
 
 ### W2 — where it goes (R-W5, R-W6)
 

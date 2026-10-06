@@ -643,6 +643,35 @@ export class SignalCollector {
     });
   }
 
+  // Drops what step `at` raised that step `of` had raised already. For a
+  // page opened again by the engine itself (the sweep puts it back between
+  // two presses): what its load shows it showed the first time, and twenty
+  // openings of a page with one broken image are one broken image.
+  forgetRepeats(of: number, at: number): void {
+    const bare = (signal: Signal) => {
+      // What it is, without when it happened or how the step it came
+      // with went.
+      const { id, step, count, duration_ms, feedback, expected, ...rest } =
+        signal as Signal & {
+          duration_ms?: number;
+          feedback?: boolean;
+          expected?: boolean;
+        };
+      return JSON.stringify(rest);
+    };
+    const first = new Set(
+      this.signals.filter((signal) => signal.step === of).map(bare),
+    );
+    for (let i = this.signals.length - 1; i >= 0; i--) {
+      const signal = this.signals[i];
+      if (signal.step !== at || !first.has(bare(signal))) continue;
+      this.signals.splice(i, 1);
+      const meta = this.meta.get(signal.id);
+      if (meta) this.byKey.delete(meta.key);
+      this.meta.delete(signal.id);
+    }
+  }
+
   // What an accessibility audit of the page at `url` found (R-S15, R-S16).
   // A violation the session already knows on that page, the same elements
   // included, is that signal again, not a new one.

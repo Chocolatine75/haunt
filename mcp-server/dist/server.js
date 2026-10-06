@@ -15,11 +15,15 @@ import {
   hauntPlan,
   hauntReplay,
   hauntSpawn,
+  inForm,
   listQuerySchema,
   planCaseSchema,
+  planOf,
+  sabotaged,
+  syncInventory,
   takeSnapshot,
   zodToJsonSchema
-} from "./chunk-HMXWNGVW.js";
+} from "./chunk-UUNJV7N6.js";
 import {
   _enum,
   _null,
@@ -10614,6 +10618,132 @@ async function hauntScout(manager, input) {
   }
 }
 
+// src/engine/sweep.ts
+var SWEEP_MAX = 20;
+var DESTRUCTIVE = /\b(delete|remove|destroy|erase|wipe|deactivate|unsubscribe|log ?out|sign ?out|pay|buy|purchase|checkout|check out|place order|order now|send|publish|supprimer|effacer|déconnexion|se déconnecter|payer|acheter|commander|envoyer|publier)\b/i;
+var keyOf = (control) => JSON.stringify([control.group, control.role, control.name]);
+async function buttonsOf(session) {
+  await takeSnapshot(session, { format: "json" }, true);
+  await syncInventory(session);
+  const buttons = (session.snapshot.previous?.elements ?? []).filter(
+    (element) => element.role === "button" && !element.hidden && !element.disabled && !element.covered_by && !element.unclickable
+  );
+  const byFrame = /* @__PURE__ */ new Map();
+  for (const { ref } of buttons) {
+    const target = session.snapshot.targets.get(ref);
+    if (!target) continue;
+    const list = byFrame.get(target.frame) ?? [];
+    list.push({ ref, doc: target.doc, local: target.local });
+    byFrame.set(target.frame, list);
+  }
+  const inside = /* @__PURE__ */ new Set();
+  await Promise.all(
+    [...byFrame].map(async ([frame, targets]) => {
+      if (frame.isDetached()) return;
+      const found = await frame.evaluate(inForm, targets).catch(() => []);
+      for (const ref of found) inside.add(ref);
+    })
+  );
+  return buttons.map(({ ref, role, name }) => ({
+    ref,
+    role,
+    name,
+    group: session.plan.controls.get(ref)?.group ?? "page",
+    inForm: inside.has(ref) && !sabotaged("sweep_forms_included")
+  }));
+}
+async function hauntSweep(manager, input) {
+  const { sessions = [], max = SWEEP_MAX, ...spawn } = input;
+  const exercised = /* @__PURE__ */ new Set();
+  for (const id of sessions) {
+    const inventory = manager.has(id) ? planOf(manager.get(id)).inventory : manager.endedSession(id)?.result.inventory;
+    if (!inventory) {
+      throw new Error(
+        `No session ${id} to take what was exercised from: it never existed, or ended too long ago.`
+      );
+    }
+    for (const control of inventory) {
+      if (control.exercised) exercised.add(keyOf(control));
+    }
+  }
+  const { session_id } = await hauntSpawn(manager, {
+    ...spawn,
+    // A press, and at most a dialog to answer and the area to open again.
+    budget: max * 3 + 3,
+    // The testers' sessions audited this page and read its layout.
+    audit: false,
+    layout: false
+  });
+  const session = manager.get(session_id);
+  const act = (action) => hauntAct(manager, { session_id, actions: [action] });
+  const pressed = [];
+  const left = /* @__PURE__ */ new Map();
+  const done = /* @__PURE__ */ new Set();
+  try {
+    for (; ; ) {
+      let next;
+      for (const button of await buttonsOf(session)) {
+        const key = keyOf(button);
+        if (done.has(key) || exercised.has(key) || next) continue;
+        const { ref: ref2, inForm: within, ...named2 } = button;
+        const why = within ? "in a form" : DESTRUCTIVE.test(button.name) ? "destructive" : pressed.length >= max ? "over the limit" : void 0;
+        if (why) left.set(key, { ...named2, why });
+        else next = button;
+      }
+      if (!next) break;
+      const { ref, ...named } = next;
+      done.add(keyOf(next));
+      const result = await act({ type: "click", ref });
+      const step = result.results[0];
+      pressed.push({
+        ...named,
+        changed: step.ok && !step.changes.none,
+        signals: [],
+        ...step.error ? { error: step.error.code } : {},
+        step: result.step
+      });
+      const { runtime } = session;
+      if (step.ok && step.changes.none && !runtime.dialog) continue;
+      if (runtime.dialog) await act({ type: "dialog", accept: false });
+      while (runtime.tabs.length > 1) {
+        await act({ type: "tab", op: "close", index: runtime.tabs.length - 1 });
+      }
+      const back = await act({ type: "goto", url: input.target_url });
+      session.collector.forgetRepeats(0, back.step);
+      if (!back.results[0]?.ok) break;
+    }
+  } catch (error) {
+    if (manager.has(session_id)) {
+      await session.browser.close().catch(() => {
+      });
+      manager.delete(session_id);
+    }
+    throw error;
+  }
+  const dead = pressed.filter((one) => !one.changed && !one.error).length;
+  const ended = await hauntEndSession(manager, {
+    session_id,
+    overall_impression: `Engine sweep: ${pressed.length} buttons no tester pressed were pressed; ${dead} changed nothing.`
+  });
+  return {
+    session_id,
+    pressed: pressed.map(({ step, ...one }) => ({
+      ...one,
+      signals: ended.signals.filter((s) => s.step === step).map((s) => s.id)
+    })),
+    left: [...left.values()],
+    signals: ended.signals.map((signal) => ({
+      id: signal.id,
+      kind: signal.kind,
+      message: signal.message,
+      severity: signal.severity,
+      step: signal.step,
+      status: ended.signal_verification[signal.id]?.status ?? "unverified",
+      ..."name" in signal && typeof signal.name === "string" ? { name: signal.name } : {}
+    }))
+  };
+}
+
 // src/gates/part-2/contract.ts
 var SIGNAL_KINDS = [
   "http_error",
@@ -10785,6 +10915,25 @@ var TOOLS = [
       max: external_exports.number().int().positive().optional().describe("How many routes at most. Default: 4")
     }),
     run: (manager, input) => hauntScout(manager, input)
+  }),
+  defineTool({
+    name: "haunt_sweep",
+    description: "Press the buttons of an area that no tester pressed, each on the page as it loads, and report what breaks: a button wired to nothing, a handler that throws, a failed request. One call, no session left open: it ends its own session, whose id goes to haunt_generate_report with the testers'. Presses nothing inside a form and nothing whose name says it deletes, pays, sends or signs out.",
+    input: external_exports.object({
+      target_url: external_exports.string().describe("The area to sweep"),
+      sessions: external_exports.array(external_exports.string()).optional().describe(
+        "The ids of the sessions that tested this area, ended or not: a button one of them exercised is not pressed again"
+      ),
+      max: external_exports.number().int().positive().optional().describe("How many buttons to press at most. Default: 20"),
+      headless: external_exports.boolean().optional(),
+      cookies: external_exports.array(cookieSchema).optional().describe("Session cookies, to sweep as a logged-in user"),
+      secrets: external_exports.array(external_exports.string()).optional(),
+      replay_budget_ms: external_exports.number().int().min(0).optional().describe(
+        "How long it may spend replaying what it found to verify it. Default: 120000"
+      ),
+      bundle_cap_bytes: external_exports.number().int().positive().optional()
+    }),
+    run: (manager, input) => hauntSweep(manager, input)
   }),
   defineTool({
     name: "haunt_get_cookies",

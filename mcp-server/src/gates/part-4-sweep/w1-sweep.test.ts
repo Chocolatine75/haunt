@@ -54,6 +54,7 @@ const PRESSED = [
   'Open settings',
   'Discard draft',
   'Billing',
+  'Attach a file',
   'Add to cart',
 ];
 
@@ -118,8 +119,7 @@ describe('W the sweep of the buttons no tester pressed', () => {
         expect(dead?.name).toBe('Export');
         expect(thrown?.message).toContain('archive store is not ready');
         // Each with the press that brought it.
-        const by = (name: string) =>
-          swept.pressed.find((p) => p.name === name);
+        const by = (name: string) => swept.pressed.find((p) => p.name === name);
         expect(by('Export')).toMatchObject({
           changed: false,
           signals: [dead?.id],
@@ -139,7 +139,12 @@ describe('W the sweep of the buttons no tester pressed', () => {
         expect(swept.pressed.map((p) => p.name)).toEqual(PRESSED);
         expect(swept.signals).toEqual([]);
         for (const one of swept.pressed) {
-          expect(one, one.name).toMatchObject({ changed: true, signals: [] });
+          expect(one, one.name).toMatchObject({
+            // The file picker is the browser's: nothing changes in the page,
+            // and it is not a dead button for that.
+            changed: one.name !== 'Attach a file',
+            signals: [],
+          });
         }
       },
     );
@@ -184,8 +189,37 @@ describe('W the sweep of the buttons no tester pressed', () => {
         const swept = await sweep('buggy', { max: 2 });
         expect(swept.pressed.map((p) => p.name)).toEqual(PRESSED.slice(0, 2));
         expect(
-          swept.left.filter((l) => l.why === 'over the limit').map((l) => l.name),
+          swept.left
+            .filter((l) => l.why === 'over the limit')
+            .map((l) => l.name),
         ).toEqual(PRESSED.slice(2));
+      },
+    );
+  });
+
+  describe('W1 what the load raises', () => {
+    gate(
+      'W1.6',
+      'R-W4',
+      'what a page raises as it loads is in the result once, however many times the sweep opened it again',
+      async () => {
+        const result = await ctx.haunt.call<SweepResult>('haunt_sweep', {
+          target_url: ctx.gauntlet.url('sig-http', 'variant=buggy'),
+          replay_budget_ms: 0,
+        });
+        if (result.isError) throw new Error(result.text);
+        const swept = result.data;
+        // Each of its buttons shows something: the page was opened again
+        // after each.
+        expect(swept.pressed.filter((p) => p.changed).length).toBeGreaterThan(
+          2,
+        );
+        const stylesheet = swept.signals.filter((s) =>
+          s.message.includes('/sig/asset/theme.css'),
+        );
+        expect(stylesheet.map((s) => s.step)).toEqual([0]);
+        // And what the presses brought is all there.
+        expect(swept.signals.filter((s) => s.step > 0).length).toBe(4);
       },
     );
   });

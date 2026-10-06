@@ -718,3 +718,30 @@ export function controlState(
   if (credential) return value ? '(filled)' : '(empty)';
   return value;
 }
+
+// Which of these controls sit in a form or a search, or submit one from
+// outside it (the sweep, docs/v3/part-4-sweep.md, R-W2): pressing one sends
+// what the form holds, which is a test case's to decide.
+export function inForm(
+  targets: Array<{ ref: string; doc: string; local: number }>,
+): string[] {
+  const state = (window as unknown as { __haunt?: PageState }).__haunt;
+  const out: string[] = [];
+  if (!state) return out;
+  for (const target of targets) {
+    if (state.doc !== target.doc) continue;
+    const node = state.nodes.get(target.local)?.deref();
+    if (!(node instanceof Element)) continue;
+    let found = (node as HTMLButtonElement).form instanceof HTMLFormElement;
+    let at: Element | null = node;
+    while (at && !found) {
+      found =
+        at.closest('form, search, [role="form"], [role="search"]') !== null;
+      // Out of a shadow root, by its host.
+      const root = at.getRootNode();
+      at = root instanceof ShadowRoot ? root.host : null;
+    }
+    if (found) out.push(target.ref);
+  }
+  return out;
+}
