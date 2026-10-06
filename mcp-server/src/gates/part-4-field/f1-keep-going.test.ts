@@ -1,15 +1,17 @@
 // What nine more applications showed (docs/v3/part-4-field.md), A: a tester
 // that asks to end with cases unplayed and its budget unspent is held back
 // once, and told what is left.
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { CASE_METHOD, TESTER_BRIEF } from '../../engine/brief.js';
 import { useSignals } from '../part-2/harness.js';
 import { PASSING } from './status.js';
 
 const HERE = fileURLToPath(new URL('.', import.meta.url));
-const SPEC = resolve(HERE, '../../../../docs/v3/part-4-field.md');
+const REPO_ROOT = resolve(HERE, '../../../..');
+const SPEC = join(REPO_ROOT, 'docs/v3/part-4-field.md');
 
 function gate(
   id: string,
@@ -150,6 +152,56 @@ describe('F what nine more applications showed', () => {
         if (finished.isError) throw new Error(finished.text);
         expect(finished.data).not.toHaveProperty('ended');
         expect(finished.data.step_count).toBe(1);
+      },
+    );
+  });
+
+  describe('F2 one tester that plans what it has seen', () => {
+    gate(
+      'F2.1',
+      'R-F4',
+      'no planner in the plugin: one tester per area, which sees the area, plans by the method held word for word, then plays',
+      async () => {
+        const read = (path: string) =>
+          readFileSync(join(REPO_ROOT, path), 'utf-8');
+        expect(existsSync(join(REPO_ROOT, 'agents/haunt-planner.md'))).toBe(
+          false,
+        );
+        const command = read('commands/haunt-test.md');
+        expect(command).not.toContain('haunt-planner');
+        expect(command).toContain('haunt-tester');
+        expect(command).toContain('One tester per area');
+        expect(command).toMatch(/--steps`[^\n]*\(default: 60\)/);
+
+        const agent = read('agents/haunt-tester.md');
+        const tools = (/^tools:\s*(.+)$/m.exec(agent)?.[1] ?? '')
+          .split(',')
+          .map((tool) => tool.trim().replace(/^.*__/, ''));
+        for (const tool of [
+          'haunt_spawn',
+          'haunt_capture_state',
+          'haunt_act',
+          'haunt_plan',
+          'haunt_end_session',
+        ]) {
+          expect(tools, tool).toContain(tool);
+        }
+        expect(agent).toContain(TESTER_BRIEF);
+        expect(agent).toContain(CASE_METHOD);
+        // Its own steps, in the order they are taken.
+        const run = agent.slice(agent.indexOf('## In this run'));
+        const at = [
+          'See the whole area',
+          'Take the inventory and plan',
+          'Play the cases',
+        ].map((step) => run.indexOf(step));
+        expect(
+          at.every((index) => index > -1),
+          JSON.stringify(at),
+        ).toBe(true);
+        expect([...at].sort((a, b) => a - b)).toEqual(at);
+        // And nothing of a plan taken from another session.
+        expect(run).not.toContain('planner');
       },
     );
   });

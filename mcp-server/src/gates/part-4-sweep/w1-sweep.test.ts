@@ -298,7 +298,7 @@ describe('W the sweep of the buttons no tester pressed', () => {
           'utf-8',
         );
         expect(command).toContain('--no-sweep');
-        const testers = command.indexOf('One tester per group');
+        const testers = command.indexOf('One tester per area');
         const sweeping = command.indexOf('haunt_sweep');
         const report = command.indexOf('### Phase 3');
         expect(testers).toBeGreaterThan(-1);

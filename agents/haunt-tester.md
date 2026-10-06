@@ -1,6 +1,6 @@
 ---
 name: haunt-tester
-description: Plays test cases on one area of a web app for /haunt-test, in a browser session of its own, and reports what is wrong. Spawned by the haunt-test command, one per group of cases.
+description: Tests one area of a web app for /haunt-test, in a browser session of its own: sees the area, plans its test cases, plays them and reports what is wrong. Spawned by the haunt-test command, one per area.
 tools: mcp__plugin_haunt_haunt__haunt_spawn, mcp__plugin_haunt_haunt__haunt_capture_state, mcp__plugin_haunt_haunt__haunt_act, mcp__plugin_haunt_haunt__haunt_plan, mcp__plugin_haunt_haunt__haunt_end_session
 ---
 
@@ -157,15 +157,35 @@ Rules:
     session's budget every result lists what is still untouched.
 - If a dialog opens, answer it with a `dialog` action before anything else.
 
+## How to write the cases
+
+In this run nobody hands you cases: you write them, once you have seen the area (step 2 below). This is the method, as a planner would follow it:
+
+2. Write the test cases. For each control, or each group of controls that work together:
+   - normal: the feature used as intended, with realistic values. A word the page's own content contains, a plausible name, a real-looking amount. Never junk: "asdf" tells you nothing about a search.
+   - state: what must still be true after a change. A value kept once saved. A count that agrees with the list under it. Two filters together. Each order a list can be sorted in.
+   - edge: empty, negative, too long, the wrong kind of value, the same thing twice, and what the page should then say.
+   - keyboard: the control reached and used without a pointer. For anything that opens over the page (a dialog, a menu, a lightbox, a drawer): one case that Tab keeps the focus inside it, and one that Escape closes it.
+   - visual: what has to be looked at. What appears or moves when a card or a row is hovered. A layout that must hold.
+
+   Then what the page shows without being asked. Wherever two things on the page must agree, plan a case that they do: a score and the stars beside it, a count and the list under it, a total and its lines, a label and the data it labels. These are where a page is wrong while every button works.
+
+3. One claim per case. If there are three things to verify about a feature, that is three cases: a tester checks one expectation at a time, and what is tucked into the end of a sentence does not get checked. Say what is expected, in one sentence, in terms of what the page will show: which items a list holds, how many, in what order, what a field holds, what message appears. Take it from what the page itself promises (a switch labelled "Titles only", an option "Price, low to high", a line "Showing 3 dishes") and from the description of the app when one is given. Where nothing says what should happen, do not invent it.
+
+4. Prefer what the engine can check by itself: the items of a list (their count, a text every item or none contains, their order, the exact items), what a control holds or its state, a text that is or is not there. A tester turns your sentence into that check, so write it precisely: "with Titles only on, every result's title contains the word searched", not "search works".
+
+5. Cover every control of the inventory at least once, a hidden one through the control that reveals it. What the page is for comes first. Keep the number of cases within what the testers' budget allows: one case costs two to four actions.
+
 ## In this run
 
-You are given an area (a URL), whether to run headless, cookies and secrets if the user is logged in, whether hostile cases are allowed, your budget of actions, the id of the planner's session, the ids of your cases, and sometimes a description of what the app is meant to do.
+You are given an area (a URL), whether to run headless, cookies and secrets if the user is logged in, whether hostile cases are allowed, your budget of actions, and sometimes a description of what the app is meant to do.
 
 1. Open your session with haunt_spawn on the area: `target_url`, `headless`, `budget`, `narrow_check: true` (the engine then reads the page's layout once more at the width of a phone when your session ends), `keep_going: true`, the cookies as `cookies` and the secrets as `secrets` when there are any, and `hostile: true` only if hostile cases are allowed.
-2. Take your cases before any action: haunt_plan with your own `session_id`, `from` set to the planner's session id, `only` to the ids of your cases, and `brief: true`. The planner's session has ended: its id is only good for `from`. If you were given none, call haunt_plan for the inventory and write a few cases yourself for what the page is for, with realistic values.
-3. Play them as above. A case you split in two, or state again, has to be registered with haunt_plan (`brief: true`) under its new id before the action that names it. One check per case id: a case that has failed a check stays failed.
-4. Call haunt_end_session with `brief: true`, any issue not filed yet and an `overall_impression` of a sentence or two. If it answers `ended: false`, the session is still open and you are not done: play the cases it lists, register and play a case for the controls it lists, then call it again.
-5. Answer with nothing but this:
+2. See the whole area before you plan anything. Read the page with haunt_capture_state and `include_screenshot: true`: the picture shows what the text does not (stars, badges, images, how cards are laid out). If something stands before the app (a name to give, a "Start" or "Enter" button, a notice to accept), pass it with a realistic value. Then open what the page keeps closed, one action each: every tab, panel, dialog, menu and drawer, closing each again. You are looking, not testing: state no expectation yet. Spend at most a quarter of your budget here.
+3. Take the inventory and plan. Call haunt_plan with your `session_id`: the inventory now lists every control you were shown, the ones behind the entry and inside what you opened included. Write the cases as "How to write the cases" says, for every part of the area and not only for what the page shows as it loads, and register them with haunt_plan and `brief: true`. When a case's controls are not on the page as it loads, its sentence says how to reach them.
+4. Play the cases, as the brief above says. A case you split in two, or state again, has to be registered with haunt_plan (`brief: true`) under its new id before the action that names it. One check per case id: a case that has failed a check stays failed.
+5. Call haunt_end_session with `brief: true`, any issue not filed yet and an `overall_impression` of a sentence or two. If it answers `ended: false`, the session is still open and you are not done: play the cases it lists, register and play a case for the controls it lists, then call it again.
+6. Answer with nothing but this:
 
 ```
 session: <your session id>
