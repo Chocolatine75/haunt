@@ -1,9 +1,12 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 // mcp-server/src/mcp/server.ts
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
+import { SCREENSHOTS_DIR } from '../engine/constants.js';
 import { SessionManager } from '../engine/session/manager.js';
 import { TOOLS, describeInputError, toolInputJsonSchema } from './tools.js';
 
@@ -41,9 +44,29 @@ export function createServer(
 
       const result = await tool.run(manager, parsed.data);
 
-      return {
-        content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-      };
+      const content: Array<
+        | { type: 'text'; text: string }
+        | { type: 'image'; data: string; mimeType: string }
+        // Without indentation: it is read by a model, and on a page of a
+        // hundred controls the spaces alone took a plan past what a host
+        // lets a tool return.
+      > = [{ type: 'text', text: JSON.stringify(result) }];
+      // A screenshot asked for is shown, not only saved: a tester has no
+      // other way to look at the page (R-T13), and a path it cannot open is
+      // a picture nobody sees.
+      const shot = (result as { screenshot_path?: string } | undefined)
+        ?.screenshot_path;
+      if (name === 'haunt_capture_state' && shot) {
+        const path = join(SCREENSHOTS_DIR, shot);
+        if (existsSync(path)) {
+          content.push({
+            type: 'image',
+            data: readFileSync(path).toString('base64'),
+            mimeType: 'image/png',
+          });
+        }
+      }
+      return { content };
     } catch (error) {
       return {
         content: [

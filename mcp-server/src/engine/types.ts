@@ -39,27 +39,8 @@ export interface Issue {
   actual?: string;
 }
 
-export interface PersonaScenario {
-  name: string;
-  goal: string;
-  max_steps: number;
-}
-
-export interface PersonaConfig {
-  name: string;
-  description: string;
-  system_prompt: string;
-  browser: {
-    headless: boolean;
-    viewport?: { width: number; height: number };
-    locale?: string;
-  };
-  scenarios: PersonaScenario[];
-}
-
 export interface HauntSession {
   id: string;
-  persona: PersonaConfig;
   browser: Browser;
   page: Page;
   issues: Issue[];
@@ -94,6 +75,10 @@ export interface HauntSession {
   evidence: {
     // Whether pages are audited for accessibility (a replay's are not).
     audit: boolean;
+    // Whether their layout is read (part 5), and once more on a narrow
+    // window before the session ends.
+    layout: boolean;
+    narrow_check: boolean;
     replay_budget_ms: number;
     bundle_cap_bytes: number;
     // Kept in memory for the replays, never written.

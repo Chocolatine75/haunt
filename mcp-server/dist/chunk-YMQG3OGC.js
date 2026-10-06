@@ -1,15 +1,22 @@
 import { createRequire } from 'module'; const require = createRequire(import.meta.url);
 import {
+  DEFAULT_BUDGET,
+  PLANNER_BRIEF_HEADING,
   SessionManager,
+  TESTER_BRIEF_HEADING,
   actionSchema,
+  expectationSchema,
   hauntAct,
   hauntCaptureState,
   hauntEndSession,
   hauntGenerateReport,
   hauntGetCookies,
+  hauntPlan,
   hauntSpawn,
+  malformed,
+  planCaseSchema,
   zodToJsonSchema
-} from "./chunk-RLH6GE5Q.js";
+} from "./chunk-HMXWNGVW.js";
 import {
   Anthropic
 } from "./chunk-MMWLM6BK.js";
@@ -458,6 +465,10 @@ var require_cli_options = __commonJS({
     )
   );
 })();
+
+// src/cli/headless.ts
+import { readFileSync as readFileSync2 } from "fs";
+import { basename } from "path";
 
 // node_modules/@mistralai/mistralai/esm/lib/url.js
 var hasOwn = Object.prototype.hasOwnProperty;
@@ -34200,6 +34211,67 @@ var Mistral = class extends ClientSDK {
   }
 };
 
+// src/engine/brief.ts
+var PLANNER_BRIEF = `${PLANNER_BRIEF_HEADING}
+
+You plan the tests of one area of a web app, as a QA engineer would before touching it. You read the page; you do not act on it. Testers will play your cases in browsers of their own.
+
+1. Get the inventory with haunt_plan: every control the page offers, with its group and its state. Read the page with haunt_capture_state to learn what each control is for: its label, the text around it, what the page says it does.
+
+2. Write the test cases. For each control, or each group of controls that work together:
+   - normal: the feature used as intended, with realistic values. A word the page's own content contains, a plausible name, a real-looking amount. Never junk: "asdf" tells you nothing about a search.
+   - state: what must still be true after a change. A value kept once saved. A count that agrees with the list under it. Two filters together. Each order a list can be sorted in.
+   - edge: empty, negative, too long, the wrong kind of value, the same thing twice, and what the page should then say.
+   - keyboard: the control reached and used without a pointer. For anything that opens over the page (a dialog, a menu, a lightbox, a drawer): one case that Tab keeps the focus inside it, and one that Escape closes it.
+   - visual: what has to be looked at. What appears or moves when a card or a row is hovered. A layout that must hold.
+
+   Then what the page shows without being asked. Wherever two things on the page must agree, plan a case that they do: a score and the stars beside it, a count and the list under it, a total and its lines, a label and the data it labels. These are where a page is wrong while every button works.
+
+3. One claim per case. If there are three things to verify about a feature, that is three cases: a tester checks one expectation at a time, and what is tucked into the end of a sentence does not get checked. Say what is expected, in one sentence, in terms of what the page will show: which items a list holds, how many, in what order, what a field holds, what message appears. Take it from what the page itself promises (a switch labelled "Titles only", an option "Price, low to high", a line "Showing 3 dishes") and from the description of the app when one is given. Where nothing says what should happen, do not invent it.
+
+4. Prefer what the engine can check by itself: the items of a list (their count, a text every item or none contains, their order, the exact items), what a control holds or its state, a text that is or is not there. A tester turns your sentence into that check, so write it precisely: "with Titles only on, every result's title contains the word searched", not "search works".
+
+5. Cover every control of the inventory at least once, a hidden one through the control that reveals it. What the page is for comes first. Keep the number of cases within what the testers' budget allows: one case costs two to four actions.
+
+6. Register the cases with haunt_plan. The testers take them from your session, each in a session of its own.`;
+var TESTER_BRIEF = `${TESTER_BRIEF_HEADING}
+
+You play test cases on a web app and report what is wrong with it. A case names controls and says what is expected once it has been played. You are given cases; register them in your session with haunt_plan before you start.
+
+For each case:
+
+1. Read the page with haunt_capture_state and find the controls the case names.
+
+2. Decide the actions, with realistic values: a word the page's own content contains, a plausible name. Then state what you expect BEFORE you act, in the same haunt_act call, as \`expect\`, with \`case\`. The expectation has to be the case's claim itself, not something easier that happens to be true: for "every title contains the word", read the list of titles, not whether the word is somewhere on the page.
+   - \`list\`: the items of a container exactly as shown, and a condition on them (count, every_contains, none_contains, order with "as": "number" for prices and counts, equals).
+   - \`value\`: what a control holds, or whether it is checked, expanded, pressed, focused.
+   - \`text_present\`, \`text_absent\`, \`url\`, or an element's state.
+   To see how a list reads before you state anything about it, haunt_capture_state with \`list\`.
+   To check that the focus stays inside something open: press Tab as many times as it has controls, then expect \`value\` \`focused\` to be true on its first control. If the focus went to the page behind, it is false.
+
+3. Read the result. \`expectation.held\` says whether the page did what was expected, \`read\` what it showed instead. Before you call it a bug, check your own test: if \`read\` shows that you described the page wrongly, state the expectation again under a new case and play it again. If the page is wrong, file an issue with \`"case"\` in your very next call: an issue with no case, no signal and no observation cannot be verified.
+
+4. Signals are facts the engine found by itself: file each as an issue naming it, unless it is marked \`expected\`.
+
+5. For a visual case, and for what you suspect is wrong that no check can state (something that jumps, overlaps, shows the wrong picture for its data): do what the case says (hover the card, open the panel), then haunt_capture_state with \`include_screenshot\` and look at the image it returns. Compare it with the one before when the claim is about a change. File what is wrong with \`expected\` and \`actual\`; it will be listed for a person to check.
+
+6. When a result brings \`new_controls\` (a dialog opened, results appeared), they are untested: register a case for them and play it.
+
+Keep to your cases first. Then spend what is left of the budget on what \`remaining\` lists. Do not repeat an action that changed nothing. Send no hostile input unless a case is of kind hostile.
+
+When you are done, call haunt_end_session with any issue not filed yet. Your answer is what it returns, as it came.`;
+function briefFor(role, spec) {
+  const brief = role === "planner" ? PLANNER_BRIEF : TESTER_BRIEF;
+  if (!spec) return brief;
+  return `${brief}
+
+## What the app is meant to do
+
+Given by its owner. What it says the app does is what is expected of it.
+
+${spec}`;
+}
+
 // src/cli/authenticate.ts
 var RETRY_PAUSE_MS = 1500;
 var MAX_ATTEMPTS = 2;
@@ -34216,7 +34288,6 @@ function samePage(a, b) {
 }
 async function authenticate(manager, options) {
   const spawnResult = await hauntSpawn(manager, {
-    persona: options.persona ?? "confused-beginner",
     target_url: options.loginUrl,
     headless: options.headless,
     // Two fills and a click per attempt, with room to spare.
@@ -34292,7 +34363,13 @@ import { spawn } from "child_process";
 import { existsSync, readFileSync } from "fs";
 import { delimiter, join, resolve } from "path";
 import { fileURLToPath } from "url";
-var ALLOWED_TOOLS = ["mcp__plugin_haunt_haunt", "mcp__haunt"];
+var ALLOWED_TOOLS = [
+  "mcp__plugin_haunt_haunt",
+  "mcp__haunt",
+  "Agent",
+  "Task",
+  "Read"
+];
 var RUN_TIMEOUT_MS = 20 * 60 * 1e3;
 function isClaudeCodeAvailable(env2 = process.env) {
   const names = process.platform === "win32" ? ["claude.cmd", "claude.exe", "claude"] : ["claude"];
@@ -34311,9 +34388,10 @@ function commandFor(options) {
   const parts = [
     `/haunt:haunt-test ${options.targetUrl}`,
     "--yes",
-    `--steps ${options.steps}`,
-    `--personas ${options.personas.join(",")}`
+    `--steps ${options.steps}`
   ];
+  if (options.specPath) parts.push(`--spec ${options.specPath}`);
+  if (options.hostile) parts.push("--hostile");
   if (!options.headless) parts.push("--headed");
   if (options.verbose) parts.push("--verbose");
   if (options.email && options.password) {
@@ -34416,15 +34494,34 @@ ${stderr.slice(0, 2e3)}`
 
 // src/cli/providers/types.ts
 var DECIDE_ACTION_TOOL_NAME = "decide_action";
-var DECIDE_ACTION_TOOL_DESCRIPTION = 'Choose the next browser actions to take as this persona, naming elements by the reference shown in the page snapshot (e.g. "e12"), and report any issues observed on the current page state.';
+var DECIDE_ACTION_TOOL_DESCRIPTION = 'Answer as the role you were given. As the planner: the test cases, in "cases". As the tester: the next browser actions, naming elements by the reference shown in the page snapshot (e.g. "e12"), with the case they play and what you expect of them, and the issues you have found.';
 var MAX_ACTIONS_PER_STEP = 5;
 function decideActionParameters() {
   const { $schema, ...action } = zodToJsonSchema(actionSchema, {
     $refStrategy: "none"
   });
+  const schemaOf = (schema) => {
+    const { $schema: _, ...rest } = zodToJsonSchema(schema, {
+      $refStrategy: "none"
+    });
+    return rest;
+  };
   return {
     type: "object",
     properties: {
+      cases: {
+        type: "array",
+        description: "Only when asked for a plan: the test cases, each control by its reference from the inventory.",
+        items: schemaOf(planCaseSchema)
+      },
+      case: {
+        type: "string",
+        description: 'The id of the case these actions play. With "expect", the engine checks it and gives the case its verdict.'
+      },
+      expect: {
+        ...schemaOf(expectationSchema),
+        description: "What you expect once these actions have run, stated before you see the result: exactly one of list, value, text_present, text_absent, url, element."
+      },
       actions: {
         type: "array",
         maxItems: MAX_ACTIONS_PER_STEP,
@@ -34457,6 +34554,15 @@ function decideActionParameters() {
               type: "string",
               description: "The id of the detected signal this issue is about (s3)"
             },
+            case: {
+              type: "string",
+              description: "The id of the case whose expectation did not hold: the engine replays it"
+            },
+            expected: {
+              type: "string",
+              description: "For what no check can state: what you expected"
+            },
+            actual: { type: "string", description: "And what you saw" },
             observed: {
               type: "object",
               description: "For an issue no signal shows: one fact about the page the engine can check",
@@ -34503,7 +34609,11 @@ function parseDecideActionInput(input) {
   const actions = Array.isArray(parsed.actions) ? parsed.actions : [];
   return {
     actions: actions.slice(0, MAX_ACTIONS_PER_STEP),
-    issues: Array.isArray(parsed.issues) ? parsed.issues : []
+    issues: Array.isArray(parsed.issues) ? parsed.issues : [],
+    // Checked by the engine when they are registered or stated.
+    ...Array.isArray(parsed.cases) && parsed.cases.length > 0 ? { cases: parsed.cases } : {},
+    ...typeof parsed.case === "string" ? { case: parsed.case } : {},
+    ...parsed.expect && typeof parsed.expect === "object" ? { expect: parsed.expect } : {}
   };
 }
 
@@ -34572,9 +34682,11 @@ function createMistralDecider(client, model) {
 }
 
 // src/cli/headless.ts
-var USAGE = "Usage: haunt-ci <url> [--personas p1,p2] [--steps N] [--provider claude-code|anthropic|mistral] [--model id] [--headed] [--verbose] [--email addr --password pw] [--login-url url]";
+var USAGE = "Usage: haunt-ci <url> [--spec file] [--hostile] [--steps N] [--provider claude-code|anthropic|mistral] [--model id] [--headed] [--verbose] [--email addr --password pw] [--login-url url]";
 var VALUED_FLAGS = [
+  // No longer used; still takes its value, so that it is not read as the URL.
   "personas",
+  "spec",
   "steps",
   "provider",
   "model",
@@ -34596,8 +34708,7 @@ function parseArgs(argv) {
   if (!targetUrl) {
     throw new Error(USAGE);
   }
-  const personas = (getFlag("personas") ?? "confused-beginner").split(",").map((s) => s.trim()).filter(Boolean);
-  const steps = Number(getFlag("steps") ?? "3");
+  const steps = Number(getFlag("steps") ?? String(DEFAULT_BUDGET));
   if (!Number.isFinite(steps) || steps < 1) {
     throw new Error(
       `--steps must be a positive number, got: ${getFlag("steps")}`
@@ -34618,7 +34729,8 @@ function parseArgs(argv) {
   }
   return {
     targetUrl,
-    personas,
+    specPath: getFlag("spec"),
+    hostile: argv.includes("--hostile"),
     steps,
     provider: providerFlag,
     model: getFlag("model"),
@@ -34664,7 +34776,7 @@ var UNAUTHENTICATED_NOTE = "Note: you are NOT logged in for this session. If thi
 var SANDBOX_BLOCK_NOTE = "Note: your last action was blocked by the haunt test sandbox because it targeted an origin outside the app under test. This is NOT an app bug \u2014 do not report it as an issue. Blocked: ";
 var HOW_TO_ACT = `Elements are named by the reference in square brackets, e.g. [e12]. Use that reference in your actions; every action is an object with a "type". A failed action is information about the page (covered, disabled, gone), not necessarily a bug.
 Report an issue as soon as you have seen it \u2014 in this very answer, not later. In particular, look at what your last actions did: a button or a submit that changed nothing on the page, a server error in the console (status 500, an exception), a form accepted or refused without any message, private content shown without logging in. Each of those is an issue a real user would hit.
-Every issue must be checkable: name the signal it is about in "signal", or state what the page shows in "observed" (text_present, text_absent, url, or an element's state, after a step). Each is replayed in a fresh browser before it is reported; one with neither is rejected.`;
+Give every issue something the engine can check: the signal it is about in "signal", the case whose expectation failed in "case", or what the page shows in "observed" (text_present, text_absent, url, an element's state, a list, a value, after a step). Each is replayed in a fresh browser before it is reported. One with none of those is only listed for a person to check, with its "expected" and "actual".`;
 var WRAP_UP = 'The session is over: no further action will be run, so leave "actions" empty. Report in "issues" anything you have seen and not reported yet, including what your last actions just revealed.';
 function describeSignals(title, signals) {
   if (signals.length === 0) return [];
@@ -34722,6 +34834,26 @@ function describeOutcome(result) {
     );
   }
   lines.push(...describeSignals("What went wrong", result.signals));
+  if (result.expectation) {
+    lines.push(
+      result.expectation.held ? "What you expected held." : `What you expected did NOT hold. The page showed: ${JSON.stringify(result.expectation.read ?? "something else")}. If your test was right, file an issue with "case".`
+    );
+  }
+  if (result.new_controls?.length) {
+    lines.push(
+      `Controls that became usable: ${result.new_controls.map((c) => `[${c.ref}] ${c.role} "${c.name}"`).join(", ")}`
+    );
+  }
+  if (result.repeating) {
+    lines.push(
+      `That action has left the page unchanged ${result.repeating.times} times: move on.`
+    );
+  }
+  if (result.remaining) {
+    lines.push(
+      `Not exercised yet: ${result.remaining.controls.map((c) => `[${c.ref}] ${c.role} "${c.name}"`).join(", ") || "nothing"}`
+    );
+  }
   return `Your last actions:
 ${lines.join("\n")}`;
 }
@@ -34741,102 +34873,162 @@ ${snapshot}`, HOW_TO_ACT];
   }
   return sections.join("\n\n");
 }
-async function runPersonaSession(decide, manager, personaName, targetUrl, steps, headless, cookies, log = () => {
+var PLANNER_ANSWER = 'You have no tools in this run. The page and its inventory are below. Answer with your test cases in "cases": an id, a kind, the controls by their reference from the inventory, and what is expected. Leave "actions" empty: the cases are registered for you and played next.';
+var TESTER_ANSWER = 'You have no tools in this run. Each answer is one step: the actions to run now in "actions", with "case" and "expect" when they play a case, and in "issues" what you have found. The page is read for you before each step, the cases are registered already, and the session is ended for you.';
+function describeInventory(inventory) {
+  if (inventory.length === 0) return "Inventory: the page offers no control.";
+  return [
+    "Inventory (every control the page offers, by group):",
+    ...inventory.map(
+      (c) => `- [${c.ref}] ${c.role} "${c.name}" \u2014 ${c.group}${c.state ? ` (${c.state})` : ""}`
+    )
+  ].join("\n");
+}
+function describeCases(cases) {
+  const left = cases.filter((one) => !one.verdict);
+  if (cases.length === 0) return void 0;
+  if (left.length === 0) {
+    return "Every case of the plan has been played. Use what is left of the session on the controls no case has exercised.";
+  }
+  const [next, ...later] = left;
+  return [
+    `Case to play now: "${next.id}" (${next.kind}), on ${next.controls.join(", ") || "no control"}.`,
+    `Expected: ${next.expect}`,
+    'State that as "expect", with "case", in the answer whose actions complete it.',
+    ...later.length > 0 ? [`Then: ${later.map((one) => `"${one.id}"`).join(", ")}.`] : []
+  ].join("\n");
+}
+async function runSession(decide, manager, targetUrl, options, log = () => {
 }) {
+  const { steps, cookies } = options;
   const authenticated = Boolean(cookies && cookies.length > 0);
+  const planner = `${briefFor("planner", options.spec?.text)}
+
+${PLANNER_ANSWER}`;
+  const tester = `${briefFor("tester", options.spec?.text)}
+
+${TESTER_ANSWER}`;
   const spawnResult = await hauntSpawn(manager, {
-    persona: personaName,
     target_url: targetUrl,
-    headless,
-    // One step is one decision, which may carry several actions.
-    timeout: steps * MAX_ACTIONS_PER_STEP,
-    cookies
+    headless: options.headless,
+    // The budget of actions (R-T5). A decision carries up to five; a
+    // caller that counts in decisions gets room for five in each.
+    budget: options.budget ?? steps * MAX_ACTIONS_PER_STEP,
+    cookies,
+    hostile: options.hostile
   });
+  const session_id = spawnResult.session_id;
+  const read = async () => (await hauntCaptureState(manager, { session_id, format: "text" })).text;
   let finalIssues = [];
   try {
+    const plan = await hauntPlan(manager, { session_id });
+    const asked = await decide(
+      planner,
+      `${describeState(await read(), 1, steps, authenticated, void 0, spawnResult.signals)}
+
+${describeInventory(plan.inventory)}`
+    );
+    let cases = [];
+    if (asked.cases?.length) {
+      try {
+        cases = (await hauntPlan(manager, { session_id, cases: asked.cases })).cases;
+      } catch (error) {
+        log(
+          `[plan] refused: ${error instanceof Error ? error.message : error}`
+        );
+      }
+    }
+    log(`[plan] ${cases.length} case(s)`);
+    let carried = cases.length === 0 && asked.actions.length > 0 ? asked : void 0;
+    if (cases.length === 0 && asked.issues.length > 0 && !carried) {
+      manager.get(session_id).issues.push(...asked.issues);
+    }
     let last;
     for (let step = 1; step <= steps; step++) {
-      const state = await hauntCaptureState(manager, {
-        session_id: spawnResult.session_id,
-        format: "text"
-      });
-      const { actions, issues } = await decide(
-        spawnResult.persona_description,
-        describeState(
-          state.text,
+      let decision = carried;
+      carried = void 0;
+      if (!decision) {
+        const state = describeState(
+          await read(),
           step,
           steps,
           authenticated,
-          last,
-          step === 1 ? spawnResult.signals : []
-        )
-      );
+          last
+        );
+        const toPlay = describeCases(
+          (await hauntPlan(manager, { session_id })).cases
+        );
+        decision = await decide(
+          tester,
+          toPlay ? `${state}
+
+${toPlay}` : state
+        );
+      }
+      const { actions, issues } = decision;
       log(
-        `[${spawnResult.persona_name}] step ${step}: ${JSON.stringify(actions)}${issues.length > 0 ? ` (+${issues.length} issue(s))` : ""}`
+        `step ${step}: ${JSON.stringify(actions)}${issues.length > 0 ? ` (+${issues.length} issue(s))` : ""}`
       );
       if (actions.length === 0) {
-        manager.get(spawnResult.session_id).issues.push(...issues);
+        manager.get(session_id).issues.push(...issues);
         last = void 0;
         continue;
       }
+      const known = manager.get(session_id).plan.cases;
+      const playing = decision.case !== void 0 && known.has(decision.case) ? decision.case : void 0;
+      const expect = decision.expect && !malformed(decision.expect) ? decision.expect : void 0;
       last = await hauntAct(manager, {
-        session_id: spawnResult.session_id,
+        session_id,
         actions,
-        issues
+        issues,
+        ...playing !== void 0 ? { case: playing } : {},
+        ...expect ? { expect } : {}
       });
       log(describeOutcome(last).replace(/^/gm, "    "));
+      if (last.steps_remaining <= 0) break;
     }
     if (last) {
-      const state = await hauntCaptureState(manager, {
-        session_id: spawnResult.session_id,
-        format: "text"
-      });
       const { issues } = await decide(
-        spawnResult.persona_description,
-        `${describeState(state.text, steps, steps, authenticated, last)}
+        tester,
+        `${describeState(await read(), steps, steps, authenticated, last)}
 
 ${WRAP_UP}`
       ).catch(() => ({ issues: [] }));
       finalIssues = issues;
-      log(
-        `[${spawnResult.persona_name}] wrap-up: ${issues.length} more issue(s)`
-      );
+      log(`wrap-up: ${issues.length} more issue(s)`);
     }
   } catch (error) {
-    if (manager.has(spawnResult.session_id)) {
-      await hauntEndSession(manager, {
-        session_id: spawnResult.session_id
-      }).catch(() => {
+    if (manager.has(session_id)) {
+      await hauntEndSession(manager, { session_id }).catch(() => {
       });
     }
     throw error;
   }
   const endResult = await hauntEndSession(manager, {
-    session_id: spawnResult.session_id,
+    session_id,
     issues: finalIssues
   });
   return {
     area: targetUrl,
-    persona: spawnResult.persona_name,
     overall_impression: endResult.overall_impression,
     issues: endResult.issues_found,
     rejected: endResult.rejected,
     signal_verification: endResult.signal_verification,
     sandbox_blocked_requests: endResult.sandbox_blocked_requests,
-    signals: endResult.signals
+    signals: endResult.signals,
+    cases: endResult.cases,
+    inventory: endResult.inventory
   };
 }
 async function runHeadlessTest(decide, manager, options) {
+  const areas = [options.targetUrl];
   const settled = await Promise.allSettled(
-    options.personas.map(
-      (persona) => runPersonaSession(
+    areas.map(
+      (area) => runSession(
         decide,
         manager,
-        persona,
-        options.targetUrl,
-        options.steps,
-        options.headless,
-        options.cookies,
+        area,
+        options,
         options.verbose ? (line) => console.error(line) : void 0
       )
     )
@@ -34848,15 +35040,18 @@ async function runHeadlessTest(decide, manager, options) {
       sessions.push(result.value);
     } else {
       const message = result.reason instanceof Error ? result.reason.message : String(result.reason);
-      failures.push(`${options.personas[i]}: ${message}`);
+      failures.push(`${areas[i]}: ${message}`);
     }
   });
   if (sessions.length === 0) {
-    throw new Error(`All persona sessions failed: ${failures.join("; ")}`);
+    throw new Error(`All sessions failed: ${failures.join("; ")}`);
   }
   const report = hauntGenerateReport({
     target_url: options.targetUrl,
+    // Only for the file's name, which a caller written before part 4 may
+    // rely on.
     personas: options.personas,
+    spec: options.spec?.name,
     sessions
   });
   const blocking = report.counts.critical > 0 || report.counts.major > 0 || report.confirmed_major_signals > 0;
@@ -34939,13 +35134,28 @@ async function main() {
       process.exit(2);
     }
   }
+  let spec;
+  if (options.specPath) {
+    try {
+      spec = {
+        name: basename(options.specPath),
+        text: readFileSync2(options.specPath, "utf-8")
+      };
+    } catch {
+      console.error(`haunt-ci failed: cannot read --spec ${options.specPath}`);
+      process.exit(2);
+    }
+  }
   try {
     const { report, failures, exitCode } = await runHeadlessTest(
       decide,
       manager,
       {
         ...options,
-        cookies
+        // --steps is the budget of actions: at most as many decisions.
+        budget: options.steps,
+        cookies,
+        spec
       }
     );
     for (const failure of failures) {

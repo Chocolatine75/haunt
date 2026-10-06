@@ -52,8 +52,14 @@ describe('haunt-ci through Claude Code', () => {
   describe('the command it runs', () => {
     it('is the slash command a user would type, never waiting for confirmation', () => {
       expect(commandFor(OPTIONS)).toBe(
-        '/haunt:haunt-test http://localhost:3000 --yes --steps 3 --personas confused-beginner,malicious-user',
+        '/haunt:haunt-test http://localhost:3000 --yes --steps 3',
       );
+    });
+
+    it('passes --spec and --hostile through', () => {
+      expect(
+        commandFor({ ...OPTIONS, specPath: 'docs/app.md', hostile: true }),
+      ).toContain('--spec docs/app.md --hostile');
     });
 
     it('passes --headed, --verbose and credentials through', () => {
@@ -77,7 +83,13 @@ describe('haunt-ci through Claude Code', () => {
         args.indexOf('--allowedTools') + 1,
         args.indexOf('--output-format'),
       );
-      expect(allowed.every((tool) => tool.includes('haunt'))).toBe(true);
+      // haunt's own tools, the one that spawns its planner and testers, and
+      // Read for --spec: no shell, no edit.
+      expect(allowed.filter((tool) => !tool.includes('haunt')).sort()).toEqual([
+        'Agent',
+        'Read',
+        'Task',
+      ]);
       expect(args.join(' ')).not.toMatch(/skip-permissions|bypassPermissions/);
       expect(args.slice(-2)).toEqual(['--model', 'sonnet']);
     });

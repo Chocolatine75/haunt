@@ -117,6 +117,19 @@ export const TESTER_PAGES = [
 ] as const;
 
 export type TesterPage = (typeof TESTER_PAGES)[number];
+
+// Part 5's pages: a layout defect each, that geometry alone establishes,
+// beside the look-alikes that are not defects. The same two variants; what
+// each must raise is in layout-truth.json.
+export const LAYOUT_PAGES = [
+  'lay-covered',
+  'lay-overlap',
+  'lay-text',
+  'lay-dialog',
+  'lay-narrow',
+] as const;
+
+export type LayoutPage = (typeof LAYOUT_PAGES)[number];
 export type Variant = 'buggy' | 'clean';
 
 export interface Gauntlet {
@@ -125,7 +138,7 @@ export interface Gauntlet {
   // A second origin serving the same app, for cross-origin frames.
   otherUrl: string;
   url(
-    page: GauntletPage | SignalPage | EvidencePage | TesterPage,
+    page: GauntletPage | SignalPage | EvidencePage | TesterPage | LayoutPage,
     query?: string,
   ): string;
   // "<METHOD> <path>" of every request, per origin.
@@ -295,7 +308,8 @@ async function handle(
     (GAUNTLET_PAGES as readonly string[]).includes(first) ||
     (SIGNAL_PAGES as readonly string[]).includes(first) ||
     (EVIDENCE_PAGES as readonly string[]).includes(first) ||
-    (TESTER_PAGES as readonly string[]).includes(first)
+    (TESTER_PAGES as readonly string[]).includes(first) ||
+    (LAYOUT_PAGES as readonly string[]).includes(first)
   ) {
     html(file(join('pages', `${first}.html`)));
     return;
@@ -307,6 +321,7 @@ async function handle(
         ...SIGNAL_PAGES,
         ...EVIDENCE_PAGES,
         ...TESTER_PAGES,
+        ...LAYOUT_PAGES,
       ]
         .map((p) => `<li><a href="/${p}">${p}</a></li>`)
         .join('')}</ul>`,

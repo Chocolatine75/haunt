@@ -1,7 +1,36 @@
 import type { HauntSession } from '../types.js';
 
+// What is kept of a session once it has ended, for the calls that come
+// after: a tester that takes its cases from a planner's session, and the
+// report, which is handed session ids rather than their whole results.
+// Without it every result crosses a model's context twice, and between
+// several agents that is most of what a run costs.
+export interface EndedSession {
+  result: Record<string, unknown>;
+  // The session's cases, by what their controls are (R-T21).
+  portable: unknown[];
+  at: number;
+}
+
+// How many ended sessions are kept: a run has a handful.
+const ENDED_KEPT = 50;
+
 export class SessionManager {
   private readonly sessions = new Map<string, HauntSession>();
+  private readonly ended = new Map<string, EndedSession>();
+
+  keepEnded(id: string, session: Omit<EndedSession, 'at'>): void {
+    this.ended.set(id, { ...session, at: Date.now() });
+    while (this.ended.size > ENDED_KEPT) {
+      const oldest = this.ended.keys().next().value;
+      if (oldest === undefined) break;
+      this.ended.delete(oldest);
+    }
+  }
+
+  endedSession(id: string): EndedSession | undefined {
+    return this.ended.get(id);
+  }
 
   set(id: string, session: HauntSession): void {
     this.sessions.set(id, session);

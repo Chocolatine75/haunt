@@ -74,7 +74,9 @@ const SABOTAGES: Record<string, (ctx: EvidenceContext) => Promise<void>> = {
     const s = await ctx.ev('ev-sequence');
     await s.play();
     const [issue] = s.issues();
-    const ended = await s.end([{ ...issue, signal: undefined }]);
+    // Naming a signal the session does not have: an issue with no claim is
+    // no longer a rejected one since part 4 (R-T11).
+    const ended = await s.end([{ ...issue, signal: 's999' }]);
     expect(ended.issues_found).toEqual([]);
   },
   // The password left in the trace.
@@ -269,14 +271,17 @@ describe('E7 the gate itself', () => {
         // assertion of either gate changed.
         expect(hashOf(resolve(HERE, '../part-1'))).toEqual({
           files: 10,
-          hash: '5fdb1b72f30ba98661a02f7d58d698b1b6e26edcad5c004badada82e3cfc59b9',
+          hash: '22f3486a59d5879e8dc78467f261a5966f61aa75101646fea4463c0ff9a65d31',
         });
         // Part 2's updated once too: its contract gained the optional
         // `expected` mark of a refused sign-in (R-S14). No test of the gate
         // changed.
+        //
+        // Both again for part 4, which removes personas (R-T14): G5.6 no
+        // longer names the test files of their loader, and S8.3 follows.
         expect(hashOf(resolve(HERE, '../part-2'))).toEqual({
           files: 12,
-          hash: '794fce66dc89a49d831d8193a9acf57a64f8b39721f4e503f3245a920670423e',
+          hash: '781681e3e70840b87b20c1076e4946c7af0e373de9701b93d910c866770c7627',
         });
       },
     );
