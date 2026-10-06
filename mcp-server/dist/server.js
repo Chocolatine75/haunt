@@ -15,15 +15,16 @@ import {
   hauntPlan,
   hauntReplay,
   hauntSpawn,
-  inForm,
+  lastEffects,
   listQuerySchema,
   planCaseSchema,
   planOf,
   sabotaged,
+  sweptAround,
   syncInventory,
   takeSnapshot,
   zodToJsonSchema
-} from "./chunk-UUNJV7N6.js";
+} from "./chunk-6QMZXYZA.js";
 import {
   _enum,
   _null,
@@ -10636,12 +10637,12 @@ async function buttonsOf(session) {
     list.push({ ref, doc: target.doc, local: target.local });
     byFrame.set(target.frame, list);
   }
-  const inside = /* @__PURE__ */ new Set();
+  const around = /* @__PURE__ */ new Map();
   await Promise.all(
     [...byFrame].map(async ([frame, targets]) => {
       if (frame.isDetached()) return;
-      const found = await frame.evaluate(inForm, targets).catch(() => []);
-      for (const ref of found) inside.add(ref);
+      const found = await frame.evaluate(sweptAround, targets).catch(() => ({}));
+      for (const [ref, why] of Object.entries(found)) around.set(ref, why);
     })
   );
   return buttons.map(({ ref, role, name }) => ({
@@ -10649,7 +10650,7 @@ async function buttonsOf(session) {
     role,
     name,
     group: session.plan.controls.get(ref)?.group ?? "page",
-    inForm: inside.has(ref) && !sabotaged("sweep_forms_included")
+    ...around.has(ref) && !sabotaged("sweep_forms_included") ? { around: around.get(ref) } : {}
   }));
 }
 async function hauntSweep(manager, input) {
@@ -10668,7 +10669,7 @@ async function hauntSweep(manager, input) {
   }
   const { session_id } = await hauntSpawn(manager, {
     ...spawn,
-    // A press, and at most a dialog to answer and the area to open again.
+    // A press, the area opened again, and at most a dialog to answer.
     budget: max * 3 + 3,
     // The testers' sessions audited this page and read its layout.
     audit: false,
@@ -10685,8 +10686,8 @@ async function hauntSweep(manager, input) {
       for (const button of await buttonsOf(session)) {
         const key = keyOf(button);
         if (done.has(key) || exercised.has(key) || next) continue;
-        const { ref: ref2, inForm: within, ...named2 } = button;
-        const why = within ? "in a form" : DESTRUCTIVE.test(button.name) ? "destructive" : pressed.length >= max ? "over the limit" : void 0;
+        const { ref: ref2, around, ...named2 } = button;
+        const why = around ? around : DESTRUCTIVE.test(button.name) ? "destructive" : pressed.length >= max ? "over the limit" : void 0;
         if (why) left.set(key, { ...named2, why });
         else next = button;
       }
@@ -10703,13 +10704,11 @@ async function hauntSweep(manager, input) {
         step: result.step
       });
       const { runtime } = session;
-      if (step.ok && step.changes.none && !runtime.dialog) continue;
       if (runtime.dialog) await act({ type: "dialog", accept: false });
       while (runtime.tabs.length > 1) {
         await act({ type: "tab", op: "close", index: runtime.tabs.length - 1 });
       }
       const back = await act({ type: "goto", url: input.target_url });
-      session.collector.forgetRepeats(0, back.step);
       if (!back.results[0]?.ok) break;
     }
   } catch (error) {
@@ -10719,6 +10718,10 @@ async function hauntSweep(manager, input) {
       manager.delete(session_id);
     }
     throw error;
+  }
+  await lastEffects(session);
+  for (let step = 1; step <= session.step_count; step++) {
+    session.collector.forgetRepeats(0, step);
   }
   const dead = pressed.filter((one) => !one.changed && !one.error).length;
   const ended = await hauntEndSession(manager, {

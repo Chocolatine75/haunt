@@ -56,6 +56,7 @@ const PRESSED = [
   'Billing',
   'Attach a file',
   'Add to cart',
+  'Go to Trash',
 ];
 
 const SABOTAGE_MODULE = '../../engine/sabotage.js';
@@ -152,11 +153,13 @@ describe('W the sweep of the buttons no tester pressed', () => {
     gate(
       'W1.3',
       'R-W2',
-      'what is in a form and what destroys is left alone, and listed with why',
+      'what is in a form or beside a field, what destroys and what is already current is left alone, and listed with why',
       async () => {
         const swept = await sweep('buggy');
         expect(swept.left.map((l) => [l.name, l.group, l.why]).sort()).toEqual([
           ['Delete account', 'page', 'destructive'],
+          ['Go to Documents', 'navigation: Sections', 'current'],
+          ['Join', 'page', 'beside a field'],
           ['Subscribe', 'form: Newsletter', 'in a form'],
         ]);
       },

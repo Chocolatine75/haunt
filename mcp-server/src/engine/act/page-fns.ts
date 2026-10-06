@@ -719,15 +719,24 @@ export function controlState(
   return value;
 }
 
-// Which of these controls sit in a form or a search, or submit one from
-// outside it (the sweep, docs/v3/part-4-sweep.md, R-W2): pressing one sends
-// what the form holds, which is a test case's to decide.
-export function inForm(
+// Which of these controls a sweep leaves alone for what is around them
+// (docs/v3/part-4-sweep.md, R-W2), and why. In a form or a search, or
+// submitting one from outside it: pressing sends what the form holds, which
+// is a test case's to decide. Beside a field with no form around them (CATTest
+// 27's "Join the Debate" next to an empty name): the page rightly does
+// nothing while the field is empty, and that is not a dead button. Marked as
+// the current one of a set (CATTest 43's dot for the section already shown):
+// pressing it goes where the page already is.
+export function sweptAround(
   targets: Array<{ ref: string; doc: string; local: number }>,
-): string[] {
+): Record<string, 'in a form' | 'beside a field' | 'current'> {
   const state = (window as unknown as { __haunt?: PageState }).__haunt;
-  const out: string[] = [];
+  const out: Record<string, 'in a form' | 'beside a field' | 'current'> = {};
   if (!state) return out;
+  // What is typed into: a slider or a checkbox beside a button waits for
+  // nothing.
+  const FIELDS =
+    'input:not([type]), input[type="text"], input[type="email"], input[type="search"], input[type="password"], input[type="number"], input[type="tel"], input[type="url"], textarea';
   for (const target of targets) {
     if (state.doc !== target.doc) continue;
     const node = state.nodes.get(target.local)?.deref();
@@ -741,7 +750,27 @@ export function inForm(
       const root = at.getRootNode();
       at = root instanceof ShadowRoot ? root.host : null;
     }
-    if (found) out.push(target.ref);
+    if (found) {
+      out[target.ref] = 'in a form';
+      continue;
+    }
+    // In the same block: a field and its button are rarely further apart,
+    // and the chips under a search box are not its button.
+    const block = node.parentElement;
+    if (block && block !== document.body && block.querySelector(FIELDS)) {
+      out[target.ref] = 'beside a field';
+      continue;
+    }
+    const current = node.getAttribute('aria-current');
+    if (
+      (current !== null && current !== 'false') ||
+      node.getAttribute('aria-selected') === 'true' ||
+      /(^|[\s_-])(active|current|selected)($|[\s_-])/i.test(
+        node.getAttribute('class') ?? '',
+      )
+    ) {
+      out[target.ref] = 'current';
+    }
   }
   return out;
 }

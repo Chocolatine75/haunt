@@ -46,26 +46,30 @@ route, does not sweep yet.
   several buttons that are the same by those three, one is pressed: forty
   cards built the same way have one "Add to cart".
 - **R-W2 What is left alone.** Not pressed, and listed in the result with
-  why: a button inside a form or a search (`in a form`); one whose name says
-  it destroys, spends, sends or signs out, such as "Delete account", "Pay",
-  "Log out" (`destructive`); those past the limit, 20 unless `max` says
-  otherwise (`over the limit`).
+  why: a button inside a form or a search (`in a form`); one with a field
+  to type into in the block it sits in, though no form holds them
+  (`beside a field`): with the field empty the page rightly does nothing;
+  one marked as the current one of a set, by `aria-current`,
+  `aria-selected` or a class that says so (`current`): it leads where the
+  page already is; one whose name says it destroys, spends, sends or signs
+  out, such as "Delete account", "Pay", "Log out" (`destructive`); those
+  past the limit, 20 unless `max` says otherwise (`over the limit`).
 
 ## B. How
 
 - **R-W3 A real click, on the page as it loads.** Each press is an action of
   the session like a tester's: real input, recorded, with the signals of
-  part 2 collected around it. After a press that changed anything (a dialog
-  of the page or of the browser, another page, a tab, a panel), what it
-  opened is answered or closed and the area is opened again, so that the
-  next button is pressed on the page a user opens, not on what the last one
-  left.
+  part 2 collected around it. After each press, what it opened is answered
+  or closed (a dialog of the browser, a tab) and the area is opened again,
+  so that the next button is pressed on the page a user opens, not on what
+  the last one left: behind a dialog, on another page, or scrolled
+  elsewhere.
 - **R-W4 Quiet on what works.** A button that does something raises nothing:
   the sweep adds no signal of its own, and judges nothing. On a page whose
   buttons all work, it reports nothing. A button whose effect is the
   browser's file picker works, though the page does not change. What the
   page raises as it loads is raised once, however many times the sweep
-  opened it again.
+  opened it again or a press brought it back.
 
 ## C. Where it goes
 
@@ -98,6 +102,9 @@ route, does not sweep yet.
 | Attach a file | opens the file picker, and changes nothing in the page | same |
 | Add to cart (twice, in one list) | works | works |
 | Share | disabled | disabled |
+| Join, beside an empty field and in no form | does nothing while the field is empty, and must not be pressed | same |
+| Go to Documents, marked as the current section | does nothing | same |
+| Go to Trash | works | works |
 | Delete account | works, and must not be pressed | same |
 | Subscribe, in a form | submits, and must not be pressed | same |
 
@@ -110,7 +117,8 @@ route, does not sweep yet.
    earlier ones opened a dialog, a `confirm` or another page; the signals
    are the dead "Export" and the exception of "Archive", and no other.
 2. On the clean variant, the same buttons are pressed and nothing is raised.
-3. The buttons left alone are listed with why: in a form, destructive.
+3. The buttons left alone are listed with why: in a form, beside a field,
+   current, destructive.
 4. A button a session given to the sweep exercised is not pressed again; a
    session id that never existed is refused.
 5. With `max: 2`, two are pressed and the rest are listed as over the limit.

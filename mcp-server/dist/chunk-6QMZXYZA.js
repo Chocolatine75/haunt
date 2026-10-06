@@ -34641,10 +34641,11 @@ function controlState(el, of) {
   if (credential) return value ? "(filled)" : "(empty)";
   return value;
 }
-function inForm(targets) {
+function sweptAround(targets) {
   const state = window.__haunt;
-  const out = [];
+  const out = {};
   if (!state) return out;
+  const FIELDS = 'input:not([type]), input[type="text"], input[type="email"], input[type="search"], input[type="password"], input[type="number"], input[type="tel"], input[type="url"], textarea';
   for (const target of targets) {
     if (state.doc !== target.doc) continue;
     const node = state.nodes.get(target.local)?.deref();
@@ -34656,7 +34657,21 @@ function inForm(targets) {
       const root = at.getRootNode();
       at = root instanceof ShadowRoot ? root.host : null;
     }
-    if (found) out.push(target.ref);
+    if (found) {
+      out[target.ref] = "in a form";
+      continue;
+    }
+    const block = node.parentElement;
+    if (block && block !== document.body && block.querySelector(FIELDS)) {
+      out[target.ref] = "beside a field";
+      continue;
+    }
+    const current2 = node.getAttribute("aria-current");
+    if (current2 !== null && current2 !== "false" || node.getAttribute("aria-selected") === "true" || /(^|[\s_-])(active|current|selected)($|[\s_-])/i.test(
+      node.getAttribute("class") ?? ""
+    )) {
+      out[target.ref] = "current";
+    }
   }
   return out;
 }
@@ -43100,6 +43115,20 @@ function scrolled(before, after) {
     (el) => el.scroll && was.has(el.ref) && !same(was.get(el.ref), el.scroll)
   );
 }
+async function scrollsLate(session, read2) {
+  const deadline = Date.now() + 400;
+  for (; ; ) {
+    const now = await withTimeout3(
+      session.page.evaluate(() => ({ x: window.scrollX, y: window.scrollY })),
+      500
+    );
+    if (!now || !read2) return false;
+    if (Math.round(now.x) !== Math.round(read2.x)) return true;
+    if (Math.round(now.y) !== Math.round(read2.y)) return true;
+    if (Date.now() >= deadline) return false;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+}
 var withoutFragment = (url) => url.split("#")[0];
 var CONTROL_ROLES = /* @__PURE__ */ new Set([
   "button",
@@ -43223,7 +43252,7 @@ async function runStep(session, input) {
     if (nothing && element && CONTROL_ROLES.has(element.role) && !collector.causedAnything(stepNumber) && target && !target.frame.isDetached() && !await withTimeout3(
       target.frame.evaluate(reactedSince, startedAt),
       1e3
-    )) {
+    ) && !await scrollsLate(session, after.scroll)) {
       collector.raiseDeadControl(stepNumber, page.url(), {
         ref: ref2,
         role: element.role,
@@ -45738,7 +45767,7 @@ export {
   SCREENSHOTS_DIR,
   SessionManager,
   sabotaged,
-  inForm,
+  sweptAround,
   CASE_KINDS,
   PLANNER_BRIEF_HEADING,
   TESTER_BRIEF_HEADING,
@@ -45746,6 +45775,7 @@ export {
   syncInventory,
   planOf,
   hauntPlan,
+  lastEffects,
   hauntEndSession,
   briefEnd,
   malformed,

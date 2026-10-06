@@ -12,8 +12,9 @@
   variant one is wired to nothing and one throws. Three of the working ones
   leave the page in a state where the others cannot be pressed (a modal
   dialog, a browser confirm, another page), one only opens the file picker,
-  and two must never be pressed
-  by something that asks nobody: one deletes, one submits a form.
+  and two must never be pressed by something that asks nobody: one deletes,
+  one submits a form. Two more do nothing and are right not to: one waits
+  for the field beside it, one leads where the page already is.
 -->
 <h1>Documents</h1>
 
@@ -39,6 +40,18 @@
   <button data-g="share" type="button" disabled>Share</button>
   <button data-g="delete" type="button">Delete account</button>
 </p>
+
+<!-- No form around them: with the field empty the button rightly does nothing. -->
+<div>
+  <input data-g="nickname" type="text" aria-label="Nickname">
+  <button data-g="join" type="button">Join</button>
+</div>
+
+<!-- The first is where the page already is. -->
+<nav aria-label="Sections">
+  <button data-g="dot-documents" type="button" class="dot active" aria-label="Go to Documents" style="width: 14px; height: 14px"></button>
+  <button data-g="dot-trash" type="button" class="dot" aria-label="Go to Trash" style="width: 14px; height: 14px"></button>
+</nav>
 
 <form aria-label="Newsletter" action="/sw-buttons" method="get">
   <label>Email <input data-g="email" type="text" name="e"></label>
@@ -83,6 +96,11 @@
   for (const id of ['add-pen', 'add-ink']) {
     G.find(id).addEventListener('click', () => say(`Added (${id})`));
   }
+  G.find('join').addEventListener('click', () => {
+    const name = G.find('nickname').value.trim();
+    if (name) say(`Joined as ${name}`);
+  });
+  G.find('dot-trash').addEventListener('click', () => say('Trash'));
   G.find('delete').addEventListener('click', () => say('Account deleted'));
 </script>
 </body>

@@ -12,8 +12,8 @@
 import type { Signal } from '../gates/part-2/contract.js';
 import type { InventoryControl } from '../gates/part-4/contract.js';
 import { hauntAct } from './act/act.js';
-import { inForm } from './act/page-fns.js';
-import { hauntEndSession } from './end-session.js';
+import { sweptAround } from './act/page-fns.js';
+import { hauntEndSession, lastEffects } from './end-session.js';
 import { planOf, syncInventory } from './plan/plan.js';
 import { sabotaged } from './sabotage.js';
 import type { SessionManager } from './session/manager.js';
@@ -47,6 +47,8 @@ export interface SweepInput
   max?: number;
 }
 
+type Around = 'in a form' | 'beside a field' | 'current';
+
 interface Named {
   role: string;
   name: string;
@@ -66,7 +68,7 @@ export interface SweepOutput {
       error?: string;
     }
   >;
-  left: Array<Named & { why: 'in a form' | 'destructive' | 'over the limit' }>;
+  left: Array<Named & { why: Around | 'destructive' | 'over the limit' }>;
   signals: Array<
     Pick<Signal, 'id' | 'kind' | 'message' | 'severity' | 'step'> & {
       status: string;
@@ -82,7 +84,7 @@ const keyOf = (control: Named) =>
 // The buttons a user can press on the page as it is now, in reading order.
 async function buttonsOf(
   session: HauntSession,
-): Promise<Array<Named & { ref: string; inForm: boolean }>> {
+): Promise<Array<Named & { ref: string; around?: Around }>> {
   await takeSnapshot(session, { format: 'json' }, true);
   await syncInventory(session);
   const buttons = (session.snapshot.previous?.elements ?? []).filter(
@@ -104,12 +106,14 @@ async function buttonsOf(
     list.push({ ref, doc: target.doc, local: target.local });
     byFrame.set(target.frame, list);
   }
-  const inside = new Set<string>();
+  const around = new Map<string, Around>();
   await Promise.all(
     [...byFrame].map(async ([frame, targets]) => {
       if (frame.isDetached()) return;
-      const found = await frame.evaluate(inForm, targets).catch(() => []);
-      for (const ref of found) inside.add(ref);
+      const found = await frame
+        .evaluate(sweptAround, targets)
+        .catch(() => ({}));
+      for (const [ref, why] of Object.entries(found)) around.set(ref, why);
     }),
   );
   return buttons.map(({ ref, role, name }) => ({
@@ -117,7 +121,9 @@ async function buttonsOf(
     role,
     name,
     group: session.plan.controls.get(ref)?.group ?? 'page',
-    inForm: inside.has(ref) && !sabotaged('sweep_forms_included'),
+    ...(around.has(ref) && !sabotaged('sweep_forms_included')
+      ? { around: around.get(ref) }
+      : {}),
   }));
 }
 
@@ -146,7 +152,7 @@ export async function hauntSweep(
 
   const { session_id } = await hauntSpawn(manager, {
     ...spawn,
-    // A press, and at most a dialog to answer and the area to open again.
+    // A press, the area opened again, and at most a dialog to answer.
     budget: max * 3 + 3,
     // The testers' sessions audited this page and read its layout.
     audit: false,
@@ -165,9 +171,9 @@ export async function hauntSweep(
       for (const button of await buttonsOf(session)) {
         const key = keyOf(button);
         if (done.has(key) || exercised.has(key) || next) continue;
-        const { ref, inForm: within, ...named } = button;
-        const why = within
-          ? 'in a form'
+        const { ref, around, ...named } = button;
+        const why = around
+          ? around
           : DESTRUCTIVE.test(button.name)
             ? 'destructive'
             : pressed.length >= max
@@ -192,15 +198,16 @@ export async function hauntSweep(
 
       // The next one is pressed on the page a user opens, not on what this
       // one left (R-W3): behind a dialog nothing can be pressed, and on
-      // another page there is nothing of this one.
+      // another page there is nothing of this one. After every press, even
+      // one that seemed to change nothing: on CATTest 43 the dots of a
+      // section menu scrolled the page and moved its "active" mark without
+      // changing an element, and the next button was pressed on that.
       const { runtime } = session;
-      if (step.ok && step.changes.none && !runtime.dialog) continue;
       if (runtime.dialog) await act({ type: 'dialog', accept: false });
       while (runtime.tabs.length > 1) {
         await act({ type: 'tab', op: 'close', index: runtime.tabs.length - 1 });
       }
       const back = await act({ type: 'goto', url: input.target_url });
-      session.collector.forgetRepeats(0, back.step);
       if (!back.results[0]?.ok) break;
     }
   } catch (error) {
@@ -209,6 +216,15 @@ export async function hauntSweep(
       manager.delete(session_id);
     }
     throw error;
+  }
+
+  // What the page raises as it loads it raised at step 0 (R-W4): raised
+  // again later, by the area opened again or by a press that only scrolled
+  // to a video its host refuses, it is not what a button did. Dropped once
+  // the last of it has come.
+  await lastEffects(session);
+  for (let step = 1; step <= session.step_count; step++) {
+    session.collector.forgetRepeats(0, step);
   }
 
   const dead = pressed.filter((one) => !one.changed && !one.error).length;
