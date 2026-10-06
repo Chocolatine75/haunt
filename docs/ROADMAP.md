@@ -8,7 +8,7 @@ haunt should be for web apps: the agent you point at an app to find out what
 is broken, with results you can trust.
 
 "Better" is a number, not a claim. It is decided by the head-to-head benchmark
-in part 6, and each part before it exists to move that number.
+in part 7, and each part before it exists to move that number.
 
 Where things stand and why is in [`HISTORY.md`](HISTORY.md). The ideas below
 come from a survey of browser-use, Playwright MCP, agent-browser, Chrome
@@ -144,10 +144,34 @@ separated from confirmed ones.
   report or the logs. The test searches all of them.
 - Bundle storage is capped; a 200-step session stays under the cap.
 
-### 4. Bounded, visual perception
+### 4. A tester, not a persona
+
+Test a page the way a QA engineer does, instead of playing a character on
+it. Specified in [`v3/part-4-tester.md`](v3/part-4-tester.md), from a pilot
+on a published benchmark where haunt found none of four annotated bugs and
+plain Claude with a browser found one
+([`benchmarks/2026-10-05-cattest-pilot.md`](benchmarks/2026-10-05-cattest-pilot.md)).
+
+Scope: an inventory of what a page offers and a plan of test cases, both
+kept by the engine; coverage counted in code; a budget of actions in place
+of three steps; an expectation stated before each action and checked after
+it, with exact readings of lists and values; issues the engine cannot check
+listed for a person instead of dropped; a screenshot on request; personas
+removed; an optional description of the app; the work split between a
+planner and testers, each an agent of its own.
+
+**Gate**: T1 to T7 of the specification, deterministic, on six new gauntlet
+pages whose defects raise no signal; and, *live*, on the pilot's three
+applications, more annotated bugs found than Claude Code with Playwright
+MCP, or as many for less.
+
+### 5. Bounded, visual perception
 
 Show the tester what a user would see, and catch bugs that only exist
-visually.
+visually. Its first slice, the layout defects geometry alone establishes, is
+specified in [`v3/part-5-layout.md`](v3/part-5-layout.md) and was built
+ahead of the rest: a seventh of the bugs annotated in CATTest are of that
+kind.
 
 Scope: a snapshot limited to what is in the viewport and not covered by
 another element; a compact, diff-based snapshot format; annotated screenshots
@@ -168,7 +192,7 @@ perception and action path in `haunt-ci`.
 - *Live*: driven only by screenshots, the tester completes the part 1 flows
   on at least 12 of the 15 gauntlet pages.
 
-### 5. From finding to regression test
+### 6. From finding to regression test
 
 Make a found bug stay fixed, and test what changed.
 
@@ -184,24 +208,39 @@ Playwright test file; replay known flows without model calls.
 - A recorded flow replays with zero model calls; when the page's markup
   changes but its behaviour does not, replay still passes.
 
-### 6. Head-to-head benchmark
+### 7. Head-to-head benchmark
 
 The measure of the goal.
 
-Scope: a ground-truth set of at least 30 runtime-only bugs across the gauntlet
-and `demo/` (timing races, overlays, hanging requests, state bugs after
-back/refresh, double submits, bugs that need authentication, bugs at mobile
-width), plus the clean variants; a runner that executes haunt and browser-use
-(through its own QA entry point, vibetest-use, and through its agent with an
-equivalent QA prompt) on the same targets, with the same model, the same step
-budget and the same wall-clock budget.
+Scope: three sets of bugs, each measuring what the others cannot, and a
+runner that executes haunt and the tools it is compared with on the same
+targets, with the same model and the same budget.
+
+- **CATTest**, a published benchmark of web apps with hand-annotated bugs,
+  limited to its applications that are products (shops, forms, dashboards,
+  calendars) and not games. It measures functional and layout bugs in a
+  front end. About ten applications are set apart to study failures on; the
+  score is taken on the others, which are never looked at while developing.
+- **Our own server-side set**: `demo/` and the gauntlet, with at least 30
+  bugs CATTest cannot hold, since its applications have no server: failed
+  and silent requests, authentication, data that is not saved, double
+  submits, timing races, state after back or refresh, plus the clean
+  variants. Written by us, and reported as such.
+- **Real bugs**: open-source web applications checked out just before the
+  fix of a bug reported on GitHub, about ten to start with. The slowest to
+  build and the most convincing; started once part 4 is in.
+
+The tools compared are Claude Code with Playwright MCP (what someone
+without a QA tool does), Claude in Chrome, and browser-use through its own
+agent with an equivalent prompt.
 
 **Gate** (*live*, three runs each, worst run counts):
 
-- Haunt's recall on the ground-truth set is at least 80%, and higher than
-  browser-use's.
-- Haunt's precision is at least 90%, and higher than browser-use's. Any issue
-  reported on a clean variant counts against it.
+- On each set, haunt's recall is higher than that of every tool it is
+  compared with; on our own set it is at least 80%.
+- On each set, haunt's precision is higher than theirs; on our own set it is
+  at least 90%. Any issue reported on a clean variant or a bug-free
+  application counts against it.
 - Every haunt finding counted as correct has a replayable evidence bundle.
 - Cost and time per run are reported next to the scores. Haunt may cost more;
   it may not cost more than twice as much for the same budget.
@@ -209,11 +248,11 @@ budget and the same wall-clock budget.
   outputs are all committed, so the comparison can be rerun by anyone.
 
 Until this gate passes, nothing in the README or elsewhere says haunt is
-better than browser-use.
+better than another tool.
 
 ## Order
 
-1 → 2 → 3 → 4 → 5, with the part 6 runner and ground truth started alongside
+1 → 2 → 3 → 4 → 5 → 6, with the part 7 runner and ground truth started alongside
 part 1 so that every later part can be measured as it lands. Parts 2 and 3
 are where haunt can pull ahead: the other tools are strong at acting on a
 page and weak at proving that what they report is real.
