@@ -111,6 +111,9 @@ export async function holds(
   session: HauntSession,
   observed: Observation & { locator?: Locator; fails?: boolean },
 ): Promise<boolean> {
+  // An issue with nothing the engine can check claims only that its steps
+  // can be played (part 4, R-T11): they just were.
+  if ((observed as { steps_only?: boolean }).steps_only) return true;
   const held = await observedHolds(session, observed);
   return observed.fails ? !held : held;
 }
@@ -196,6 +199,9 @@ export async function replay(
     // A replay is not a session of its own: no audit unless the claim is
     // about one, and no replays of its replays.
     audit: 'signal' in claim && claim.signal.kind === 'a11y',
+    layout: 'signal' in claim && (claim.signal.kind as string) === 'layout',
+    // Its steps hold the narrow reading already, if the session made one.
+    narrow_check: false,
     replay_budget_ms: 0,
   } as Parameters<typeof hauntSpawn>[1]);
   const session = manager.get(spawned.session_id);

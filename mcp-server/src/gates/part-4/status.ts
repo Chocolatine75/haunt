@@ -25,6 +25,7 @@ export const PASSING: ReadonlySet<string> = new Set<string>([
   'T3.3',
   'T3.4',
   // Was already so; listed now that a session's end returns its coverage.
+  'T4.1',
   'T4.2',
   'T4.3',
   'T5.2',
@@ -33,6 +34,7 @@ export const PASSING: ReadonlySet<string> = new Set<string>([
   'T5.3',
   'T5.4',
   'T6.1',
+  'T6.1b',
   'T7.1',
   'T7.2',
   'T7.3',

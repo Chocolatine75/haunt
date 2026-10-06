@@ -44,7 +44,7 @@ const issueSchema = z.object({
     .string()
     .optional()
     .describe(
-      'The id of the signal this issue is about (s3). An issue must name a signal or carry an observation, or it is rejected',
+      'The id of the signal this issue is about (s3). An issue that names a signal, a case or an observation is replayed and confirmed; one with none is only listed for a person to check',
     ),
   observed: expectationSchema
     .optional()
@@ -70,7 +70,13 @@ const issueSchema = z.object({
 // report as haunt_end_session returned it.
 const verificationSchema = z
   .object({
-    status: z.enum(['confirmed', 'flaky', 'rejected', 'unverified']),
+    status: z.enum([
+      'confirmed',
+      'flaky',
+      'rejected',
+      'unverified',
+      'unchecked',
+    ]),
     attempts: z.number().int().min(0),
     reproduced: z.number().int().min(0),
     rate: z.number().min(0).max(1),
@@ -90,7 +96,8 @@ const reportIssueSchema = issueSchema.extend({
 const signalSchema = z
   .object({
     id: z.string(),
-    kind: z.enum(SIGNAL_KINDS),
+    // Part 2's kinds, and the layout defects of part 5.
+    kind: z.enum([...SIGNAL_KINDS, 'layout']),
     url: z.string(),
     step: z.number().int().min(0),
     message: z.string(),
@@ -221,6 +228,12 @@ export const TOOLS: ToolDefinition[] = [
           'How many actions the session may run before it has to end. Default: 40',
         ),
       timeout: z.number().optional().describe('Older name of `budget`'),
+      narrow_check: z
+        .boolean()
+        .optional()
+        .describe(
+          'Before the session ends, read its layout once more on a window 375 px wide: what breaks on a phone shows there. Default: false',
+        ),
       hostile: z
         .boolean()
         .optional()

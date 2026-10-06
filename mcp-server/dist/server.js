@@ -19,7 +19,7 @@ import {
   planCaseSchema,
   takeSnapshot,
   zodToJsonSchema
-} from "./chunk-IMBHOHWZ.js";
+} from "./chunk-HMXWNGVW.js";
 import {
   _enum,
   _null,
@@ -10642,7 +10642,7 @@ var issueSchema = external_exports.object({
   page_url: external_exports.string(),
   recommendation: external_exports.string(),
   signal: external_exports.string().optional().describe(
-    "The id of the signal this issue is about (s3). An issue must name a signal or carry an observation, or it is rejected"
+    "The id of the signal this issue is about (s3). An issue that names a signal, a case or an observation is replayed and confirmed; one with none is only listed for a person to check"
   ),
   observed: expectationSchema.optional().describe(
     "For an issue no signal shows: the fact about the page the engine checks by replaying the steps (a message that is or is not there, an address, an element\u2019s state, the items of a list, what a control holds)"
@@ -10656,7 +10656,13 @@ var issueSchema = external_exports.object({
   actual: external_exports.string().optional().describe("And what you saw instead")
 });
 var verificationSchema = external_exports.object({
-  status: external_exports.enum(["confirmed", "flaky", "rejected", "unverified"]),
+  status: external_exports.enum([
+    "confirmed",
+    "flaky",
+    "rejected",
+    "unverified",
+    "unchecked"
+  ]),
   attempts: external_exports.number().int().min(0),
   reproduced: external_exports.number().int().min(0),
   rate: external_exports.number().min(0).max(1),
@@ -10669,7 +10675,8 @@ var reportIssueSchema = issueSchema.extend({
 });
 var signalSchema = external_exports.object({
   id: external_exports.string(),
-  kind: external_exports.enum(SIGNAL_KINDS),
+  // Part 2's kinds, and the layout defects of part 5.
+  kind: external_exports.enum([...SIGNAL_KINDS, "layout"]),
   url: external_exports.string(),
   step: external_exports.number().int().min(0),
   message: external_exports.string(),
@@ -10739,6 +10746,9 @@ var TOOLS = [
         "How many actions the session may run before it has to end. Default: 40"
       ),
       timeout: external_exports.number().optional().describe("Older name of `budget`"),
+      narrow_check: external_exports.boolean().optional().describe(
+        "Before the session ends, read its layout once more on a window 375 px wide: what breaks on a phone shows there. Default: false"
+      ),
       hostile: external_exports.boolean().optional().describe(
         "Allow test cases of kind `hostile`, which send attack payloads. Only against an app you own. Default: false"
       ),

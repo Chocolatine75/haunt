@@ -12,6 +12,7 @@
 import type { BrowserContext, Frame, Page, Request } from 'playwright';
 import type { Signal, SignalThresholds } from '../../gates/part-2/contract.js';
 import { sabotaged } from '../sabotage.js';
+import type { LayoutFinding } from './layout.js';
 
 export const DEFAULT_THRESHOLDS: SignalThresholds = {
   slow_response_ms: 3_000,
@@ -142,6 +143,7 @@ export class SignalCollector {
   private readonly meta = new Map<string, Meta>();
   private readonly byKey = new Map<string, Signal>();
   private readonly inflight = new Map<Request, Pending>();
+  private readonly layoutSeen = new Set<string>();
   private readonly secrets: string[] = [];
   // Of those, what was typed into a password field.
   private readonly passwords: string[] = [];
@@ -694,6 +696,38 @@ export class SignalCollector {
       if (signal) out.push(signal);
     }
     return out;
+  }
+
+  // What a reading of the page's layout found (part 5). A defect the
+  // session already knows on that page, about the same control and saying
+  // the same thing, is not raised again: the layout is read after every
+  // action, and a covered button is one fact however long it stays covered.
+  fromLayout(url: string, step: number, findings: LayoutFinding[]): void {
+    const page = withoutQuery(url);
+    for (const finding of findings) {
+      const key = JSON.stringify([
+        page,
+        finding.rule,
+        finding.role,
+        finding.name,
+        // Without the measure: text that overflows by 12 px then by 14 is
+        // the same text overflowing.
+        finding.message.replace(/\d+ px/g, ''),
+      ]);
+      if (this.layoutSeen.has(key)) continue;
+      this.layoutSeen.add(key);
+      this.raise({
+        kind: 'layout',
+        url: page,
+        step,
+        rule: finding.rule,
+        message: finding.message,
+        severity: finding.severity,
+        ...(finding.ref
+          ? { ref: finding.ref, role: finding.role, name: finding.name }
+          : {}),
+      } as unknown as Draft);
+    }
   }
 
   // Signals handed over now, outside the order of steps (an explicit audit).

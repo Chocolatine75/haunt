@@ -46,6 +46,8 @@ export const SABOTAGES = [
   'tester_secret_read',
   'tester_unchecked_confirmed',
   'tester_case_not_replayed',
+  // Part 5, layout.
+  'layout_unread',
   // Not a breakage: nothing recorded, to measure what recording costs
   // (E7.4).
   'evidence_off',

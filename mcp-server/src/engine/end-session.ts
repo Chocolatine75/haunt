@@ -9,7 +9,7 @@ import type {
   Coverage,
   InventoryControl,
 } from '../gates/part-4/contract.js';
-import { SETTLE_CAP_MS } from './act/act.js';
+import { SETTLE_CAP_MS, hauntAct } from './act/act.js';
 import { pendingTimers } from './act/page-fns.js';
 import { SESSION_TTL_MS } from './constants.js';
 import { verifySession } from './evidence/verify.js';
@@ -50,6 +50,9 @@ export interface EndSessionOutput {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// The window a session's layout is read on before it ends, when asked.
+export const NARROW = { width: 375, height: 800 };
+
 // What the last action set in motion may not have happened yet: a request
 // still on the wire, a timer not yet due. There is no later call to report
 // it with, so it is waited for here, within the cap an action waits
@@ -87,6 +90,22 @@ export async function hauntEndSession(
   const known = new Set(session.issues.map((issue) => JSON.stringify(issue)));
   for (const issue of input.issues ?? []) {
     if (!known.has(JSON.stringify(issue))) session.issues.push(issue);
+  }
+
+  // The page once more, on a window the width of a phone (part 5). As an
+  // action like any other, so that it is recorded and a replay makes it
+  // too; and whatever is left of the budget.
+  if (
+    session.evidence.narrow_check &&
+    session.evidence.layout &&
+    !session.runtime.dialog &&
+    !session.page.isClosed()
+  ) {
+    session.max_steps = Math.max(session.max_steps, session.step_count + 1);
+    await hauntAct(manager, {
+      session_id: session.id,
+      actions: [{ type: 'resize', width: NARROW.width, height: NARROW.height }],
+    }).catch(() => {});
   }
 
   await lastEffects(session);
