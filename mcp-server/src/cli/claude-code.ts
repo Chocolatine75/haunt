@@ -11,9 +11,17 @@ import { delimiter, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { CliOptions } from './headless.js';
 
-// The MCP tools of the plugin, as Claude Code names them. Nothing else is
-// allowed: the session can drive haunt's browser and that is all.
-const ALLOWED_TOOLS = ['mcp__plugin_haunt_haunt', 'mcp__haunt'];
+// The MCP tools of the plugin, as Claude Code names them, and what the
+// command needs beside them: to spawn its planner and testers (the tool is
+// named Agent, or Task in older versions), and to read the file given with
+// --spec. Nothing else: no shell, no edit.
+const ALLOWED_TOOLS = [
+  'mcp__plugin_haunt_haunt',
+  'mcp__haunt',
+  'Agent',
+  'Task',
+  'Read',
+];
 const RUN_TIMEOUT_MS = 20 * 60 * 1_000;
 
 export interface ClaudeCodeRun {
@@ -54,8 +62,9 @@ export function commandFor(options: CliOptions): string {
     `/haunt:haunt-test ${options.targetUrl}`,
     '--yes',
     `--steps ${options.steps}`,
-    `--personas ${options.personas.join(',')}`,
   ];
+  if (options.specPath) parts.push(`--spec ${options.specPath}`);
+  if (options.hostile) parts.push('--hostile');
   if (!options.headless) parts.push('--headed');
   if (options.verbose) parts.push('--verbose');
   if (options.email && options.password) {

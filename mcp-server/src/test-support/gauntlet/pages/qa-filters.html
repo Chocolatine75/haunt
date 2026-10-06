@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — qa-filters</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<!--
+  Two dietary filters the page says combine as "all of". In the buggy
+  variant they combine as "any of", and the count still says what "all of"
+  would give: it disagrees with the list under it.
+-->
+<h1>Menu</h1>
+<fieldset data-g="diet">
+  <legend>Show dishes that are all of</legend>
+  <label><input data-g="vegan" type="checkbox"> Vegan</label>
+  <label><input data-g="gluten-free" type="checkbox"> Gluten-free</label>
+</fieldset>
+<p id="count" role="status"></p>
+<ul data-g="dishes" id="dishes" aria-label="Dishes"></ul>
+<script>
+  const DISHES = [
+    ['Falafel wrap', ['vegan']],
+    ['Chana masala', ['vegan', 'gluten-free']],
+    ['Grilled salmon', ['gluten-free']],
+    ['Steak and chips', ['gluten-free']],
+    ['Margherita pizza', []],
+    ['Lentil soup', ['vegan']],
+  ];
+  const G = window.__gauntlet;
+  const boxes = ['vegan', 'gluten-free'].map((tag) => [tag, G.find(tag)]);
+  function render() {
+    const wanted = boxes.filter(([, box]) => box.checked).map(([tag]) => tag);
+    const all = DISHES.filter(([, tags]) => wanted.every((tag) => tags.includes(tag)));
+    const any = wanted.length
+      ? DISHES.filter(([, tags]) => wanted.some((tag) => tags.includes(tag)))
+      : DISHES;
+    const shown = '{{VARIANT}}' === 'buggy' ? any : all;
+    document.getElementById('dishes').innerHTML = shown
+      .map(([name]) => `<li>${name}</li>`)
+      .join('');
+    document.getElementById('count').textContent =
+      `Showing ${all.length} dish${all.length === 1 ? '' : 'es'}`;
+  }
+  for (const [, box] of boxes) box.addEventListener('change', render);
+  render();
+</script>
+</body>
+</html>

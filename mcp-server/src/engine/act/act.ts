@@ -16,13 +16,27 @@ import type {
   StepResult,
   StopReason,
 } from '../../gates/part-1/contract.js';
-import type { ActSignalsResult } from '../../gates/part-2/contract.js';
 import type { Locator } from '../../gates/part-3/contract.js';
+import type {
+  ActTesterResult,
+  Expectation,
+  ExpectationResult,
+} from '../../gates/part-4/contract.js';
 import { SESSION_TTL_MS } from '../constants.js';
 import { REF_FIELDS, locatorOf, record } from '../evidence/recording.js';
+import { holds } from '../evidence/replay.js';
+import { check } from '../plan/expect.js';
+import {
+  closeCase,
+  coverageOf,
+  markExercised,
+  repeats,
+  syncInventory,
+} from '../plan/plan.js';
 import { sabotaged } from '../sabotage.js';
 import type { SessionManager } from '../session/manager.js';
 import { auditIfNew } from '../signals/audit.js';
+import { layoutIfDue } from '../signals/layout.js';
 import {
   diffBetween,
   refOfLocal,
@@ -52,6 +66,11 @@ import { type ValidatedAction, validateAction } from './schema.js';
 
 // However busy the page stays, an action returns within this long.
 export const SETTLE_CAP_MS = 5_000;
+// From this share of the budget, a result says what is left to test (R-T6).
+const BUDGET_WARNING = 0.75;
+// How many times in a row an action may leave the page as it was before the
+// result says so (R-T16).
+const REPEATS_FLAGGED = 3;
 // How long the page must have been still to count as settled. Requests, short timers and a drawn frame are tracked explicitly; this only
 // has to cover what is not (a task queued by a framework's scheduler).
 const QUIET_MS = 30;
@@ -63,6 +82,28 @@ export interface ActInput {
   session_id: string;
   actions: unknown[];
   issues?: Issue[];
+  // The case these actions belong to, and what to check once they have run
+  // (part 4, R-T7).
+  case?: string;
+  expect?: Expectation;
+}
+
+// What a tester said it expected, checked on the page as it is now.
+export async function checkExpectation(
+  session: HauntSession,
+  expectation: Expectation,
+): Promise<ExpectationResult> {
+  if (sabotaged('tester_expectation_assumed')) return { held: true };
+  const own = await check(session, expectation);
+  if (own) return own;
+  // Part 3's observations. One about an element names it by a reference of
+  // this session, which `holds` wants as a locator.
+  const read = session.snapshot.previous;
+  const locator =
+    expectation.element && read
+      ? locatorOf(read.elements, read.containers, expectation.element.ref)
+      : undefined;
+  return { held: await holds(session, { ...expectation, locator }) };
 }
 
 class ActionFailure extends Error {
@@ -1269,11 +1310,19 @@ function stopAfter(step: StepResult): StopReason | undefined {
 export async function hauntAct(
   manager: SessionManager,
   input: ActInput,
-): Promise<ActSignalsResult> {
+): Promise<ActTesterResult> {
   const session = manager.get(input.session_id);
   await manager.reapStale(SESSION_TTL_MS);
 
-  if (session.step_count >= session.max_steps) {
+  if (input.case !== undefined && !session.plan.cases.has(input.case)) {
+    throw new Error(
+      `No case "${input.case}" in the plan. Register it with haunt_plan before acting on it.`,
+    );
+  }
+  if (
+    session.step_count >= session.max_steps &&
+    !sabotaged('tester_budget_ignored')
+  ) {
     throw new Error(
       `Session ${session.id} hit its step limit (${session.max_steps}). Call haunt_end_session instead of acting further.`,
     );
@@ -1307,22 +1356,45 @@ export async function hauntAct(
   if (!current) await takeSnapshot(session, { format: 'json' }, true);
   const before = new Map(session.snapshot.previous?.comparable ?? []);
   const textsBefore = [...(session.snapshot.previous?.texts ?? [])];
+  // The inventory as of the page this call starts from: what the call
+  // brings is measured against it (R-T3).
+  await syncInventory(session);
 
   const results: StepResult[] = [];
   // Signals of earlier steps delivered with this call are late (R-S7).
   const firstStep = session.step_count + 1;
   let stopped: StopReason | undefined;
+  let repeated = 0;
   for (let i = 0; i < input.actions.length; i++) {
-    if (session.step_count >= session.max_steps) {
+    if (
+      session.step_count >= session.max_steps &&
+      !sabotaged('tester_budget_ignored')
+    ) {
       stopped = 'step_limit';
       break;
     }
     session.step_count++;
     const step = await runStep(session, input.actions[i]);
     results.push(step);
+    if (step.ok) {
+      markExercised(session, input.actions[i]);
+      repeated = repeats(session, input.actions[i], step.changes.none);
+    }
     // A page reached for the first time is audited once it has settled,
     // outside the step's own time (R-S15, R-S17).
     await auditIfNew(session, session.step_count);
+    // And its layout read as the action left it: what a dialog covers, what
+    // a panel pushed out of the window.
+    // And its layout read, when the action may have changed it: it reached
+    // a page, brought controls that were not there (a dialog, a panel), or
+    // changed the size of the window. Not after every action: on a page of
+    // two thousand controls that reading is half an action's time, and a
+    // click that adds nothing moves nothing. Nor after a hover: what a hover
+    // brings sits over the page for as long as the pointer stays, and is
+    // meant to.
+    if (session.evidence.layout && step.ok && step.type !== 'hover') {
+      await layoutIfDue(session, session.step_count);
+    }
     const reason = stopAfter(step);
     // Whatever stops a sequence only matters if something was left to run.
     if (reason && (reason === 'failed' || i < input.actions.length - 1)) {
@@ -1334,7 +1406,7 @@ export async function hauntAct(
   const page = session.page;
   if (!page.isClosed()) session.pages_visited.push(page.url());
   const blocked = session.sandbox_blocked_requests.slice(blockedBefore);
-  const result: ActSignalsResult = {
+  const result: ActTesterResult = {
     results,
     executed: results.length,
     requested: input.actions.length,
@@ -1359,5 +1431,54 @@ export async function hauntAct(
   };
   if (stopped) result.stopped = stopped;
   if (blocked.length > 0) result.sandbox_blocked = blocked;
+
+  // Part 4: what the call brought, what was expected of it, what is left.
+  const usable = await syncInventory(session);
+  if (usable.length > 0) result.new_controls = usable;
+  if (input.expect && results.length === input.actions.length && !stopped) {
+    result.expectation = await checkExpectation(session, input.expect);
+    // A case that failed a check has failed: a later check under the same
+    // id that holds does not undo it. On CATTest's gallery a tester proved
+    // that the focus left the lightbox with a last check that held ("the
+    // control behind is focused"), under the id of the case it had just
+    // failed; the case turned to passed, and its issue was replayed against
+    // that last check and rejected.
+    const before = input.case ? session.plan.cases.get(input.case) : undefined;
+    const failedBefore = before?.verdict === 'failed' && before.by === 'engine';
+    if (input.case !== undefined && failedBefore && result.expectation.held) {
+      result.todo = `Case "${input.case}" has already failed a check and stays failed. If that failure was the page's, file an issue with "case": "${input.case}". If it was your expectation, register a new case for what you are checking now.`;
+    } else if (input.case !== undefined) {
+      closeCase(
+        session,
+        input.case,
+        result.expectation.held ? 'passed' : 'failed',
+        'engine',
+        { step: session.step_count, read: result.expectation.read },
+      );
+      // Kept as a replay can check it: the control by what it is, not by a
+      // reference of this session.
+      const { step: _step, ...observed } = input.expect;
+      const named = observed.value?.ref ?? observed.element?.ref;
+      const read = session.snapshot.previous;
+      const locator =
+        named && read
+          ? locatorOf(read.elements, read.containers, named)
+          : undefined;
+      if (!result.expectation.held) {
+        result.todo = `Case "${input.case}" failed. If the page is wrong, file an issue with "case": "${input.case}" now. If it is your expectation that was wrong about the page, state the right one under a new case and play it again.`;
+      }
+      session.plan.claims.set(input.case, {
+        step: session.step_count,
+        observed: { ...observed, ...(locator ? { locator } : {}), fails: true },
+      });
+    }
+  }
+  if (repeated >= REPEATS_FLAGGED) result.repeating = { times: repeated };
+  if (
+    repeated >= REPEATS_FLAGGED ||
+    session.step_count >= session.max_steps * BUDGET_WARNING
+  ) {
+    result.remaining = coverageOf(session).left;
+  }
   return result;
 }

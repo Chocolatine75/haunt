@@ -23,8 +23,10 @@ describe('parseArgs', () => {
     const opts = parseArgs(['http://localhost:3000']);
     expect(opts).toEqual({
       targetUrl: 'http://localhost:3000',
-      personas: ['confused-beginner'],
-      steps: 3,
+      specPath: undefined,
+      hostile: false,
+      // The budget of actions (part 4, R-T5); it was three steps.
+      steps: 40,
       provider: undefined,
       model: undefined,
       headless: true,
@@ -32,13 +34,28 @@ describe('parseArgs', () => {
     });
   });
 
-  it('parses --personas as a comma-separated list', () => {
+  // Was: --personas parsed as a list. Personas are gone (part 4, R-T14); the
+  // flag is still taken with its value, so that an old command line runs.
+  it('accepts --personas and ignores it', () => {
     const opts = parseArgs([
-      'http://localhost:3000',
       '--personas',
       'confused-beginner,malicious-user',
+      'http://localhost:3000',
     ]);
-    expect(opts.personas).toEqual(['confused-beginner', 'malicious-user']);
+    expect(opts.targetUrl).toBe('http://localhost:3000');
+    expect('personas' in opts).toBe(false);
+  });
+
+  it('parses --spec and --hostile', () => {
+    const opts = parseArgs([
+      'http://localhost:3000',
+      '--spec',
+      'docs/app.md',
+      '--hostile',
+    ]);
+    expect(opts.specPath).toBe('docs/app.md');
+    expect(opts.hostile).toBe(true);
+    expect(opts.targetUrl).toBe('http://localhost:3000');
   });
 
   it('parses --steps, --provider, --model, and --headed', () => {
@@ -235,31 +252,34 @@ describe('runHeadlessTest', () => {
     expect(report.counts.total).toBe(1);
   }, 15_000);
 
-  it('records a per-persona failure without aborting the whole run', async () => {
+  // Were: a persona file that does not exist fails its own session and not
+  // the others, and the run when it is the only one. A persona is ignored
+  // now (part 4, R-T14); the session that cannot run is one whose target
+  // does not answer.
+  it('runs whatever persona it is passed, since it reads none', async () => {
     const manager = new SessionManager();
     const decide = fakeDecider([{ actions: [{ type: 'press', keys: 'A' }] }]);
 
     const { report, failures } = await runHeadlessTest(decide, manager, {
       ...baseOptions(),
-      personas: [VALID_PERSONA, '/no/such/persona.yaml'],
+      personas: ['/no/such/persona.yaml'],
     });
 
-    expect(failures).toHaveLength(1);
-    expect(failures[0]).toContain('/no/such/persona.yaml');
+    expect(failures).toEqual([]);
     expect(report.counts.total).toBe(0);
   }, 15_000);
 
-  it('throws when every persona session fails', async () => {
+  it('throws when the session cannot run', async () => {
     const manager = new SessionManager();
     const decide = fakeDecider([{ actions: [{ type: 'press', keys: 'A' }] }]);
 
     await expect(
       runHeadlessTest(decide, manager, {
         ...baseOptions(),
-        personas: ['/no/such/persona.yaml'],
+        targetUrl: 'http://127.0.0.1:9/',
       }),
-    ).rejects.toThrow(/All persona sessions failed/);
-  });
+    ).rejects.toThrow(/All sessions failed: .*is not reachable/);
+  }, 30_000);
 
   it('tells the persona it is unauthenticated when no cookies are given', async () => {
     const manager = new SessionManager();

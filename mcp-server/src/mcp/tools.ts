@@ -11,14 +11,22 @@ import { zodToJsonSchema } from 'zod-to-json-schema';
 import { hauntAct } from '../engine/act/act.js';
 import { actionSchema } from '../engine/act/schema.js';
 import { hauntCaptureState } from '../engine/capture.js';
-import { hauntEndSession } from '../engine/end-session.js';
+import { briefEnd, hauntEndSession } from '../engine/end-session.js';
 import { hauntReplay } from '../engine/evidence/replay.js';
 import { hauntGetCookies } from '../engine/get-cookies.js';
+import { hauntPlan } from '../engine/plan/plan.js';
+import {
+  expectationSchema,
+  listQuerySchema,
+  planCaseSchema,
+} from '../engine/plan/schema.js';
 import { hauntEstimateCost } from '../engine/report/estimate-cost.js';
 import { hauntGenerateReport } from '../engine/report/generate-report.js';
+import { hauntScout } from '../engine/scout.js';
 import type { SessionManager } from '../engine/session/manager.js';
 import { hauntSpawn } from '../engine/spawn.js';
 import { SIGNAL_KINDS } from '../gates/part-2/contract.js';
+import { CASE_KINDS } from '../gates/part-4/contract.js';
 
 const issueSchema = z.object({
   severity: z.enum(['critical', 'major', 'minor', 'suggestion']),
@@ -36,45 +44,39 @@ const issueSchema = z.object({
     .string()
     .optional()
     .describe(
-      'The id of the signal this issue is about (s3). An issue must name a signal or carry an observation, or it is rejected',
+      'The id of the signal this issue is about (s3). An issue that names a signal, a case or an observation is replayed and confirmed; one with none is only listed for a person to check',
     ),
-  observed: z
-    .object({
-      step: z
-        .number()
-        .int()
-        .min(0)
-        .optional()
-        .describe('The step after which it holds. Default: the last step'),
-      text_present: z.string().optional(),
-      text_absent: z.string().optional(),
-      url: z.string().optional().describe('A string the page URL contains'),
-      element: z
-        .object({
-          ref: z.string(),
-          state: z.enum(['visible', 'hidden', 'disabled', 'enabled', 'gone']),
-        })
-        .optional(),
-    })
-    .strict()
-    .refine(
-      (o) =>
-        [o.text_present, o.text_absent, o.url, o.element].filter(
-          (v) => v !== undefined,
-        ).length === 1,
-      'An observation states exactly one of text_present, text_absent, url, element',
-    )
+  observed: expectationSchema
     .optional()
     .describe(
-      'For an issue no signal shows: the fact about the page the engine checks by replaying the steps (a message that is or is not there, an address, an element’s state)',
+      'For an issue no signal shows: the fact about the page the engine checks by replaying the steps (a message that is or is not there, an address, an element’s state, the items of a list, what a control holds)',
     ),
+  case: z
+    .string()
+    .optional()
+    .describe(
+      'The test case whose check failed. The engine replays the case and checks the same expectation',
+    ),
+  expected: z
+    .string()
+    .optional()
+    .describe(
+      'For an issue the engine cannot check: what you expected. Listed under "To check by hand"',
+    ),
+  actual: z.string().optional().describe('And what you saw instead'),
 });
 
 // How an issue or a signal fared when replayed (part 3), passed back to the
 // report as haunt_end_session returned it.
 const verificationSchema = z
   .object({
-    status: z.enum(['confirmed', 'flaky', 'rejected', 'unverified']),
+    status: z.enum([
+      'confirmed',
+      'flaky',
+      'rejected',
+      'unverified',
+      'unchecked',
+    ]),
     attempts: z.number().int().min(0),
     reproduced: z.number().int().min(0),
     rate: z.number().min(0).max(1),
@@ -94,12 +96,36 @@ const reportIssueSchema = issueSchema.extend({
 const signalSchema = z
   .object({
     id: z.string(),
-    kind: z.enum(SIGNAL_KINDS),
+    // Part 2's kinds, and the layout defects of part 5.
+    kind: z.enum([...SIGNAL_KINDS, 'layout']),
     url: z.string(),
     step: z.number().int().min(0),
     message: z.string(),
     severity: z.enum(['major', 'minor']),
     count: z.number().int().positive(),
+  })
+  .passthrough();
+
+// A case and a control as haunt_end_session returns them, for the report.
+const caseStatusSchema = z
+  .object({
+    id: z.string(),
+    kind: z.enum(CASE_KINDS),
+    controls: z.array(z.string()),
+    expect: z.string(),
+    verdict: z.enum(['passed', 'failed']).optional(),
+  })
+  .passthrough();
+
+const inventoryControlSchema = z
+  .object({
+    ref: z.string(),
+    role: z.string(),
+    name: z.string(),
+    group: z.string(),
+    state: z.enum(['hidden', 'disabled', 'covered']).optional(),
+    exercised: z.boolean(),
+    planned: z.boolean(),
   })
   .passthrough();
 
@@ -134,17 +160,58 @@ function defineTool<S extends z.ZodTypeAny>(
   return tool;
 }
 
+// One session of a report: what haunt_end_session returned, and its area.
+const sessionSchema = z.object({
+  area: z.string().describe('The route/area this session tested, e.g. /signup'),
+  persona: z.string().optional(),
+  overall_impression: z.string(),
+  cases: z
+    .array(caseStatusSchema)
+    .optional()
+    .describe("This session's EndSessionOutput.cases, as returned"),
+  inventory: z
+    .array(inventoryControlSchema)
+    .optional()
+    .describe(
+      "This session's EndSessionOutput.inventory, as returned: the report counts coverage from it, each control once across the sessions of an area",
+    ),
+  issues: z
+    .array(reportIssueSchema)
+    .describe(
+      "This session's EndSessionOutput.issues_found, as returned (with their verification)",
+    ),
+  rejected: z
+    .array(reportIssueSchema)
+    .optional()
+    .describe("This session's EndSessionOutput.rejected"),
+  sandbox_blocked_requests: z
+    .array(z.string())
+    .optional()
+    .describe("This session's EndSessionOutput.sandbox_blocked_requests"),
+  signals: z
+    .array(signalSchema)
+    .optional()
+    .describe(
+      "This session's EndSessionOutput.signals, as returned: those no issue names get a section of their own",
+    ),
+  signal_verification: z
+    .record(verificationSchema)
+    .optional()
+    .describe(
+      "This session's EndSessionOutput.signal_verification: only confirmed major signals count in haunt-ci's verdict",
+    ),
+});
+
 export const TOOLS: ToolDefinition[] = [
   defineTool({
     name: 'haunt_spawn',
     description:
-      'Open a browser session for a persona and navigate to the target URL. Returns persona details (name, goal, system prompt) so the orchestrator can roleplay as that persona.',
+      'Open a browser session on the target URL. Returns its id and what went wrong while the page loaded.',
     input: z.object({
       persona: z
         .string()
-        .describe(
-          'Persona name (e.g. confused-beginner) or absolute path to a YAML file',
-        ),
+        .optional()
+        .describe('No longer used. Accepted and ignored'),
       target_url: z
         .string()
         .describe('URL to test (e.g. http://localhost:3000)'),
@@ -152,10 +219,27 @@ export const TOOLS: ToolDefinition[] = [
         .boolean()
         .optional()
         .describe('Run browser in headless mode. Default: true'),
-      timeout: z
+      budget: z
         .number()
+        .int()
+        .positive()
         .optional()
-        .describe('Maximum navigation steps for this session. Default: 30'),
+        .describe(
+          'How many actions the session may run before it has to end. Default: 40',
+        ),
+      timeout: z.number().optional().describe('Older name of `budget`'),
+      narrow_check: z
+        .boolean()
+        .optional()
+        .describe(
+          'Before the session ends, read its layout once more on a window 375 px wide: what breaks on a phone shows there. Default: false',
+        ),
+      hostile: z
+        .boolean()
+        .optional()
+        .describe(
+          'Allow test cases of kind `hostile`, which send attack payloads. Only against an app you own. Default: false',
+        ),
       cookies: z
         .array(cookieSchema)
         .optional()
@@ -199,6 +283,27 @@ export const TOOLS: ToolDefinition[] = [
     run: (manager, input) => hauntSpawn(manager, input),
   }),
   defineTool({
+    name: 'haunt_scout',
+    description:
+      "The areas of an app worth testing, from the links its page really has: opens the URL, returns the distinct paths on its own origin (the URL's own first), and closes. One call, no session left open. Never guesses a route.",
+    input: z.object({
+      target_url: z.string().describe('URL to start from'),
+      headless: z.boolean().optional(),
+      cookies: z
+        .array(cookieSchema)
+        .optional()
+        .describe('Session cookies, to scout as a logged-in user'),
+      secrets: z.array(z.string()).optional(),
+      max: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe('How many routes at most. Default: 4'),
+    }),
+    run: (manager, input) => hauntScout(manager, input),
+  }),
+  defineTool({
     name: 'haunt_get_cookies',
     description:
       'Extract all cookies from the current browser session. Use after a successful login to capture the session cookies for reuse in authenticated test sessions.',
@@ -218,6 +323,8 @@ export const TOOLS: ToolDefinition[] = [
       session_id: z.string(),
       actions: z.array(z.record(z.unknown())).min(1),
       issues: z.array(issueSchema).optional(),
+      case: z.string().optional(),
+      expect: expectationSchema.optional(),
     }),
     listing: z.object({
       session_id: z.string().describe('Session ID from haunt_spawn'),
@@ -231,8 +338,60 @@ export const TOOLS: ToolDefinition[] = [
         .array(issueSchema)
         .optional()
         .describe('Issues the orchestrator observed during this step'),
+      case: z
+        .string()
+        .optional()
+        .describe(
+          'The test case of the plan these actions play. With `expect`, the check gives the case its verdict',
+        ),
+      expect: expectationSchema
+        .optional()
+        .describe(
+          'What you expect once these actions have run, stated before you see the result. The engine checks it and answers `expectation: { held, read }`',
+        ),
     }),
     run: (manager, input) => hauntAct(manager, input),
+  }),
+  defineTool({
+    name: 'haunt_plan',
+    description:
+      'The test plan of a session. With only a session id: the inventory (every control the session was shown, with its group, its state, and whether it was exercised), the cases, and the coverage, counted by the engine from the actions that ran. With `cases`: registers test cases. With `close`: gives a verdict to a case the engine cannot check by itself.',
+    input: z.object({
+      session_id: z.string().describe('Session ID from haunt_spawn'),
+      cases: z.array(planCaseSchema).optional(),
+      from: z
+        .string()
+        .optional()
+        .describe(
+          "The id of another session, live or ended: registers its cases here, resolved to this session's controls. How a tester takes the cases a planner wrote",
+        ),
+      only: z
+        .array(z.string())
+        .optional()
+        .describe('With `from`: the ids of the cases to take. Default: all'),
+      brief: z
+        .boolean()
+        .optional()
+        .describe(
+          'Leave the inventory out of the answer: only the cases and the coverage. Use it once you have read the inventory',
+        ),
+      close: z
+        .array(
+          z.object({
+            id: z.string(),
+            verdict: z.enum(['passed', 'failed']),
+            note: z.string().describe('What you saw, in one sentence'),
+          }),
+        )
+        .optional(),
+    }),
+    // On a page of a hundred controls the inventory is most of the answer,
+    // and a caller that has read it once does not need it back with every
+    // case it registers.
+    run: async (manager, { brief, ...input }) => {
+      const plan = await hauntPlan(manager, input);
+      return brief ? { cases: plan.cases, coverage: plan.coverage } : plan;
+    },
   }),
   defineTool({
     name: 'haunt_capture_state',
@@ -282,6 +441,11 @@ export const TOOLS: ToolDefinition[] = [
         .describe(
           'Run the accessibility audit (axe-core, WCAG 2 A and AA) on the page as it is now and list its violations with the other signals of the page. Each page is already audited once, when first reached; ask again after the page has changed',
         ),
+      list: listQuerySchema
+        .optional()
+        .describe(
+          'Also return the items of a container exactly as the page shows them, to look before stating an expectation about them',
+        ),
     }),
     run: (manager, input) => hauntCaptureState(manager, input),
   }),
@@ -291,12 +455,16 @@ export const TOOLS: ToolDefinition[] = [
       'Close the browser session, replay every issue in a fresh browser to verify it, and return them: confirmed, flaky (with the rate a replay reproduced it) or unverified in issues_found, each with its evidence bundle; rejected ones apart, with why.',
     input: z.object({
       session_id: z.string(),
+      brief: z
+        .boolean()
+        .optional()
+        .describe(
+          'Return what became of each issue and the counts, without the signals and the inventory. They stay on the server: haunt_generate_report takes them from the session id',
+        ),
       overall_impression: z
         .string()
         .optional()
-        .describe(
-          "The orchestrator's summary of the session from the persona's perspective",
-        ),
+        .describe('What the session found, in a sentence or two'),
       issues: z
         .array(issueSchema)
         .optional()
@@ -304,7 +472,12 @@ export const TOOLS: ToolDefinition[] = [
           'Issues found since the last haunt_act call, typically from the result of the last action',
         ),
     }),
-    run: (manager, input) => hauntEndSession(manager, input),
+    // An agent that ends its session needs to know what became of its
+    // issues, not to carry a hundred controls back to whoever spawned it.
+    run: async (manager, { brief, ...input }) => {
+      const ended = await hauntEndSession(manager, input);
+      return brief ? briefEnd(ended) : ended;
+    },
   }),
   defineTool({
     name: 'haunt_estimate_cost',
@@ -326,43 +499,28 @@ export const TOOLS: ToolDefinition[] = [
       'Compute issue counts, sort issues by severity, render the markdown report, and write it to .haunt-reports/. Returns the exact terminal summary to print. Call once in Phase 3 after all sessions have ended — do not hand-write the report file.',
     input: z.object({
       target_url: z.string(),
-      personas: z.array(z.string()).describe('Persona names used in this run'),
+      personas: z
+        .array(z.string())
+        .optional()
+        .describe('No longer used: personas are gone. Accepted and ignored'),
+      spec: z
+        .string()
+        .optional()
+        .describe(
+          'The name of the description of the app the testers were given, if any',
+        ),
       sessions: z
         .array(
-          z.object({
-            area: z
-              .string()
-              .describe('The route/area this session tested, e.g. /signup'),
-            persona: z.string(),
-            overall_impression: z.string(),
-            issues: z
-              .array(reportIssueSchema)
-              .describe(
-                "This session's EndSessionOutput.issues_found, as returned (with their verification)",
-              ),
-            rejected: z
-              .array(reportIssueSchema)
-              .optional()
-              .describe("This session's EndSessionOutput.rejected"),
-            sandbox_blocked_requests: z
-              .array(z.string())
-              .optional()
-              .describe(
-                "This session's EndSessionOutput.sandbox_blocked_requests",
-              ),
-            signals: z
-              .array(signalSchema)
-              .optional()
-              .describe(
-                "This session's EndSessionOutput.signals, as returned: those no issue names get a section of their own",
-              ),
-            signal_verification: z
-              .record(verificationSchema)
-              .optional()
-              .describe(
-                "This session's EndSessionOutput.signal_verification: only confirmed major signals count in haunt-ci's verdict",
-              ),
-          }),
+          sessionSchema
+            .partial({ overall_impression: true, issues: true })
+            .extend({
+              session_id: z
+                .string()
+                .optional()
+                .describe(
+                  'The id of a session that has ended: its result is taken from the server, and the other fields here only add to it or correct it. Prefer this to passing the result yourself',
+                ),
+            }),
         )
         .describe('One entry per ended session'),
       compare_with: z
@@ -372,7 +530,28 @@ export const TOOLS: ToolDefinition[] = [
           'Path to a previous report (its .md path, or the .json sidecar directly) to diff against. Annotates each current issue as new vs. still present, and lists issues from that run no longer found.',
         ),
     }),
-    run: (_manager, input) => hauntGenerateReport(input),
+    run: (manager, input) =>
+      hauntGenerateReport({
+        ...input,
+        sessions: input.sessions.map((given) => {
+          const { session_id, ...own } = given;
+          if (session_id === undefined) return sessionSchema.parse(own);
+          const ended = manager.endedSession(session_id);
+          if (!ended) {
+            throw new Error(
+              `No ended session ${session_id}: end it with haunt_end_session before the report, or pass its result.`,
+            );
+          }
+          // What the session returned when it ended, under what the caller
+          // adds or corrects: its area, its impression.
+          return sessionSchema.parse({
+            ...ended.result,
+            // Named `issues_found` where a session returns them.
+            issues: ended.result.issues_found,
+            ...own,
+          });
+        }),
+      }),
   }),
   defineTool({
     name: 'haunt_replay',

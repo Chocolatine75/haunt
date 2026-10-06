@@ -12,7 +12,7 @@ import {
   SESSION_TTL_MS,
 } from './constants.js';
 import { newRecording } from './evidence/recording.js';
-import { loadPersona } from './persona/loader.js';
+import { newPlanState } from './plan/plan.js';
 import { sabotaged } from './sabotage.js';
 import { purgeOldScreenshots } from './screenshots.js';
 import type { SessionManager } from './session/manager.js';
@@ -21,15 +21,28 @@ import type { SessionManager } from './session/manager.js';
 const REPLAY_BUDGET_MS = 120_000;
 import { auditIfNew } from './signals/audit.js';
 import { REPORT_BINDING, SignalCollector } from './signals/collector.js';
+import { layoutIfDue } from './signals/layout.js';
 import { installHooks } from './snapshot/page-script.js';
 import { newSnapshotState, takeSnapshot } from './snapshot/snapshot.js';
 import type { HauntSession } from './types.js';
 
+// How many actions a session may run when it is not told (R-T5). The
+// command used to stop a session after three; the plain Claude setups haunt
+// was compared with took twenty to sixty turns.
+export const DEFAULT_BUDGET = 40;
+
 export interface SpawnInput {
-  persona: string;
+  // Ignored: personas are gone (part 4, R-T14). Still accepted, since a
+  // caller written before passes one.
+  persona?: string;
   target_url: string;
   headless?: boolean;
+  // How many actions the session may run (R-T5). `timeout` is its older
+  // name, still accepted.
+  budget?: number;
   timeout?: number;
+  // Lets cases of kind `hostile` be planned (R-T14).
+  hostile?: boolean;
   // What addCookies accepts: only name and value are required, which is what
   // a host passing cookies by hand can be expected to provide.
   cookies?: Parameters<BrowserContext['addCookies']>[0];
@@ -44,6 +57,12 @@ export interface SpawnInput {
   bundle_cap_bytes?: number;
   // Not on the tool: a replay audits nothing it was not asked about.
   audit?: boolean;
+  // Nor reads the layout, unless what it replays is a layout defect.
+  layout?: boolean;
+  // Before the session ends, reads the layout once more on a window the
+  // width of a phone (part 5): a page that breaks at 375 px shows it there
+  // and nowhere else.
+  narrow_check?: boolean;
   // Values that must not leave the engine though no field of this session
   // ever has them typed: the account it was signed in with elsewhere (R-E15).
   secrets?: string[];
@@ -51,9 +70,6 @@ export interface SpawnInput {
 
 export interface SpawnOutput {
   session_id: string;
-  persona_name: string;
-  persona_goal: string;
-  persona_description: string;
   // What went wrong while the page loaded (step 0).
   signals: Signal[];
 }
@@ -65,7 +81,6 @@ export async function hauntSpawn(
   await manager.reapStale(SESSION_TTL_MS);
   purgeOldScreenshots(SCREENSHOT_MAX_AGE_MS);
 
-  const personaConfig = loadPersona(input.persona);
   const sessionId = uuidv4();
 
   // Fail with a clear, actionable message instead of Playwright's generic
@@ -80,7 +95,7 @@ export async function hauntSpawn(
   }
 
   const browser = await chromium.launch({
-    headless: input.headless ?? personaConfig.browser.headless,
+    headless: input.headless ?? true,
     // Every response reaches the page through the sandbox's route handler,
     // which makes Chromium treat the document as coming from a public
     // address. Its local-network-access check then refuses the app's own
@@ -90,8 +105,7 @@ export async function hauntSpawn(
   });
 
   const context = await browser.newContext({
-    viewport: personaConfig.browser.viewport ?? { width: 1280, height: 720 },
-    locale: personaConfig.browser.locale,
+    viewport: { width: 1280, height: 720 },
   });
 
   if (input.cookies && input.cookies.length > 0) {
@@ -309,7 +323,6 @@ export async function hauntSpawn(
 
   const session: HauntSession = {
     id: sessionId,
-    persona: personaConfig,
     browser,
     page,
     issues: [],
@@ -317,7 +330,7 @@ export async function hauntSpawn(
     start_time: Date.now(),
     last_activity: Date.now(),
     step_count: 0,
-    max_steps: input.timeout ?? personaConfig.scenarios[0]?.max_steps ?? 30,
+    max_steps: input.budget ?? input.timeout ?? DEFAULT_BUDGET,
     max_active_duration_ms:
       input.max_active_duration_ms ?? SESSION_MAX_ACTIVE_DURATION_MS,
     console_errors: consoleErrors,
@@ -327,6 +340,7 @@ export async function hauntSpawn(
     runtime,
     collector,
     signals: collector.signals,
+    plan: newPlanState(input.hostile === true),
     recording: newRecording(
       input.target_url,
       page.viewportSize() ?? { width: 1280, height: 720 },
@@ -334,6 +348,8 @@ export async function hauntSpawn(
     ),
     evidence: {
       audit: input.audit !== false,
+      layout: input.layout ?? input.audit !== false,
+      narrow_check: input.narrow_check === true,
       replay_budget_ms: input.replay_budget_ms ?? REPLAY_BUDGET_MS,
       bundle_cap_bytes: input.bundle_cap_bytes ?? BUNDLE_CAP_BYTES,
       cookies: input.cookies,
@@ -347,12 +363,10 @@ export async function hauntSpawn(
   // page is read first; both are step 0, delivered here.
   await takeSnapshot(session, { format: 'json' }, true).catch(() => {});
   await auditIfNew(session, 0);
+  if (session.evidence.layout) await layoutIfDue(session, 0);
 
   return {
     session_id: sessionId,
-    persona_name: personaConfig.name,
-    persona_goal: personaConfig.scenarios[0]?.goal ?? 'Explore the application',
-    persona_description: personaConfig.system_prompt,
     signals: collector.deliver(0),
   };
 }

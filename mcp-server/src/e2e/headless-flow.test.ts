@@ -222,9 +222,9 @@ describe('haunt-ci loop against a real app', { timeout: 30_000 }, () => {
       console.error = original;
     }
     const printed = lines.join('\n');
-    expect(printed).toMatch(
-      /\[Test Persona\] step 1: \[\{"type":"click","ref":"e\d+"\}\]/,
-    );
+    // The plan is asked for first; this decider gives none.
+    expect(printed).toContain('[plan] 0 case(s)');
+    expect(printed).toMatch(/step 1: \[\{"type":"click","ref":"e\d+"\}\]/);
     expect(printed).toContain(`1. click: went to ${app.baseUrl}/signup`);
     expect(printed).toContain('wrap-up: 0 more issue(s)');
   });
@@ -254,7 +254,10 @@ describe('haunt-ci loop against a real app', { timeout: 30_000 }, () => {
     );
   });
 
-  it('runs one session per persona and merges their issues, worst first', async () => {
+  // Was: one session per persona, their issues merged. There is one session
+  // on the URL now (part 4, R-T14); what remains to hold is that its issues
+  // come out worst first, and that no persona is named.
+  it("reports a session's issues worst first, and names no persona", async () => {
     const issueFrom = (severity: Issue['severity']): Issue => ({
       severity,
       category: 'ux',
@@ -263,13 +266,10 @@ describe('haunt-ci loop against a real app', { timeout: 30_000 }, () => {
       recommendation: `Fix the ${severity} finding`,
       observed: { text_absent: 'Nothing on this page says this' },
     });
-    const decide: ActionDecider = async (systemPrompt) => ({
+    let asked = 0;
+    const decide: ActionDecider = async () => ({
       actions: [{ type: 'goto', url: `${app.baseUrl}/` }],
-      issues: [
-        issueFrom(
-          systemPrompt.includes('non-technical user') ? 'critical' : 'minor',
-        ),
-      ],
+      issues: ++asked === 1 ? [issueFrom('minor'), issueFrom('critical')] : [],
     });
 
     const { report } = await run(decide, {
@@ -278,10 +278,12 @@ describe('haunt-ci loop against a real app', { timeout: 30_000 }, () => {
     });
 
     expect(report.counts).toMatchObject({ total: 2, critical: 1, minor: 1 });
-    expect(report.summary).toContain('2 areas tested · 2 issues');
+    expect(report.summary).toContain('1 areas tested · 2 issues');
     expect(report.top_fix).toBe('Fix the critical finding');
-    expect(report.markdown).toContain('Test Persona');
-    expect(report.markdown).toContain('Confused Beginner');
+    // The report no longer says which persona found what: they are gone
+    // from it (part 4, R-T14).
+    expect(report.markdown).not.toContain('Test Persona');
+    expect(report.markdown).not.toContain('Confused Beginner');
     expect(report.markdown.indexOf('critical finding')).toBeLessThan(
       report.markdown.indexOf('minor finding'),
     );
@@ -332,23 +334,21 @@ describe('haunt-ci loop against a real app', { timeout: 30_000 }, () => {
     expect(seen[0]).not.toContain('you are NOT logged in');
   });
 
-  it('keeps the other personas when one decider call fails', async () => {
-    const decide: ActionDecider = async (systemPrompt) => {
-      if (systemPrompt.includes('non-technical user')) {
-        throw new Error('provider returned 529');
-      }
-      return {
-        actions: [{ type: 'goto', url: `${app.baseUrl}/` }],
-        issues: [],
-      };
+  // Was: one persona's failed decider call leaves the other personas' run
+  // standing. With one session there is no other: the failure is the run's,
+  // and it leaves no browser behind.
+  it('fails the run when the decider fails, and closes the browser', async () => {
+    const decide: ActionDecider = async () => {
+      throw new Error('provider returned 529');
     };
-
-    const { report, failures } = await run(decide, {
-      personas: [VALID_PERSONA, CONFUSED_BEGINNER],
-      steps: 1,
-    });
-
-    expect(failures).toEqual([`${CONFUSED_BEGINNER}: provider returned 529`]);
-    expect(report.summary).toContain('1 areas tested');
+    manager = new SessionManager();
+    await expect(
+      runHeadlessTest(decide, manager, {
+        targetUrl: app.baseUrl,
+        steps: 1,
+        headless: true,
+      }),
+    ).rejects.toThrow(/All sessions failed: .*provider returned 529/);
+    expect(manager.all()).toEqual([]);
   });
 });
