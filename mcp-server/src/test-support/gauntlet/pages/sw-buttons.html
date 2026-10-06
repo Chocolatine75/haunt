@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — sw-buttons</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<!--
+  Buttons for the engine's sweep (docs/v3/part-4-sweep.md). In the buggy
+  variant one is wired to nothing and one throws. Three of the working ones
+  leave the page in a state where the others cannot be pressed (a modal
+  dialog, a browser confirm, another page), and two must never be pressed
+  by something that asks nobody: one deletes, one submits a form.
+-->
+<h1>Documents</h1>
+
+<p>
+  <button data-g="refresh" type="button">Refresh</button>
+  <button data-g="export" type="button">Export</button>
+  <button data-g="archive" type="button">Archive</button>
+</p>
+<p>
+  <button data-g="settings" type="button">Open settings</button>
+  <button data-g="discard" type="button">Discard draft</button>
+  <button data-g="billing" type="button">Billing</button>
+</p>
+
+<ul aria-label="Products">
+  <li>Pen <button data-g="add-pen" type="button">Add to cart</button></li>
+  <li>Ink <button data-g="add-ink" type="button">Add to cart</button></li>
+</ul>
+
+<p>
+  <button data-g="share" type="button" disabled>Share</button>
+  <button data-g="delete" type="button">Delete account</button>
+</p>
+
+<form aria-label="Newsletter" action="/sw-buttons" method="get">
+  <label>Email <input data-g="email" type="text" name="e"></label>
+  <button data-g="subscribe" type="submit">Subscribe</button>
+</form>
+
+<p id="result" role="status"></p>
+
+<div data-g="dialog" id="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title" hidden
+  style="position: fixed; inset: 0; background: #fff; padding: 16px">
+  <h2 id="dialog-title">Settings</h2>
+  <button data-g="close" type="button">Close</button>
+</div>
+
+<script>
+  const G = window.__gauntlet;
+  const BUGGY = '{{VARIANT}}' === 'buggy';
+  const say = (text) => { document.getElementById('result').textContent = text; };
+
+  G.find('refresh').addEventListener('click', () => say('Refreshed'));
+  // Export was never wired.
+  if (!BUGGY) G.find('export').addEventListener('click', () => say('Exported'));
+  G.find('archive').addEventListener('click', () => {
+    if (BUGGY) throw new Error('archive store is not ready');
+    say('Archived');
+  });
+  G.find('settings').addEventListener('click', () => {
+    document.getElementById('dialog').hidden = false;
+    G.find('close').focus();
+  });
+  G.find('close').addEventListener('click', () => {
+    document.getElementById('dialog').hidden = true;
+  });
+  G.find('discard').addEventListener('click', () => {
+    if (confirm('Discard the draft?')) say('Discarded');
+  });
+  G.find('billing').addEventListener('click', () => { location.href = '/account'; });
+  for (const id of ['add-pen', 'add-ink']) {
+    G.find(id).addEventListener('click', () => say(`Added (${id})`));
+  }
+  G.find('delete').addEventListener('click', () => say('Account deleted'));
+</script>
+</body>
+</html>

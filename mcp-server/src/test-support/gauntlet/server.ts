@@ -130,6 +130,12 @@ export const LAYOUT_PAGES = [
 ] as const;
 
 export type LayoutPage = (typeof LAYOUT_PAGES)[number];
+
+// The page of the engine's sweep (docs/v3/part-4-sweep.md): buttons no test
+// case names, some broken, some that must not be pressed unasked.
+export const SWEEP_PAGES = ['sw-buttons'] as const;
+
+export type SweepPage = (typeof SWEEP_PAGES)[number];
 export type Variant = 'buggy' | 'clean';
 
 export interface Gauntlet {
@@ -138,7 +144,13 @@ export interface Gauntlet {
   // A second origin serving the same app, for cross-origin frames.
   otherUrl: string;
   url(
-    page: GauntletPage | SignalPage | EvidencePage | TesterPage | LayoutPage,
+    page:
+      | GauntletPage
+      | SignalPage
+      | EvidencePage
+      | TesterPage
+      | LayoutPage
+      | SweepPage,
     query?: string,
   ): string;
   // "<METHOD> <path>" of every request, per origin.
@@ -309,7 +321,8 @@ async function handle(
     (SIGNAL_PAGES as readonly string[]).includes(first) ||
     (EVIDENCE_PAGES as readonly string[]).includes(first) ||
     (TESTER_PAGES as readonly string[]).includes(first) ||
-    (LAYOUT_PAGES as readonly string[]).includes(first)
+    (LAYOUT_PAGES as readonly string[]).includes(first) ||
+    (SWEEP_PAGES as readonly string[]).includes(first)
   ) {
     html(file(join('pages', `${first}.html`)));
     return;
@@ -322,6 +335,7 @@ async function handle(
         ...EVIDENCE_PAGES,
         ...TESTER_PAGES,
         ...LAYOUT_PAGES,
+        ...SWEEP_PAGES,
       ]
         .map((p) => `<li><a href="/${p}">${p}</a></li>`)
         .join('')}</ul>`,
