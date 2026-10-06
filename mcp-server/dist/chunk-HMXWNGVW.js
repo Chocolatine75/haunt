@@ -37202,6 +37202,7 @@ function layoutIssues(input) {
     const id = el.id ? `#${el.id}` : "";
     return text ? `${tag}${id} "${text}"` : `${tag}${id}`;
   };
+  const called = (el) => (el.getAttribute("aria-label") || el.textContent || "").replace(/\s+/g, " ").trim();
   const shown = (el) => {
     const style = getComputedStyle(el);
     const box = el.getBoundingClientRect();
@@ -37281,22 +37282,35 @@ function layoutIssues(input) {
     const a = pinned(el);
     const b = pinned(top);
     if (a !== b && !(a && b) && scrollsY) continue;
-    coveredBy.set(el, top);
     const other = controls.find((c) => c.el === top || c.el.contains(top));
+    if (other && called(other.el) !== "" && called(other.el) === called(el)) {
+      continue;
+    }
+    coveredBy.set(el, top);
     issues.push({
       rule: "covered",
       local,
       ...other ? { other: other.local } : { by: say(top) }
     });
   }
+  const NAMED = /^(button|link|textbox|searchbox|checkbox|radio|combobox|tab|menuitem|switch|slider|spinbutton)$/;
+  const label = (el) => (el.getAttribute("aria-label") || el.placeholder || el.textContent || "").replace(/\s+/g, " ").trim();
+  const roleOf = (el) => el.getAttribute("role") || {
+    BUTTON: "button",
+    A: "link",
+    SELECT: "combobox",
+    TEXTAREA: "textbox",
+    INPUT: "textbox"
+  }[el.tagName] || "";
   const flat = controls.filter(
-    (c) => c.box.width * c.box.height < vw * vh * 0.5
+    (c) => c.box.width * c.box.height < vw * vh * 0.5 && NAMED.test(roleOf(c.el)) && label(c.el) !== ""
   );
   for (let i = 0; i < flat.length && i < 400; i++) {
     for (let j = i + 1; j < flat.length && j < 400; j++) {
       const a = flat[i];
       const b = flat[j];
       if (within(a.el, b.el)) continue;
+      if (label(a.el) === label(b.el)) continue;
       const w = Math.min(a.box.right, b.box.right) - Math.max(a.box.left, b.box.left);
       const h = Math.min(a.box.bottom, b.box.bottom) - Math.max(a.box.top, b.box.top);
       if (w <= 0 || h <= 0) continue;
@@ -37358,6 +37372,11 @@ function layoutIssues(input) {
     const below = inked.bottom - box.bottom;
     if (cuts(style.overflowX) || cuts(style.overflowY)) {
       if (style.textOverflow === "ellipsis") continue;
+      const clamp = style.webkitLineClamp;
+      if (clamp && clamp !== "none") continue;
+      if (!controls.some((c) => c.el === el) && !/^(H[1-6]|TH|LABEL|LEGEND|SUMMARY)$/.test(el.tagName)) {
+        continue;
+      }
       const cut = Math.max(
         cuts(style.overflowX) ? el.scrollWidth - el.clientWidth : 0,
         cuts(style.overflowY) ? el.scrollHeight - el.clientHeight : 0
@@ -37402,7 +37421,13 @@ function layoutIssues(input) {
     issues.push({ rule: "page_overflow", px: Math.round(over) });
   }
   state.work?.push([began, performance.now()]);
-  return issues;
+  const kept = [];
+  const count = {};
+  for (const issue of issues) {
+    count[issue.rule] = (count[issue.rule] ?? 0) + 1;
+    if (count[issue.rule] <= 5) kept.push(issue);
+  }
+  return kept;
 }
 
 // src/engine/signals/layout.ts
@@ -37715,6 +37740,8 @@ async function hauntSpawn(manager, input) {
     ),
     evidence: {
       audit: input.audit !== false,
+      layout: input.layout ?? input.audit !== false,
+      narrow_check: input.narrow_check === true,
       replay_budget_ms: input.replay_budget_ms ?? REPLAY_BUDGET_MS,
       bundle_cap_bytes: input.bundle_cap_bytes ?? BUNDLE_CAP_BYTES,
       cookies: input.cookies,
@@ -37725,7 +37752,7 @@ async function hauntSpawn(manager, input) {
   await takeSnapshot(session, { format: "json" }, true).catch(() => {
   });
   await auditIfNew(session, 0);
-  if (session.evidence.audit) await layoutIfDue(session, 0);
+  if (session.evidence.layout) await layoutIfDue(session, 0);
   return {
     session_id: sessionId,
     signals: collector.deliver(0)
@@ -37952,6 +37979,9 @@ async function replay(file, options = {}) {
     // A replay is not a session of its own: no audit unless the claim is
     // about one, and no replays of its replays.
     audit: "signal" in claim && claim.signal.kind === "a11y",
+    layout: "signal" in claim && claim.signal.kind === "layout",
+    // Its steps hold the narrow reading already, if the session made one.
+    narrow_check: false,
     replay_budget_ms: 0
   });
   const session = manager.get(spawned.session_id);
@@ -43248,7 +43278,7 @@ async function hauntAct(manager, input) {
       repeated = repeats(session, input.actions[i], step.changes.none);
     }
     await auditIfNew(session, session.step_count);
-    if (session.evidence.audit && step.ok && step.type !== "hover") {
+    if (session.evidence.layout && step.ok && step.type !== "hover") {
       await layoutIfDue(session, session.step_count);
     }
     const reason = stopAfter(step);
@@ -43559,6 +43589,7 @@ async function verifySession(session, issues, signals) {
 
 // src/engine/end-session.ts
 var sleep2 = (ms) => new Promise((r) => setTimeout(r, ms));
+var NARROW = { width: 375, height: 800 };
 async function lastEffects(session) {
   if (sabotaged("signals_off")) return;
   const { collector } = session;
@@ -43583,6 +43614,14 @@ async function hauntEndSession(manager, input) {
   const known = new Set(session.issues.map((issue) => JSON.stringify(issue)));
   for (const issue of input.issues ?? []) {
     if (!known.has(JSON.stringify(issue))) session.issues.push(issue);
+  }
+  if (session.evidence.narrow_check && session.evidence.layout && !session.runtime.dialog && !session.page.isClosed()) {
+    session.max_steps = Math.max(session.max_steps, session.step_count + 1);
+    await hauntAct(manager, {
+      session_id: session.id,
+      actions: [{ type: "resize", width: NARROW.width, height: NARROW.height }]
+    }).catch(() => {
+    });
   }
   await lastEffects(session);
   if (!session.runtime.dialog && !session.page.isClosed()) {

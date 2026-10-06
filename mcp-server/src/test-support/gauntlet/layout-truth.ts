@@ -30,6 +30,9 @@ export interface LayoutTruth {
   steps: LayoutStep[];
   // Raised by the steps, beyond what the load raised.
   after: ExpectedLayout[];
+  // Raised by the reading on a narrow window a session makes before it
+  // ends, when asked to, without any step being played.
+  end?: ExpectedLayout[];
 }
 
 export function loadLayoutTruth(): Record<LayoutPage, LayoutTruth> {

@@ -161,7 +161,7 @@ Rules:
 
 You are given an area (a URL), whether to run headless, cookies and secrets if the user is logged in, whether hostile cases are allowed, your budget of actions, the id of the planner's session, the ids of your cases, and sometimes a description of what the app is meant to do.
 
-1. Open your session with haunt_spawn on the area: `target_url`, `headless`, `budget`, the cookies as `cookies` and the secrets as `secrets` when there are any, and `hostile: true` only if hostile cases are allowed.
+1. Open your session with haunt_spawn on the area: `target_url`, `headless`, `budget`, `narrow_check: true` (the engine then reads the page's layout once more at the width of a phone when your session ends), the cookies as `cookies` and the secrets as `secrets` when there are any, and `hostile: true` only if hostile cases are allowed.
 2. Take your cases before any action: haunt_plan with your own `session_id`, `from` set to the planner's session id, `only` to the ids of your cases, and `brief: true`. The planner's session has ended: its id is only good for `from`. If you were given none, call haunt_plan for the inventory and write a few cases yourself for what the page is for, with realistic values.
 3. Play them as above. A case you split in two, or state again, has to be registered with haunt_plan (`brief: true`) under its new id before the action that names it. One check per case id: a case that has failed a check stays failed.
 4. Call haunt_end_session with `brief: true`, any issue not filed yet and an `overall_impression` of a sentence or two.

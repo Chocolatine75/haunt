@@ -13,6 +13,8 @@ export const PASSING: ReadonlySet<string> = new Set<string>([
   'L2.2',
   'L3.1',
   'L3.2',
+  'L3.3',
+  'L3.4',
   'L4.1',
   'L4.2',
 ]);

@@ -87,6 +87,13 @@
         "severity": "minor",
         "contains": "375 px"
       }
+    ],
+    "end": [
+      {
+        "rule": "page_overflow",
+        "severity": "minor",
+        "contains": "375 px"
+      }
     ]
   }
 }

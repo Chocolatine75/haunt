@@ -228,6 +228,12 @@ export const TOOLS: ToolDefinition[] = [
           'How many actions the session may run before it has to end. Default: 40',
         ),
       timeout: z.number().optional().describe('Older name of `budget`'),
+      narrow_check: z
+        .boolean()
+        .optional()
+        .describe(
+          'Before the session ends, read its layout once more on a window 375 px wide: what breaks on a phone shows there. Default: false',
+        ),
       hostile: z
         .boolean()
         .optional()

@@ -1392,7 +1392,7 @@ export async function hauntAct(
     // click that adds nothing moves nothing. Nor after a hover: what a hover
     // brings sits over the page for as long as the pointer stays, and is
     // meant to.
-    if (session.evidence.audit && step.ok && step.type !== 'hover') {
+    if (session.evidence.layout && step.ok && step.type !== 'hover') {
       await layoutIfDue(session, session.step_count);
     }
     const reason = stopAfter(step);

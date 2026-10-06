@@ -57,6 +57,12 @@ export interface SpawnInput {
   bundle_cap_bytes?: number;
   // Not on the tool: a replay audits nothing it was not asked about.
   audit?: boolean;
+  // Nor reads the layout, unless what it replays is a layout defect.
+  layout?: boolean;
+  // Before the session ends, reads the layout once more on a window the
+  // width of a phone (part 5): a page that breaks at 375 px shows it there
+  // and nowhere else.
+  narrow_check?: boolean;
   // Values that must not leave the engine though no field of this session
   // ever has them typed: the account it was signed in with elsewhere (R-E15).
   secrets?: string[];
@@ -342,6 +348,8 @@ export async function hauntSpawn(
     ),
     evidence: {
       audit: input.audit !== false,
+      layout: input.layout ?? input.audit !== false,
+      narrow_check: input.narrow_check === true,
       replay_budget_ms: input.replay_budget_ms ?? REPLAY_BUDGET_MS,
       bundle_cap_bytes: input.bundle_cap_bytes ?? BUNDLE_CAP_BYTES,
       cookies: input.cookies,
@@ -355,7 +363,7 @@ export async function hauntSpawn(
   // page is read first; both are step 0, delivered here.
   await takeSnapshot(session, { format: 'json' }, true).catch(() => {});
   await auditIfNew(session, 0);
-  if (session.evidence.audit) await layoutIfDue(session, 0);
+  if (session.evidence.layout) await layoutIfDue(session, 0);
 
   return {
     session_id: sessionId,

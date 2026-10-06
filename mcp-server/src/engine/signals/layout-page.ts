@@ -56,6 +56,11 @@ export function layoutIssues(input: {
     const id = el.id ? `#${el.id}` : '';
     return text ? `${tag}${id} "${text}"` : `${tag}${id}`;
   };
+  // What a control is called, near enough to tell two of the same.
+  const called = (el: Element) =>
+    (el.getAttribute('aria-label') || el.textContent || '')
+      .replace(/\s+/g, ' ')
+      .trim();
   const shown = (el: Element): boolean => {
     const style = getComputedStyle(el);
     const box = el.getBoundingClientRect();
@@ -166,8 +171,12 @@ export function layoutIssues(input: {
     // pinned over one that flows is only a defect if the page cannot
     // scroll the other out from under it.
     if (a !== b && !(a && b) && scrollsY) continue;
-    coveredBy.set(el, top);
     const other = controls.find((c) => c.el === top || c.el.contains(top));
+    // Two of the same name on each other: pins on a map, by the dozen.
+    if (other && called(other.el) !== '' && called(other.el) === called(el)) {
+      continue;
+    }
+    coveredBy.set(el, top);
     issues.push({
       rule: 'covered',
       local,
@@ -176,14 +185,44 @@ export function layoutIssues(input: {
   }
 
   // --- overlap: two controls whose boxes share half of the smaller.
+  // Named controls only, and not two of the same name: pins on a map sit
+  // on each other by the dozen, and a wrapper with no name is not something
+  // a user aims at.
+  const NAMED =
+    /^(button|link|textbox|searchbox|checkbox|radio|combobox|tab|menuitem|switch|slider|spinbutton)$/;
+  const label = (el: Element) =>
+    (
+      el.getAttribute('aria-label') ||
+      (el as HTMLInputElement).placeholder ||
+      el.textContent ||
+      ''
+    )
+      .replace(/\s+/g, ' ')
+      .trim();
+  const roleOf = (el: Element) =>
+    el.getAttribute('role') ||
+    (
+      {
+        BUTTON: 'button',
+        A: 'link',
+        SELECT: 'combobox',
+        TEXTAREA: 'textbox',
+        INPUT: 'textbox',
+      } as Record<string, string>
+    )[el.tagName] ||
+    '';
   const flat = controls.filter(
-    (c) => c.box.width * c.box.height < vw * vh * 0.5,
+    (c) =>
+      c.box.width * c.box.height < vw * vh * 0.5 &&
+      NAMED.test(roleOf(c.el)) &&
+      label(c.el) !== '',
   );
   for (let i = 0; i < flat.length && i < 400; i++) {
     for (let j = i + 1; j < flat.length && j < 400; j++) {
       const a = flat[i];
       const b = flat[j];
       if (within(a.el, b.el)) continue;
+      if (label(a.el) === label(b.el)) continue;
       const w =
         Math.min(a.box.right, b.box.right) - Math.max(a.box.left, b.box.left);
       const h =
@@ -260,6 +299,19 @@ export function layoutIssues(input: {
     const below = inked.bottom - box.bottom;
     if (cuts(style.overflowX) || cuts(style.overflowY)) {
       if (style.textOverflow === 'ellipsis') continue;
+      // Text clamped to a number of lines is shortened on purpose, as with
+      // an ellipsis; and so is a paragraph in a box of a fixed height, more
+      // often than not. What is reported is a label a user needs whole: a
+      // control's, or a heading's.
+      const clamp = (style as unknown as { webkitLineClamp?: string })
+        .webkitLineClamp;
+      if (clamp && clamp !== 'none') continue;
+      if (
+        !controls.some((c) => c.el === el) &&
+        !/^(H[1-6]|TH|LABEL|LEGEND|SUMMARY)$/.test(el.tagName)
+      ) {
+        continue;
+      }
       const cut = Math.max(
         cuts(style.overflowX) ? el.scrollWidth - el.clientWidth : 0,
         cuts(style.overflowY) ? el.scrollHeight - el.clientHeight : 0,
@@ -318,5 +370,13 @@ export function layoutIssues(input: {
   }
 
   state.work?.push([began, performance.now()]);
-  return issues;
+  // A page with forty cards built the same way has one defect forty times:
+  // the first few say it.
+  const kept: LayoutIssue[] = [];
+  const count: Record<string, number> = {};
+  for (const issue of issues) {
+    count[issue.rule] = (count[issue.rule] ?? 0) + 1;
+    if (count[issue.rule] <= 5) kept.push(issue);
+  }
+  return kept;
 }

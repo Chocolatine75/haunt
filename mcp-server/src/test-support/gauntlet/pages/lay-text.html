@@ -12,7 +12,8 @@
   Text and the boxes it is in. In the buggy variant a button's label runs
   out of the button, and a plan's price is cut by a box too short for it.
 
-  Not to be reported: a title shortened with an ellipsis, a log that
+  Not to be reported: a title shortened with an ellipsis, a paragraph
+  clamped to two lines, another in a box of a fixed height, a log that
   scrolls, a link hidden from the eye and kept for a screen reader.
 -->
 <h1>Plans</h1>
@@ -23,9 +24,15 @@
     style="{{#buggy}}width: 70px; {{/buggy}}white-space: nowrap; border: 1px solid #333; background: #eee; padding: 4px 8px">View and export invoices</button>
 </p>
 <div id="plans">
-  <div data-g="price" style="{{#buggy}}height: 20px; overflow: hidden; {{/buggy}}width: 160px; border: 1px solid #999; padding: 4px">
+  <h2 data-g="price" style="{{#buggy}}height: 20px; overflow: hidden; {{/buggy}}width: 160px; border: 1px solid #999; padding: 4px; margin: 0; font-size: 15px">
     Team plan, twelve dollars a seat every month, billed yearly
-  </div>
+  </h2>
+  <p data-g="blurb" style="width: 160px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden">
+    Everything in the free plan, and shared folders, guests, a year of history and a person to write to when something breaks
+  </p>
+  <p data-g="teaser" style="width: 160px; height: 38px; overflow: hidden">
+    Read what three teams made of it in their first month, and what they would do differently
+  </p>
   <p data-g="title" style="width: 160px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; border: 1px solid #999">
     Enterprise plan with single sign-on and audit logs
   </p>

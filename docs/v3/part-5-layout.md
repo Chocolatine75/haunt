@@ -34,8 +34,8 @@ Requirements are numbered (`R-L1`); every gate test names the ones it proves.
 Anything that needs pixels: contrast as rendered, an image that is the wrong
 one, a card that jumps when hovered, colours that do not follow their data.
 A message that covers something for a moment (a toast) is not reported.
-Reading the layout at a second, narrow width without being asked is left for
-a later slice: here a narrow window is read when a tester makes it narrow.
+A narrow window is read when a tester makes it narrow, or once before the
+session ends when it was spawned to (R-L10); not at every page.
 
 ---
 
@@ -48,11 +48,14 @@ a later slice: here a narrow window is read when a tester makes it narrow.
   signal names the control and what covers it.
 - **R-L2 Overlap.** Two controls whose boxes share at least half of the
   smaller one, neither inside the other, are reported once (`overlap`,
-  minor), naming both.
+  minor), naming both. Controls a user aims at only: with a role of their
+  own and a name, and not two of the same name.
 - **R-L3 Text that leaves its box.** Text wider or taller than the box that
   holds it is reported (`text_overflow`, minor) when it spills out of a box
-  that has a border or a background of its own, or when the box cuts it and
-  no ellipsis says so. It names the control, or quotes the text.
+  that has a border or a background of its own, or when the box cuts the
+  label of a control or a heading and no ellipsis says so. It names the
+  control, or quotes the text. At most five of a rule are raised by one
+  reading: forty cards built the same way have one defect.
 - **R-L4 A dialog outside the window.** A modal dialog less than six tenths
   of which is in the window when it is shown is reported
   (`dialog_outside_viewport`, major).
@@ -75,10 +78,11 @@ a later slice: here a narrow window is read when a tester makes it narrow.
   the page behind an open dialog, menu, listbox or tooltip, or behind a layer
   that takes more than three tenths of the window; a message shown for a
   moment (a status, an alert, a live region); what a hover brought; a control
-  scrolled out of its list; text shortened with an ellipsis; a region that
+  scrolled out of its list; text shortened with an ellipsis or clamped to a
+  number of lines; a paragraph in a box of a fixed height; a region that
   scrolls; text hidden from the eye and kept for a screen reader; words that
-  wrap in a line; a badge on the corner of a button; a table wider than a
-  wide window.
+  wrap in a line; a badge on the corner of a button; pins of a map on top of
+  each other; a table wider than a wide window.
 
 ## C. Where it goes
 
@@ -87,6 +91,10 @@ a later slice: here a narrow window is read when a tester makes it narrow.
   in the session's result, replayed and listed in the report under "Detected
   automatically". It is raised once however many readings find it again. A
   major one fails `haunt-ci`, as any major signal does.
+- **R-L10 Once more on a narrow window.** Spawned with `narrow_check`, a
+  session reads its page once more before it ends, on a window 375 px wide,
+  as an action of its own: recorded, so that a replay makes it too. The
+  plugin's testers ask for it.
 - **R-L9 The gate is not lying.** With the layout left unread on purpose,
   the gate's check of a planted defect fails; every requirement here is
   claimed by a gate test; none is skipped.
@@ -123,12 +131,16 @@ look-alikes of R-L7 in both variants.
 2. The one page of part 1 that plants a cover raises that cover and no
    other; the same page under a modal raises none.
 
-### L3 — where it goes (R-L8)
+### L3 — where it goes (R-L8, R-L10)
 
 1. A defect is one signal however many actions follow, and is in the
    session's result.
 2. The report lists it under "Detected automatically"; a covered control
    counts as a confirmed major signal.
+3. A layout defect is confirmed by three replays.
+4. Asked to, a session reads its page at 375 px before it ends and raises
+   what is wrong there, confirmed by its replays; not asked to, it reads
+   nothing more.
 
 ### L4 — the gate is not lying (R-L9)
 

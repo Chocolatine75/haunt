@@ -19,7 +19,7 @@ import {
   planCaseSchema,
   takeSnapshot,
   zodToJsonSchema
-} from "./chunk-GWTXGENJ.js";
+} from "./chunk-HMXWNGVW.js";
 import {
   _enum,
   _null,
@@ -10746,6 +10746,9 @@ var TOOLS = [
         "How many actions the session may run before it has to end. Default: 40"
       ),
       timeout: external_exports.number().optional().describe("Older name of `budget`"),
+      narrow_check: external_exports.boolean().optional().describe(
+        "Before the session ends, read its layout once more on a window 375 px wide: what breaks on a phone shows there. Default: false"
+      ),
       hostile: external_exports.boolean().optional().describe(
         "Allow test cases of kind `hostile`, which send attack payloads. Only against an app you own. Default: false"
       ),

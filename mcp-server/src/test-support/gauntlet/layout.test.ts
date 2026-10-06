@@ -103,6 +103,8 @@ describe('gauntlet layout pages', { timeout: 120_000 }, () => {
       const badge = await shared(page, 'inbox', 'badge');
       expect(badge).toBeGreaterThan(0);
       expect(badge).toBeLessThan(0.5);
+      // Two pins of the same name, mostly on each other.
+      expect(await shared(page, 'pin-1', 'pin-2')).toBeGreaterThan(0.25);
       // Links that wrap: more than one box each.
       expect(
         await page.evaluate(
@@ -130,6 +132,8 @@ describe('gauntlet layout pages', { timeout: 120_000 }, () => {
           cut: of('price').scrollHeight - of('price').clientHeight,
           // The look-alikes.
           ellipsis: of('title').scrollWidth - of('title').clientWidth,
+          clamped: of('blurb').scrollHeight - of('blurb').clientHeight,
+          fixed: of('teaser').scrollHeight - of('teaser').clientHeight,
           log: of('log').scrollWidth - of('log').clientWidth,
           skip: of('skip').getBoundingClientRect().width,
         };
@@ -142,6 +146,8 @@ describe('gauntlet layout pages', { timeout: 120_000 }, () => {
         expect(measured.cut).toBeLessThanOrEqual(1);
       }
       expect(measured.ellipsis).toBeGreaterThan(20);
+      expect(measured.clamped).toBeGreaterThan(10);
+      expect(measured.fixed).toBeGreaterThan(10);
       expect(measured.log).toBeGreaterThan(20);
       expect(measured.skip).toBeLessThanOrEqual(1);
       await context.close();

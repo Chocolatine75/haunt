@@ -274,6 +274,71 @@ describe('L the layout slice of part 5', () => {
     );
   });
 
+  describe('L3 where it goes, once replayed', () => {
+    gate(
+      'L3.3',
+      'R-L8',
+      'a layout defect is confirmed by its replays, like any signal',
+      async () => {
+        const session = await ctx.openUrl(
+          ctx.gauntlet.url('lay-covered', 'variant=buggy'),
+          { replay_budget_ms: 120_000 },
+        );
+        const ended = (await session.end()) as unknown as {
+          signals: Signal[];
+          signal_verification: Record<
+            string,
+            { status: string; attempts: number }
+          >;
+        };
+        const [found] = layoutOf(ended.signals);
+        expect(found?.rule).toBe('covered');
+        expect(ended.signal_verification[found.id]).toMatchObject({
+          status: 'confirmed',
+          attempts: 3,
+        });
+      },
+      180_000,
+    );
+
+    gate(
+      'L3.4',
+      'R-L10',
+      'asked to, a session reads its page on a narrow window before it ends, and what that finds is confirmed too',
+      async () => {
+        const end = async (variant: Variant, narrow_check: boolean) => {
+          const session = await ctx.openUrl(
+            ctx.gauntlet.url('lay-narrow', `variant=${variant}`),
+            { replay_budget_ms: 120_000, narrow_check },
+          );
+          return (await session.end()) as unknown as {
+            step_count: number;
+            signals: Signal[];
+            signal_verification: Record<string, { status: string }>;
+          };
+        };
+        const buggy = await end('buggy', true);
+        expectExactly(
+          layoutOf(buggy.signals),
+          TRUTH['lay-narrow'].end ?? [],
+          'at the end of the session',
+        );
+        const [found] = layoutOf(buggy.signals);
+        // The reading is a step of the session: recorded, and replayed.
+        expect(buggy.step_count).toBe(1);
+        expect(found.step).toBe(1);
+        expect(buggy.signal_verification[found.id].status).toBe('confirmed');
+        // Not asked to, it reads nothing more; on the clean page, it finds
+        // nothing.
+        const unasked = await end('buggy', false);
+        expect(unasked.step_count).toBe(0);
+        expect(layoutOf(unasked.signals)).toEqual([]);
+        expect(layoutOf((await end('clean', true)).signals)).toEqual([]);
+      },
+      300_000,
+    );
+  });
+
   describe('L4 the gate is not lying', () => {
     gate(
       'L4.1',
@@ -314,7 +379,7 @@ describe('L the layout slice of part 5', () => {
         const required = [
           ...new Set(readFileSync(SPEC, 'utf-8').match(/\bR-L\d+\b/g)),
         ].sort();
-        expect(required).toHaveLength(9);
+        expect(required).toHaveLength(10);
         expect(required.filter((id) => !claimed.has(id))).toEqual([]);
         for (const marker of ['skip', 'only', 'todo', 'skipIf', 'runIf']) {
           expect(source.includes(`.${marker}(`), marker).toBe(false);
