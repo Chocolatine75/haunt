@@ -2,7 +2,7 @@
 
 ## `/haunt:haunt-test`
 
-Run phantom user tests against a running web app.
+Test a running web app the way a QA engineer would.
 
 ```
 /haunt:haunt-test <url> [options]
@@ -18,9 +18,10 @@ Run phantom user tests against a running web app.
 
 | Option | Default | Description |
 |---|---|---|
-| `--personas <list>` | `confused-beginner` | Comma-separated personas to run. Available: `confused-beginner`, `malicious-user`, `screen-reader-user` |
+| `--spec <file>` | — | A file describing what the app is meant to do. The planner and the testers hold the app to it |
+| `--hostile` | — | Also plan attack payloads (script injection, forged parameters). Only against an app you own |
 | `--headed` | headless | Show the browser window in real time |
-| `--steps <N>` | `3` | Max navigation steps per area |
+| `--steps <N>` | `40` | The budget of actions of each tester |
 | `--routes <list>` | — | Comma-separated paths to test directly (e.g. `/signup,/pricing`), skipping DOM-based route discovery |
 | `--compare <path>` | — | Diff this run against a previous report's `.md` path — annotates issues as new/still-present, lists resolved ones |
 | `--email <email>` | — | Log in before testing (use with `--password`) |
@@ -29,21 +30,20 @@ Run phantom user tests against a running web app.
 | `--yes` | — | Skip the cost estimate confirmation prompt |
 | `--verbose` | — | Print intermediate reasoning between steps |
 
-> ⚠️ `malicious-user` sends real XSS/SQLi payloads and probes admin routes without
-> authorization. Only target apps you own or have explicit permission to test — never
-> a third party's production site.
+> ⚠️ `--hostile` sends real XSS/SQLi payloads. Only target apps you own or have
+> explicit permission to test — never a third party's production site.
 
 ### Examples
 
 ```bash
-# Default — confused first-time user, headless
+# Default — plan and test every area found, headless
 /haunt:haunt-test http://localhost:3000
 
 # Watch the browser in real time
 /haunt:haunt-test http://localhost:3000 --headed
 
-# Run all three built-in personas
-/haunt:haunt-test http://localhost:3000 --personas confused-beginner,malicious-user,screen-reader-user
+# Hold the app to a written description of what it should do
+/haunt:haunt-test http://localhost:3000 --spec docs/requirements.md
 
 # Test authenticated areas
 /haunt:haunt-test http://localhost:3000 --email you@example.com --password secret
@@ -51,8 +51,8 @@ Run phantom user tests against a running web app.
 # Debug a login that silently fails
 /haunt:haunt-test http://localhost:3000 --email you@example.com --password secret --debug-auth
 
-# More thorough test — 8 steps per area instead of 3
-/haunt:haunt-test http://localhost:3000 --steps 8
+# A shorter, cheaper run — 15 actions per tester instead of 40
+/haunt:haunt-test http://localhost:3000 --steps 15
 
 # Skip confirmation prompt (for scripted use)
 /haunt:haunt-test http://localhost:3000 --yes
@@ -61,38 +61,9 @@ Run phantom user tests against a running web app.
 /haunt:haunt-test http://localhost:3000 --routes /signup,/pricing,/checkout
 
 # Re-run after fixes and see what's resolved vs. still broken
-/haunt:haunt-test http://localhost:3000 --compare .haunt-reports/2026-01-01-confused-beginner.md
+/haunt:haunt-test http://localhost:3000 --compare .haunt-reports/2026-01-01-localhost-3000.md
 ```
 
 ### Output
 
-Reports are saved to `.haunt-reports/YYYY-MM-DD-<persona>.md` — structured markdown with a YAML frontmatter summary, ranked issues, per-issue fix recommendations, and a "For Claude" section you can paste directly into a follow-up prompt.
-
----
-
-## Custom personas
-
-Create a `.yaml` file anywhere in your project:
-
-```yaml
-name: Impatient Power User
-description: Moves fast, skips steps, expects things to just work
-system_prompt: |
-  You move fast and skip everything that looks optional.
-  Double-click buttons. Refresh mid-flow. Skip required fields and submit anyway.
-  If something needs more than 2 steps, try to skip one.
-  Report anything that breaks when you don't follow the expected sequence.
-browser:
-  headless: true
-  viewport: { width: 1440, height: 900 }
-scenarios:
-  - name: Speed run
-    goal: Break the experience by going too fast
-    max_steps: 10
-```
-
-Then pass the path:
-
-```bash
-/haunt:haunt-test http://localhost:3000 --personas ./personas/power-user.yaml
-```
+Reports are saved to `.haunt-reports/YYYY-MM-DD-<target>.md` — structured markdown with a YAML frontmatter summary, ranked issues with their evidence, what was tested and what was not, and a "For Claude" section you can paste directly into a follow-up prompt.

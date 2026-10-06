@@ -13,7 +13,6 @@ const REQUIRED_FRONTMATTER_FIELDS = [
   'haunt:',
   'target:',
   'date:',
-  'personas:',
   'areas_tested:',
   'issues:',
   'top_fix:',

@@ -4,12 +4,19 @@ import type {
   SignalVerifications,
   VerifiedIssue,
 } from '../gates/part-3/contract.js';
-import { SETTLE_CAP_MS } from './act/act.js';
+import type {
+  CaseStatus,
+  Coverage,
+  InventoryControl,
+} from '../gates/part-4/contract.js';
+import { SETTLE_CAP_MS, hauntAct } from './act/act.js';
 import { pendingTimers } from './act/page-fns.js';
 import { SESSION_TTL_MS } from './constants.js';
 import { verifySession } from './evidence/verify.js';
+import { planOf, syncInventory } from './plan/plan.js';
 import { sabotaged } from './sabotage.js';
 import type { SessionManager } from './session/manager.js';
+import { takeSnapshot } from './snapshot/snapshot.js';
 import type { HauntSession, Issue } from './types.js';
 
 export interface EndSessionInput {
@@ -21,7 +28,6 @@ export interface EndSessionInput {
 
 export interface EndSessionOutput {
   session_id: string;
-  persona: string;
   duration_seconds: number;
   pages_visited: number;
   step_count: number;
@@ -34,10 +40,18 @@ export interface EndSessionOutput {
   // when replayed.
   signals: Signal[];
   signal_verification: SignalVerifications;
+  // The plan as it stands, and how much of it was done (part 4, R-T4).
+  cases: CaseStatus[];
+  coverage: Coverage;
+  // Every control the session was shown: what a report merges sessions by.
+  inventory: InventoryControl[];
   overall_impression: string;
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// The window a session's layout is read on before it ends, when asked.
+export const NARROW = { width: 375, height: 800 };
 
 // What the last action set in motion may not have happened yet: a request
 // still on the wire, a timer not yet due. There is no later call to report
@@ -78,7 +92,29 @@ export async function hauntEndSession(
     if (!known.has(JSON.stringify(issue))) session.issues.push(issue);
   }
 
+  // The page once more, on a window the width of a phone (part 5). As an
+  // action like any other, so that it is recorded and a replay makes it
+  // too; and whatever is left of the budget.
+  if (
+    session.evidence.narrow_check &&
+    session.evidence.layout &&
+    !session.runtime.dialog &&
+    !session.page.isClosed()
+  ) {
+    session.max_steps = Math.max(session.max_steps, session.step_count + 1);
+    await hauntAct(manager, {
+      session_id: session.id,
+      actions: [{ type: 'resize', width: NARROW.width, height: NARROW.height }],
+    }).catch(() => {});
+  }
+
   await lastEffects(session);
+  // The inventory as the last action left the page.
+  if (!session.runtime.dialog && !session.page.isClosed()) {
+    await takeSnapshot(session, { format: 'json' }, true).catch(() => {});
+    await syncInventory(session).catch(() => {});
+  }
+  const plan = planOf(session);
   // Replayed in browsers of their own before anything is reported; the
   // session's browser stays open meanwhile, for nothing but its cookies.
   const signals = session.collector.all();
@@ -94,7 +130,6 @@ export async function hauntEndSession(
 
   const output: EndSessionOutput = {
     session_id: session.id,
-    persona: session.persona.name,
     duration_seconds,
     pages_visited: session.pages_visited.length,
     step_count: session.step_count,
@@ -103,10 +138,53 @@ export async function hauntEndSession(
     sandbox_blocked_requests: session.sandbox_blocked_requests,
     signals,
     signal_verification: verified.signal_verification,
+    cases: plan.cases,
+    coverage: plan.coverage,
+    inventory: plan.inventory,
     overall_impression:
       input.overall_impression ??
       `Completed ${session.step_count} steps across ${session.pages_visited.length} pages.`,
   };
 
+  manager.keepEnded(session.id, {
+    result: output as unknown as Record<string, unknown>,
+    portable: plan.portable,
+  });
   return output;
+}
+
+// What a session's end says of it when asked to be brief: what became of
+// its issues, and the counts. The signals and the inventory stay on the
+// server for the report.
+export function briefEnd(output: EndSessionOutput): EndSessionBrief {
+  const told = (issue: VerifiedIssue) => ({
+    description: issue.description,
+    severity: issue.severity,
+    status: issue.verification.status,
+    ...(issue.verification.reason ? { reason: issue.verification.reason } : {}),
+    ...(issue.verification.bundle ? { bundle: issue.verification.bundle } : {}),
+  });
+  return {
+    session_id: output.session_id,
+    step_count: output.step_count,
+    issues_found: output.issues_found.map(told),
+    rejected: output.rejected.map(told),
+    signals: output.signals.length,
+    coverage: {
+      controls: output.coverage.controls,
+      cases: output.coverage.cases,
+    },
+    overall_impression: output.overall_impression,
+  };
+}
+
+export interface EndSessionBrief {
+  session_id: string;
+  step_count: number;
+  issues_found: Array<Record<string, unknown>>;
+  rejected: Array<Record<string, unknown>>;
+  // How many; the report has them.
+  signals: number;
+  coverage: Pick<Coverage, 'controls' | 'cases'>;
+  overall_impression: string;
 }

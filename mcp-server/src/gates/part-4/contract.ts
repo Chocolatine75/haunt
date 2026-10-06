@@ -116,6 +116,10 @@ export interface ControlName {
   role: string;
   name: string;
   group: string;
+  // Which of the controls with that role, name and group, in the order the
+  // inventory lists them, when there are several: every card of a list has
+  // its own "Quick view". Absent when there is only one.
+  index?: number;
 }
 
 export interface PortableCase extends Omit<PlanCase, 'controls'> {
@@ -200,6 +204,9 @@ export interface ActTesterInput {
 }
 
 export interface ActTesterResult extends ActSignalsResult {
+  // What to do about an expectation that did not hold, in a sentence: file
+  // it or state it again. A tester that is told nothing files nothing.
+  todo?: string;
   // Present when `expect` was given and every action ran.
   expectation?: ExpectationResult;
   // Controls a user can act on now and could not before the call: new, or

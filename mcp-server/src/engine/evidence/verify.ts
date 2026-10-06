@@ -26,6 +26,7 @@ import {
   type Verification,
   type VerifiedIssue,
 } from '../../gates/part-3/contract.js';
+import type { Expectation, TesterIssue } from '../../gates/part-4/contract.js';
 import { REPORTS_DIR } from '../constants.js';
 import { sabotaged } from '../sabotage.js';
 import type { HauntSession } from '../types.js';
@@ -127,6 +128,9 @@ async function verifyClaim(
   deadline: number,
   dir: string,
   forSignal: boolean,
+  // The claim is only that the steps run: whatever the replays say, the
+  // issue itself has not been checked (R-T11).
+  stepsOnly = false,
 ): Promise<Verification> {
   const file = stepsFileOf(session, claim);
   const secrets = Object.fromEntries(
@@ -209,10 +213,24 @@ async function verifyClaim(
           : {}),
       };
     }
+    if (
+      stepsOnly &&
+      verification.status !== 'rejected' &&
+      !sabotaged('tester_unchecked_confirmed')
+    ) {
+      // Its steps ran, or there was no time to run them: either way nothing
+      // was verified about what it says.
+      verification = {
+        ...verification,
+        status: 'unchecked' as Verification['status'],
+      };
+    }
     const proof = runs.find((r) => r.reproduced);
     if (
       proof &&
-      (verification.status === 'confirmed' || verification.status === 'flaky')
+      (verification.status === 'confirmed' ||
+        verification.status === 'flaky' ||
+        stepsOnly)
     ) {
       writeBundle(
         dir,
@@ -240,7 +258,7 @@ const rejected = (reason: Verification['reason']): Verification => ({
 // Verifies every issue of a session and every signal no issue names.
 export async function verifySession(
   session: HauntSession,
-  issues: ClaimedIssue[],
+  issues: TesterIssue[],
   signals: Signal[],
 ): Promise<VerifiedSession> {
   const deadline = Date.now() + session.evidence.replay_budget_ms;
@@ -257,21 +275,57 @@ export async function verifySession(
     const signal = issue.signal
       ? signals.find((s) => s.id === issue.signal)
       : undefined;
-    if (!issue.signal && !issue.observed) {
-      verification = rejected('no_claim');
+    // A case the engine gave a verdict to: its expectation, as checked then
+    // (R-T10). One the tester closed has nothing a replay can check.
+    const ofCase =
+      issue.case !== undefined
+        ? session.plan.claims.get(issue.case)
+        : undefined;
+    const closedByTester =
+      issue.case !== undefined &&
+      session.plan.cases.get(issue.case)?.by === 'tester';
+    if (issue.case !== undefined && !ofCase && !closedByTester) {
+      verification = rejected('unknown_case' as Verification['reason']);
+    } else if (!issue.signal && !issue.observed && !ofCase) {
+      // Nothing the engine can check. It used to be rejected for that (part
+      // 3, R-E9), and what a tester saw and could not state was lost: on
+      // CATTest's pilot, a filter combining the wrong way, cards overlapping
+      // on hover. Its steps are replayed, to establish that they run, and it
+      // is listed for a person (part 4, R-T11).
+      verification = await verifyClaim(
+        session,
+        {
+          step: session.step_count,
+          observed: { steps_only: true },
+        } as unknown as Claim,
+        deadline,
+        join(root, `issue-${i + 1}`),
+        false,
+        true,
+      );
     } else if (issue.signal && !signal) {
       verification = rejected('unknown_signal');
+    } else if (ofCase && sabotaged('tester_case_not_replayed')) {
+      verification = {
+        status: 'confirmed',
+        attempts: 0,
+        reproduced: 0,
+        rate: 1,
+      };
     } else {
       if (signal) named.add(signal.id);
       let claim: Claim;
       if (signal) {
         claim = { step: signal.step, signal };
+      } else if (ofCase) {
+        claim = ofCase as Claim;
       } else {
-        const observed = issue.observed as Observation;
+        const observed = issue.observed as Expectation;
         const read = session.snapshot.previous;
+        const about = observed.element?.ref ?? observed.value?.ref;
         const locator =
-          observed.element && read
-            ? locatorOf(read.elements, read.containers, observed.element.ref)
+          about && read
+            ? locatorOf(read.elements, read.containers, about)
             : undefined;
         claim = {
           step: observed.step ?? session.step_count,
@@ -286,7 +340,7 @@ export async function verifySession(
         false,
       );
     }
-    const verified: VerifiedIssue = { ...issue, verification };
+    const verified = { ...issue, verification } as VerifiedIssue;
     if (
       verification.status === 'rejected' &&
       !sabotaged('evidence_rejected_reported')
