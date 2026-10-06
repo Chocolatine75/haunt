@@ -21,6 +21,8 @@ const PAGE = `<!doctype html><html lang="en"><title>dead</title>
   <button id="open" type="button">Open</button>
   <button id="stop" type="button">Stop sync</button>
   <button id="nothing" type="button">Nothing</button>
+  <button id="attach" type="button">Attach a file</button>
+  <input id="picked" type="file" hidden>
   <p id="status" role="status"></p>
   <form id="login">
     <input id="email" type="email" aria-label="Email">
@@ -37,6 +39,9 @@ const PAGE = `<!doctype html><html lang="en"><title>dead</title>
     const sync = setInterval(() => { syncs++; }, 3000);
     document.getElementById('stop').addEventListener('click', () => {
       clearInterval(sync);
+    });
+    document.getElementById('attach').addEventListener('click', () => {
+      document.getElementById('picked').click();
     });
     // A submission the page swallows: dead, once the browser lets it through.
     document.getElementById('login').addEventListener('submit', (e) => {
@@ -109,6 +114,20 @@ describe('dead controls', () => {
     expect(await deadAfter({ type: 'click', ref: nothing })).toEqual([
       'Nothing',
     ]);
+  }, 30_000);
+
+  // Seen when the sweep first ran over the gauntlet's upload page: each of
+  // its four buttons was reported as wired to nothing. The file picker is
+  // the browser's, and nothing of it is in the page.
+  it('does not call dead a button that opens the file picker', async () => {
+    manager = new SessionManager();
+    ({ session_id } = await hauntSpawn(manager, {
+      target_url: url,
+      timeout: 50,
+    }));
+    const attach = await ref('Attach a file');
+    expect(await deadAfter({ type: 'click', ref: attach })).toEqual([]);
+    expect(await deadAfter({ type: 'click', ref: attach })).toEqual([]);
   }, 30_000);
 
   // On a real run against demo/, the sign-in button was reported dead with

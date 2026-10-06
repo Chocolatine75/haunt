@@ -1084,6 +1084,7 @@ async function runStep(
   const urlBefore = pageBefore.url();
   const navigationsBefore = runtime.navigations.get(pageBefore) ?? 0;
   const downloadsBefore = runtime.downloads.length;
+  const choosersBefore = runtime.choosers;
   const textBefore = session.snapshot.previous?.textHash;
   const readBefore = session.snapshot.previous;
   const focusBefore = await focusOf(session);
@@ -1211,7 +1212,8 @@ async function runStep(
   // nothing in motion (R-S2). Moving the focus elsewhere, scrolling
   // something, rewriting the DOM even to the same thing (opening what was
   // already open) or stopping something that was running (a pause button)
-  // is an effect; landing on "#" of the same page is not.
+  // is an effect, and so is asking for a file; landing on "#" of the same
+  // page is not.
   if (outcome.clicked && !error && !switched && !page.isClosed()) {
     const ref = outcome.clicked;
     const element = readBefore?.elements.find((el) => el.ref === ref);
@@ -1225,6 +1227,7 @@ async function runStep(
       !dialog &&
       !download &&
       !runtime.dialog &&
+      runtime.choosers === choosersBefore &&
       changes.tabs_opened.length === 0 &&
       changes.tabs_closed.length === 0 &&
       withoutFragment(changes.url_after) === withoutFragment(urlBefore) &&
