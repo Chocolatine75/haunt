@@ -37,8 +37,8 @@ App runs at http://localhost:3000
 # Debug auth issues
 /haunt:haunt-test http://localhost:3000 --email test@example.com --password password123 --debug-auth
 
-# Full sweep
-/haunt:haunt-test http://localhost:3000 --personas confused-beginner,malicious-user,screen-reader-user
+# With attack payloads too (this demo is yours to attack)
+/haunt:haunt-test http://localhost:3000 --hostile
 ```
 
 ## Known intentional bugs

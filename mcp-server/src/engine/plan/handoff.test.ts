@@ -1,0 +1,384 @@
+// What lets several agents share a run without each result crossing a
+// model's context twice: a tester takes its cases from the planner's
+// session by id, even once that session has ended, and the report is handed
+// session ids rather than their results.
+import { readFileSync, rmSync } from 'node:fs';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import type {
+  EndSessionTesterOutput,
+  PlanOutput,
+  ReportTesterSidecar,
+} from '../../gates/part-4/contract.js';
+import {
+  type Gauntlet,
+  startGauntlet,
+} from '../../test-support/gauntlet/server.js';
+import {
+  type HauntClient,
+  connectInMemory,
+} from '../../test-support/mcp-client.js';
+import { SessionManager } from '../session/manager.js';
+
+describe('a plan handed from a planner to testers', { timeout: 60_000 }, () => {
+  let gauntlet: Gauntlet;
+  let haunt: HauntClient;
+  const manager = new SessionManager();
+  const written: string[] = [];
+
+  beforeAll(async () => {
+    gauntlet = await startGauntlet();
+    haunt = await connectInMemory(manager);
+  });
+  afterEach(async () => {
+    for (const session of manager.all()) await session.browser.close();
+  });
+  afterAll(async () => {
+    for (const path of written) rmSync(path, { force: true });
+    await haunt.close();
+    await gauntlet.close();
+  });
+
+  const url = () => gauntlet.url('qa-form', 'variant=buggy');
+  // No replay unless a test is about one: they take seconds each.
+  async function spawn(replay_budget_ms = 0): Promise<string> {
+    const result = await haunt.call<{ session_id: string }>('haunt_spawn', {
+      target_url: url(),
+      replay_budget_ms,
+    });
+    if (result.isError) throw new Error(result.text);
+    return result.data.session_id;
+  }
+  async function plan(args: Record<string, unknown>): Promise<PlanOutput> {
+    const result = await haunt.call<PlanOutput>('haunt_plan', args);
+    if (result.isError) throw new Error(result.text);
+    return result.data;
+  }
+  const ref = (p: PlanOutput, name: string) =>
+    p.inventory.find((c) => c.name === name)?.ref ?? '';
+
+  // A planner's session with two cases, ended.
+  async function planned(): Promise<string> {
+    const session_id = await spawn();
+    const inventory = await plan({ session_id });
+    await plan({
+      session_id,
+      cases: [
+        {
+          id: 'summary-kept',
+          kind: 'state',
+          controls: [
+            ref(inventory, 'Email me a weekly summary'),
+            ref(inventory, 'Save'),
+          ],
+          expect: 'The weekly summary stays checked once saved',
+        },
+        {
+          id: 'negative-quantity',
+          kind: 'edge',
+          controls: [ref(inventory, 'Boxes per delivery')],
+          expect: 'A negative number of boxes is refused',
+        },
+      ],
+    });
+    await haunt.call('haunt_end_session', { session_id });
+    return session_id;
+  }
+
+  it('gives a tester the cases it names, from a session that has ended', async () => {
+    const from = await planned();
+    const session_id = await spawn();
+    const taken = await plan({ session_id, from, only: ['summary-kept'] });
+    expect(taken.cases.map((one) => one.id)).toEqual(['summary-kept']);
+    expect(taken.cases[0].controls).toEqual([
+      ref(taken, 'Email me a weekly summary'),
+      ref(taken, 'Save'),
+    ]);
+
+    // All of them when none is named, beside one of the tester's own.
+    const other = await spawn();
+    const all = await plan({
+      session_id: other,
+      from,
+      cases: [
+        {
+          id: 'mine',
+          kind: 'normal',
+          controls: [],
+          expect: 'The page says what was saved',
+        },
+      ],
+    });
+    expect(all.cases.map((one) => one.id).sort()).toEqual([
+      'mine',
+      'negative-quantity',
+      'summary-kept',
+    ]);
+  });
+
+  // Every card of a list has its own "Quick view": on CATTest's recipe
+  // catalogue a tester lost its cases to that, the plan refusing a control
+  // that several matched.
+  it('tells apart controls with the same role, name and group, by their place', async () => {
+    const dupes = async () => {
+      const result = await haunt.call<{ session_id: string }>('haunt_spawn', {
+        target_url: gauntlet.url('dupes'),
+        replay_budget_ms: 0,
+      });
+      return result.data.session_id;
+    };
+    const planner = await dupes();
+    const inventory = (await plan({ session_id: planner })).inventory;
+    const same = (c: { role: string; name: string; group: string }) =>
+      `${c.role}|${c.name}|${c.group}`;
+    const repeated = inventory.find(
+      (c) => inventory.filter((o) => same(o) === same(c)).length > 1,
+    );
+    if (!repeated) throw new Error('dupes has no repeated control');
+    const alike = inventory.filter((c) => same(c) === same(repeated));
+    const second = alike[1];
+
+    const { portable } = await plan({
+      session_id: planner,
+      cases: [
+        {
+          id: 'second-of-them',
+          kind: 'normal',
+          controls: [second.ref],
+          expect: 'The second one acts on its own row',
+        },
+      ],
+    });
+    expect(portable[0].controls).toEqual([
+      {
+        role: second.role,
+        name: second.name,
+        group: second.group,
+        index: 1,
+      },
+    ]);
+
+    const tester = await dupes();
+    const taken = await plan({ session_id: tester, from: planner });
+    const theirs = taken.inventory.filter((c) => same(c) === same(repeated));
+    expect(taken.cases[0].controls).toEqual([theirs[1].ref]);
+
+    // Without its place, it is refused, and the message says what to add.
+    const vague = await haunt.call('haunt_plan', {
+      session_id: tester,
+      cases: [
+        {
+          id: 'which-one',
+          kind: 'normal',
+          controls: [
+            { role: second.role, name: second.name, group: second.group },
+          ],
+          expect: 'One of them',
+        },
+      ],
+    });
+    expect(vague.isError).toBe(true);
+    expect(vague.text).toContain('"index"');
+  });
+
+  // On CATTest's catalogue two testers asked the planner's ended session for
+  // its plan, were told "not found", and planned on their own.
+  it('tells a caller that asks an ended session for its plan how to take its cases', async () => {
+    const from = await planned();
+    const asked = await haunt.call('haunt_plan', { session_id: from });
+    expect(asked.isError).toBe(true);
+    expect(asked.text).toContain('has ended');
+    expect(asked.text).toContain(`"from": "${from}"`);
+  });
+
+  // On CATTest's gallery a tester failed a case, then proved the bug with a
+  // check that held, under the same id: the case turned to passed and its
+  // issue was replayed against the wrong check.
+  it('keeps a case failed once a check of it has failed, and says so', async () => {
+    const session_id = await spawn(60_000);
+    const inventory = await plan({ session_id });
+    const weekly = ref(inventory, 'Email me a weekly summary');
+    await plan({
+      session_id,
+      cases: [
+        {
+          id: 'summary-kept',
+          kind: 'state',
+          controls: [weekly],
+          expect: 'The weekly summary stays checked once saved',
+        },
+      ],
+    });
+    const check = async (is: boolean, actions: unknown[]) => {
+      const result = await haunt.call<{
+        expectation: { held: boolean };
+        todo?: string;
+      }>('haunt_act', {
+        session_id,
+        actions,
+        case: 'summary-kept',
+        expect: { value: { ref: weekly, of: 'checked', is } },
+      });
+      if (result.isError) throw new Error(result.text);
+      return result.data;
+    };
+    const failed = await check(true, [
+      { type: 'check', ref: weekly, checked: true },
+      { type: 'click', ref: ref(inventory, 'Save') },
+    ]);
+    expect(failed.expectation.held).toBe(false);
+    expect(failed.todo).toContain('"case": "summary-kept"');
+
+    // The same fact stated the other way round holds, and changes nothing.
+    const proved = await check(false, [{ type: 'read' }]);
+    expect(proved.expectation.held).toBe(true);
+    expect(proved.todo).toContain('stays failed');
+    const [status] = (await plan({ session_id })).cases;
+    expect(status).toMatchObject({ verdict: 'failed', by: 'engine' });
+
+    // And its issue is replayed against the check that failed.
+    const ended = await haunt.call<EndSessionTesterOutput>(
+      'haunt_end_session',
+      {
+        session_id,
+        issues: [
+          {
+            severity: 'major',
+            category: 'ux',
+            description: 'The weekly summary is unchecked on save',
+            page_url: url(),
+            recommendation: 'Keep it',
+            case: 'summary-kept',
+          },
+        ],
+      },
+    );
+    expect(ended.data.rejected).toEqual([]);
+    expect(ended.data.issues_found.map((i) => i.verification)).toMatchObject([
+      { status: 'confirmed', attempts: 3, reproduced: 3 },
+    ]);
+  });
+
+  it('answers briefly when asked: the cases and the counts, not the inventory', async () => {
+    const session_id = await spawn();
+    const brief = await haunt.call<Record<string, unknown>>('haunt_plan', {
+      session_id,
+      brief: true,
+    });
+    expect(Object.keys(brief.data).sort()).toEqual(['cases', 'coverage']);
+    const ended = await haunt.call<Record<string, unknown>>(
+      'haunt_end_session',
+      { session_id, brief: true },
+    );
+    expect(Object.keys(ended.data).sort()).toEqual([
+      'coverage',
+      'issues_found',
+      'overall_impression',
+      'rejected',
+      'session_id',
+      'signals',
+      'step_count',
+    ]);
+    expect(ended.data.signals).toBe(0);
+    // The whole of it is still there for the report.
+    const report = await haunt.call<{ report_path: string }>(
+      'haunt_generate_report',
+      {
+        target_url: url(),
+        date: '2026-04-10',
+        sessions: [{ session_id, area: '/qa-form' }],
+      },
+    );
+    expect(report.isError, report.text).toBe(false);
+    written.push(
+      report.data.report_path,
+      report.data.report_path.replace(/\.md$/, '.json'),
+    );
+    expect(
+      (
+        JSON.parse(
+          readFileSync(
+            report.data.report_path.replace(/\.md$/, '.json'),
+            'utf-8',
+          ),
+        ) as ReportTesterSidecar
+      ).coverage?.controls.listed,
+    ).toBe(3);
+  });
+
+  it('says which session or case is missing, and takes none then', async () => {
+    const from = await planned();
+    const session_id = await spawn();
+    const nowhere = await haunt.call('haunt_plan', {
+      session_id,
+      from: 'no-such-session',
+    });
+    expect(nowhere.isError).toBe(true);
+    expect(nowhere.text).toContain('no-such-session');
+
+    const missing = await haunt.call('haunt_plan', {
+      session_id,
+      from,
+      only: ['summary-kept', 'made-up'],
+    });
+    expect(missing.isError).toBe(true);
+    expect(missing.text).toContain('"made-up"');
+    expect(missing.text).toContain('"negative-quantity"');
+    expect((await plan({ session_id })).cases).toEqual([]);
+  });
+
+  it('reports on sessions named by their id, with what each returned when it ended', async () => {
+    const from = await planned();
+    const session_id = await spawn();
+    const taken = await plan({ session_id, from, only: ['summary-kept'] });
+    await haunt.call('haunt_act', {
+      session_id,
+      actions: [
+        {
+          type: 'check',
+          ref: ref(taken, 'Email me a weekly summary'),
+          checked: true,
+        },
+        { type: 'click', ref: ref(taken, 'Save') },
+      ],
+      case: 'summary-kept',
+      expect: {
+        value: {
+          ref: ref(taken, 'Email me a weekly summary'),
+          of: 'checked',
+          is: true,
+        },
+      },
+    });
+    const ended = await haunt.call<EndSessionTesterOutput>(
+      'haunt_end_session',
+      { session_id, overall_impression: 'The box is unchecked on save.' },
+    );
+
+    const report = await haunt.call<{ report_path: string; markdown: string }>(
+      'haunt_generate_report',
+      {
+        target_url: url(),
+        date: '2026-04-09',
+        sessions: [{ session_id, area: '/qa-form' }],
+      },
+    );
+    expect(report.isError, report.text).toBe(false);
+    const sidecarPath = report.data.report_path.replace(/\.md$/, '.json');
+    written.push(report.data.report_path, sidecarPath);
+    const sidecar = JSON.parse(
+      readFileSync(sidecarPath, 'utf-8'),
+    ) as ReportTesterSidecar;
+    expect(sidecar.coverage?.controls).toEqual(ended.data.coverage.controls);
+    expect(sidecar.coverage?.cases).toMatchObject({ planned: 1, failed: 1 });
+    // What the session said of itself, unless the caller says otherwise.
+    expect(report.data.markdown).toContain('The box is unchecked on save.');
+    expect(report.data.markdown).toContain('**/qa-form:**');
+
+    const unknown = await haunt.call('haunt_generate_report', {
+      target_url: url(),
+      sessions: [{ session_id: 'never-ended', area: '/' }],
+    });
+    expect(unknown.isError).toBe(true);
+    expect(unknown.text).toContain('never-ended');
+  });
+});

@@ -1,5 +1,5 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { readFileSync, rmSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
@@ -18,6 +18,7 @@ const EXPECTED_TOOLS = [
   'haunt_generate_report',
   'haunt_act',
   'haunt_plan',
+  'haunt_scout',
   'haunt_replay',
 ];
 
@@ -107,23 +108,69 @@ describe('MCP server', () => {
     expect(result.text).toBe('Error: Session not found: nope');
   });
 
-  it('reports a missing persona file as an error result without opening a browser', async () => {
+  // Was: a persona file that does not exist is an error. Personas are gone
+  // (part 4, R-T14); what a host can still get wrong at spawn is the target.
+  it('reports an unreachable target as an error result, and leaves no session', async () => {
     const result = await haunt.call('haunt_spawn', {
-      persona: '/nonexistent/persona.yaml',
-      target_url: 'data:text/html,<h1>x</h1>',
+      target_url: 'http://127.0.0.1:9/',
     });
     expect(result.isError).toBe(true);
-    expect(result.text).toMatch(/ENOENT/);
+    expect(result.text).toContain('is not reachable');
   });
+
+  // A path is a picture nobody sees: the agents that test have no tool to
+  // open a file with.
+  it('returns a screenshot as an image a model can look at, beside the snapshot', async () => {
+    const spawned = await haunt.call<{ session_id: string }>('haunt_spawn', {
+      target_url: 'data:text/html,<h1>Seen</h1>',
+      replay_budget_ms: 0,
+    });
+    const session_id = spawned.data.session_id;
+    try {
+      const plain = await haunt.client.callTool({
+        name: 'haunt_capture_state',
+        arguments: { session_id },
+      });
+      expect((plain.content as unknown[]).length).toBe(1);
+
+      const shot = await haunt.client.callTool({
+        name: 'haunt_capture_state',
+        arguments: { session_id, include_screenshot: true },
+      });
+      const [text, image] = shot.content as Array<{
+        type: string;
+        text?: string;
+        data?: string;
+        mimeType?: string;
+      }>;
+      expect(text.type).toBe('text');
+      expect(image).toMatchObject({ type: 'image', mimeType: 'image/png' });
+      // A PNG, in base64.
+      expect(
+        Buffer.from(image.data ?? '', 'base64')
+          .subarray(1, 4)
+          .toString(),
+      ).toBe('PNG');
+      rmSync(
+        join(
+          '.haunt-reports/screenshots',
+          JSON.parse(text.text ?? '{}').screenshot_path,
+        ),
+        { force: true },
+      );
+    } finally {
+      await haunt.call('haunt_end_session', { session_id });
+    }
+  }, 30_000);
 
   describe('argument validation', () => {
     it('names a missing required argument instead of failing inside the engine', async () => {
       const result = await haunt.call('haunt_spawn', {
-        target_url: 'data:text/html,<h1>x</h1>',
+        headless: true,
       });
       expect(result.isError).toBe(true);
       expect(result.text).toBe(
-        'Error: Invalid arguments for haunt_spawn: persona: Required',
+        'Error: Invalid arguments for haunt_spawn: target_url: Required',
       );
     });
 
