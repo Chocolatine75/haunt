@@ -15,6 +15,7 @@ import {
   hauntPlan,
   hauntReplay,
   hauntSpawn,
+  heldBack,
   lastEffects,
   listQuerySchema,
   planCaseSchema,
@@ -24,7 +25,7 @@ import {
   syncInventory,
   takeSnapshot,
   zodToJsonSchema
-} from "./chunk-6QMZXYZA.js";
+} from "./chunk-4JVJ5E46.js";
 import {
   _enum,
   _null,
@@ -10879,6 +10880,9 @@ var TOOLS = [
         "How many actions the session may run before it has to end. Default: 40"
       ),
       timeout: external_exports.number().optional().describe("Older name of `budget`"),
+      keep_going: external_exports.boolean().optional().describe(
+        "Refuse a first haunt_end_session while test cases have no verdict or controls were never used and a quarter of the budget is left: the answer lists what is left instead of ending. The next call ends the session. Default: false"
+      ),
       narrow_check: external_exports.boolean().optional().describe(
         "Before the session ends, read its layout once more on a window 375 px wide: what breaks on a phone shows there. Default: false"
       ),
@@ -11031,7 +11035,7 @@ var TOOLS = [
   }),
   defineTool({
     name: "haunt_end_session",
-    description: "Close the browser session, replay every issue in a fresh browser to verify it, and return them: confirmed, flaky (with the rate a replay reproduced it) or unverified in issues_found, each with its evidence bundle; rejected ones apart, with why.",
+    description: "Close the browser session, replay every issue in a fresh browser to verify it, and return them: confirmed, flaky (with the rate a replay reproduced it) or unverified in issues_found, each with its evidence bundle; rejected ones apart, with why. A session spawned with keep_going that still has work left answers `ended: false` once, with what is left, and stays open.",
     input: external_exports.object({
       session_id: external_exports.string(),
       brief: external_exports.boolean().optional().describe(
@@ -11045,6 +11049,8 @@ var TOOLS = [
     // An agent that ends its session needs to know what became of its
     // issues, not to carry a hundred controls back to whoever spawned it.
     run: async (manager, { brief, ...input }) => {
+      const held = await heldBack(manager, input);
+      if (held) return held;
       const ended = await hauntEndSession(manager, input);
       return brief ? briefEnd(ended) : ended;
     }

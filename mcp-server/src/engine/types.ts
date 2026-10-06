@@ -79,6 +79,10 @@ export interface HauntSession {
     // window before the session ends.
     layout: boolean;
     narrow_check: boolean;
+    // Whether a first call to end it is refused while work is left
+    // (docs/v3/part-4-field.md, R-F1), and whether that has happened.
+    keep_going: boolean;
+    held_back?: boolean;
     replay_budget_ms: number;
     bundle_cap_bytes: number;
     // Kept in memory for the replays, never written.

@@ -13,7 +13,7 @@ import { SETTLE_CAP_MS, hauntAct } from './act/act.js';
 import { pendingTimers } from './act/page-fns.js';
 import { SESSION_TTL_MS } from './constants.js';
 import { verifySession } from './evidence/verify.js';
-import { planOf, syncInventory } from './plan/plan.js';
+import { coverageOf, planOf, syncInventory } from './plan/plan.js';
 import { sabotaged } from './sabotage.js';
 import type { SessionManager } from './session/manager.js';
 import { takeSnapshot } from './snapshot/snapshot.js';
@@ -79,6 +79,74 @@ export async function lastEffects(session: HauntSession): Promise<void> {
     if (Date.now() >= deadline) return;
     await sleep(50);
   }
+}
+
+// Below which what is left of a budget is not worth holding a session
+// back for.
+const WORTH_GOING_ON = 0.25;
+// How many controls never used are worth it by themselves, and how many
+// are named.
+const CONTROLS_WORTH = 5;
+const CONTROLS_NAMED = 20;
+
+export interface HeldBack {
+  ended: false;
+  left: {
+    cases: string[];
+    controls: Array<{ ref: string; role: string; name: string }>;
+  };
+  steps_remaining: number;
+  todo: string;
+}
+
+// Whether a session asked to end is held back instead (R-F1): once, when it
+// asked for that at spawn and still has cases without a verdict or controls
+// never used, and a quarter of its budget or more. The issues passed with
+// the call are kept either way.
+//
+// On nine applications of CATTest the testers used 11 to 30 of their 40
+// actions and left cases unplayed on every one. The brief tells them to
+// spend the rest on what remains; a line in a prompt did not make them.
+export async function heldBack(
+  manager: SessionManager,
+  input: EndSessionInput,
+): Promise<HeldBack | undefined> {
+  if (!manager.has(input.session_id)) return undefined;
+  const session = manager.get(input.session_id);
+  const { evidence } = session;
+  if (!evidence.keep_going || evidence.held_back) return undefined;
+  const steps_remaining = session.max_steps - session.step_count;
+  if (steps_remaining < session.max_steps * WORTH_GOING_ON) return undefined;
+  if (session.runtime.dialog || session.page.isClosed()) return undefined;
+
+  // What the last action left is in the inventory before it is counted.
+  await takeSnapshot(session, { format: 'json' }, true).catch(() => {});
+  await syncInventory(session).catch(() => {});
+  const cases = coverageOf(session).left.cases;
+  const controls = [...session.plan.controls.values()]
+    .filter((control) => !control.exercised && !control.state)
+    .map(({ ref, role, name }) => ({ ref, role, name }));
+  if (cases.length === 0 && controls.length < CONTROLS_WORTH) return undefined;
+
+  evidence.held_back = true;
+  const known = new Set(session.issues.map((issue) => JSON.stringify(issue)));
+  for (const issue of input.issues ?? []) {
+    if (!known.has(JSON.stringify(issue))) session.issues.push(issue);
+  }
+  const parts = [
+    cases.length > 0
+      ? `${cases.length} case${cases.length === 1 ? ' has' : 's have'} no verdict (${cases.join(', ')})`
+      : '',
+    controls.length > 0
+      ? `${controls.length} control${controls.length === 1 ? ' was' : 's were'} never used`
+      : '',
+  ].filter(Boolean);
+  return {
+    ended: false,
+    left: { cases, controls: controls.slice(0, CONTROLS_NAMED) },
+    steps_remaining,
+    todo: `Not ended: ${parts.join(' and ')}, and ${steps_remaining} actions are left. Play the cases that have no verdict. For the controls never used, register a case for what each is for and play it. The issues you passed are kept. Call haunt_end_session again when that is done, or now if nothing more can be tested: it will end the session.`,
+  };
 }
 
 export async function hauntEndSession(
