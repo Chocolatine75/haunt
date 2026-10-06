@@ -74,7 +74,9 @@ const SABOTAGES: Record<string, (ctx: EvidenceContext) => Promise<void>> = {
     const s = await ctx.ev('ev-sequence');
     await s.play();
     const [issue] = s.issues();
-    const ended = await s.end([{ ...issue, signal: undefined }]);
+    // Naming a signal the session does not have: an issue with no claim is
+    // no longer a rejected one since part 4 (R-T11).
+    const ended = await s.end([{ ...issue, signal: 's999' }]);
     expect(ended.issues_found).toEqual([]);
   },
   // The password left in the trace.

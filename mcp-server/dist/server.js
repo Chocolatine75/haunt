@@ -1,8 +1,10 @@
 import { createRequire } from 'module'; const require = createRequire(import.meta.url);
 import {
   CASE_KINDS,
+  SCREENSHOTS_DIR,
   SessionManager,
   actionSchema,
+  briefEnd,
   expectationSchema,
   external_exports,
   hauntAct,
@@ -15,8 +17,9 @@ import {
   hauntSpawn,
   listQuerySchema,
   planCaseSchema,
+  takeSnapshot,
   zodToJsonSchema
-} from "./chunk-Q2MFLHYO.js";
+} from "./chunk-HMXWNGVW.js";
 import {
   _enum,
   _null,
@@ -8834,6 +8837,10 @@ var StdioServerTransport = class {
   }
 };
 
+// src/mcp/server.ts
+import { existsSync, readFileSync } from "fs";
+import { join } from "path";
+
 // node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-compat.js
 function isZ4Schema(s) {
   const schema = s;
@@ -10573,6 +10580,40 @@ function hauntEstimateCost(input) {
   return { browser_calls, session_size, summary_line };
 }
 
+// src/engine/scout.ts
+async function hauntScout(manager, input) {
+  const { max = 4, ...spawn } = input;
+  const { session_id } = await hauntSpawn(manager, {
+    ...spawn,
+    budget: 1,
+    // It tests nothing: no audit, and nothing to replay.
+    audit: false,
+    replay_budget_ms: 0
+  });
+  const session = manager.get(session_id);
+  try {
+    const snapshot = await takeSnapshot(session, { format: "json" }, true);
+    const here = new URL(session.page.url());
+    const routes = [here.pathname];
+    for (const element of snapshot.elements ?? []) {
+      if (element.role !== "link" || !element.href || element.hidden) continue;
+      let to;
+      try {
+        to = new URL(element.href, here);
+      } catch {
+        continue;
+      }
+      if (to.origin !== here.origin || !/^https?:$/.test(to.protocol)) continue;
+      if (!routes.includes(to.pathname)) routes.push(to.pathname);
+    }
+    return { routes: routes.slice(0, max), title: snapshot.title };
+  } finally {
+    await session.browser.close().catch(() => {
+    });
+    if (manager.has(session_id)) manager.delete(session_id);
+  }
+}
+
 // src/gates/part-2/contract.ts
 var SIGNAL_KINDS = [
   "http_error",
@@ -10601,7 +10642,7 @@ var issueSchema = external_exports.object({
   page_url: external_exports.string(),
   recommendation: external_exports.string(),
   signal: external_exports.string().optional().describe(
-    "The id of the signal this issue is about (s3). An issue must name a signal or carry an observation, or it is rejected"
+    "The id of the signal this issue is about (s3). An issue that names a signal, a case or an observation is replayed and confirmed; one with none is only listed for a person to check"
   ),
   observed: expectationSchema.optional().describe(
     "For an issue no signal shows: the fact about the page the engine checks by replaying the steps (a message that is or is not there, an address, an element\u2019s state, the items of a list, what a control holds)"
@@ -10615,7 +10656,13 @@ var issueSchema = external_exports.object({
   actual: external_exports.string().optional().describe("And what you saw instead")
 });
 var verificationSchema = external_exports.object({
-  status: external_exports.enum(["confirmed", "flaky", "rejected", "unverified"]),
+  status: external_exports.enum([
+    "confirmed",
+    "flaky",
+    "rejected",
+    "unverified",
+    "unchecked"
+  ]),
   attempts: external_exports.number().int().min(0),
   reproduced: external_exports.number().int().min(0),
   rate: external_exports.number().min(0).max(1),
@@ -10628,7 +10675,8 @@ var reportIssueSchema = issueSchema.extend({
 });
 var signalSchema = external_exports.object({
   id: external_exports.string(),
-  kind: external_exports.enum(SIGNAL_KINDS),
+  // Part 2's kinds, and the layout defects of part 5.
+  kind: external_exports.enum([...SIGNAL_KINDS, "layout"]),
   url: external_exports.string(),
   step: external_exports.number().int().min(0),
   message: external_exports.string(),
@@ -10698,6 +10746,9 @@ var TOOLS = [
         "How many actions the session may run before it has to end. Default: 40"
       ),
       timeout: external_exports.number().optional().describe("Older name of `budget`"),
+      narrow_check: external_exports.boolean().optional().describe(
+        "Before the session ends, read its layout once more on a window 375 px wide: what breaks on a phone shows there. Default: false"
+      ),
       hostile: external_exports.boolean().optional().describe(
         "Allow test cases of kind `hostile`, which send attack payloads. Only against an app you own. Default: false"
       ),
@@ -10722,6 +10773,18 @@ var TOOLS = [
       )
     }),
     run: (manager, input) => hauntSpawn(manager, input)
+  }),
+  defineTool({
+    name: "haunt_scout",
+    description: "The areas of an app worth testing, from the links its page really has: opens the URL, returns the distinct paths on its own origin (the URL's own first), and closes. One call, no session left open. Never guesses a route.",
+    input: external_exports.object({
+      target_url: external_exports.string().describe("URL to start from"),
+      headless: external_exports.boolean().optional(),
+      cookies: external_exports.array(cookieSchema).optional().describe("Session cookies, to scout as a logged-in user"),
+      secrets: external_exports.array(external_exports.string()).optional(),
+      max: external_exports.number().int().positive().optional().describe("How many routes at most. Default: 4")
+    }),
+    run: (manager, input) => hauntScout(manager, input)
   }),
   defineTool({
     name: "haunt_get_cookies",
@@ -10769,6 +10832,9 @@ var TOOLS = [
         "The id of another session, live or ended: registers its cases here, resolved to this session's controls. How a tester takes the cases a planner wrote"
       ),
       only: external_exports.array(external_exports.string()).optional().describe("With `from`: the ids of the cases to take. Default: all"),
+      brief: external_exports.boolean().optional().describe(
+        "Leave the inventory out of the answer: only the cases and the coverage. Use it once you have read the inventory"
+      ),
       close: external_exports.array(
         external_exports.object({
           id: external_exports.string(),
@@ -10777,7 +10843,13 @@ var TOOLS = [
         })
       ).optional()
     }),
-    run: (manager, input) => hauntPlan(manager, input)
+    // On a page of a hundred controls the inventory is most of the answer,
+    // and a caller that has read it once does not need it back with every
+    // case it registers.
+    run: async (manager, { brief, ...input }) => {
+      const plan = await hauntPlan(manager, input);
+      return brief ? { cases: plan.cases, coverage: plan.coverage } : plan;
+    }
   }),
   defineTool({
     name: "haunt_capture_state",
@@ -10810,12 +10882,20 @@ var TOOLS = [
     description: "Close the browser session, replay every issue in a fresh browser to verify it, and return them: confirmed, flaky (with the rate a replay reproduced it) or unverified in issues_found, each with its evidence bundle; rejected ones apart, with why.",
     input: external_exports.object({
       session_id: external_exports.string(),
+      brief: external_exports.boolean().optional().describe(
+        "Return what became of each issue and the counts, without the signals and the inventory. They stay on the server: haunt_generate_report takes them from the session id"
+      ),
       overall_impression: external_exports.string().optional().describe("What the session found, in a sentence or two"),
       issues: external_exports.array(issueSchema).optional().describe(
         "Issues found since the last haunt_act call, typically from the result of the last action"
       )
     }),
-    run: (manager, input) => hauntEndSession(manager, input)
+    // An agent that ends its session needs to know what became of its
+    // issues, not to carry a hundred controls back to whoever spawned it.
+    run: async (manager, { brief, ...input }) => {
+      const ended = await hauntEndSession(manager, input);
+      return brief ? briefEnd(ended) : ended;
+    }
   }),
   defineTool({
     name: "haunt_estimate_cost",
@@ -10918,9 +10998,19 @@ function createServer(manager = new SessionManager()) {
         throw new Error(describeInputError(name, parsed.error));
       }
       const result = await tool.run(manager, parsed.data);
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
-      };
+      const content = [{ type: "text", text: JSON.stringify(result) }];
+      const shot = result?.screenshot_path;
+      if (name === "haunt_capture_state" && shot) {
+        const path = join(SCREENSHOTS_DIR, shot);
+        if (existsSync(path)) {
+          content.push({
+            type: "image",
+            data: readFileSync(path).toString("base64"),
+            mimeType: "image/png"
+          });
+        }
+      }
+      return { content };
     } catch (error) {
       return {
         content: [

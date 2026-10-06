@@ -86,8 +86,15 @@ function expectNoneUnplanted(signals: Signal[] | undefined): void {
   )?.[1];
   const onPart1 = (signals ?? []).filter(
     (signal) =>
-      // Part 2's and part 3's pages plant their signals on purpose.
-      !/^\/(sig|ev)[-/]/.test(new URL(signal.url).pathname) &&
+      // Part 2's, part 3's and part 5's pages plant their signals on
+      // purpose.
+      !/^\/(sig|ev|lay)[-/]/.test(new URL(signal.url).pathname) &&
+      // And part 1's own page of overlays plants what part 5 reports as a
+      // layout defect: a banner that covers a button for good.
+      !(
+        (signal.kind as string) === 'layout' &&
+        new URL(signal.url).pathname === '/overlays'
+      ) &&
       !caused?.includes(signal.kind),
   );
   expect(unplanted(onPart1), 'signals a part 1 page did not plant').toEqual([]);

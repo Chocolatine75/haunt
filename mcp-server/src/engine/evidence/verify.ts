@@ -128,6 +128,9 @@ async function verifyClaim(
   deadline: number,
   dir: string,
   forSignal: boolean,
+  // The claim is only that the steps run: whatever the replays say, the
+  // issue itself has not been checked (R-T11).
+  stepsOnly = false,
 ): Promise<Verification> {
   const file = stepsFileOf(session, claim);
   const secrets = Object.fromEntries(
@@ -210,10 +213,24 @@ async function verifyClaim(
           : {}),
       };
     }
+    if (
+      stepsOnly &&
+      verification.status !== 'rejected' &&
+      !sabotaged('tester_unchecked_confirmed')
+    ) {
+      // Its steps ran, or there was no time to run them: either way nothing
+      // was verified about what it says.
+      verification = {
+        ...verification,
+        status: 'unchecked' as Verification['status'],
+      };
+    }
     const proof = runs.find((r) => r.reproduced);
     if (
       proof &&
-      (verification.status === 'confirmed' || verification.status === 'flaky')
+      (verification.status === 'confirmed' ||
+        verification.status === 'flaky' ||
+        stepsOnly)
     ) {
       writeBundle(
         dir,
@@ -270,7 +287,22 @@ export async function verifySession(
     if (issue.case !== undefined && !ofCase && !closedByTester) {
       verification = rejected('unknown_case' as Verification['reason']);
     } else if (!issue.signal && !issue.observed && !ofCase) {
-      verification = rejected('no_claim');
+      // Nothing the engine can check. It used to be rejected for that (part
+      // 3, R-E9), and what a tester saw and could not state was lost: on
+      // CATTest's pilot, a filter combining the wrong way, cards overlapping
+      // on hover. Its steps are replayed, to establish that they run, and it
+      // is listed for a person (part 4, R-T11).
+      verification = await verifyClaim(
+        session,
+        {
+          step: session.step_count,
+          observed: { steps_only: true },
+        } as unknown as Claim,
+        deadline,
+        join(root, `issue-${i + 1}`),
+        false,
+        true,
+      );
     } else if (issue.signal && !signal) {
       verification = rejected('unknown_signal');
     } else if (ofCase && sabotaged('tester_case_not_replayed')) {

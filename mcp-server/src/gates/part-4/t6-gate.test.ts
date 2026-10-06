@@ -255,7 +255,10 @@ describe('T6 the gate itself', () => {
       'the part 1, 2 and 3 gates’ tests, contracts and statuses are what they were when part 4 started',
       async () => {
         // As they are once G5.6 no longer names the test files of the
-        // persona loader (R-T17), with S8.3 and E7.3 following it.
+        // persona loader (R-T17), with S8.3 and E7.3 following it; and part
+        // 3's once an issue with no claim is no longer rejected (E3.1, and
+        // the two tests that used one as their example of a rejected
+        // issue).
         expect(hashOf(resolve(HERE, '../part-1'))).toEqual({
           files: 10,
           hash: '22f3486a59d5879e8dc78467f261a5966f61aa75101646fea4463c0ff9a65d31',
@@ -266,7 +269,7 @@ describe('T6 the gate itself', () => {
         });
         expect(hashOf(resolve(HERE, '../part-3'))).toEqual({
           files: 10,
-          hash: 'bd9773825e559b8f8b22c94b055f723d24b75d7f10b81bb76777401daa233681',
+          hash: '3944a319f0d593d72f8fd293400ab00249365b416063f7e0f8f82b6573934733',
         });
       },
     );

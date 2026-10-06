@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gauntlet — lay-dialog</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<!--
+  A long article with a paywall. In the buggy variant the payment dialog is
+  centred on the page, not on the window: it opens a screen and a half below
+  what the reader is looking at.
+-->
+<h1>The long read</h1>
+<p><button data-g="subscribe" type="button">Subscribe</button></p>
+<div style="height: 2600px; border-left: 4px solid #ddd; padding-left: 12px">Three thousand words.</div>
+<div data-g="dialog" id="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title" hidden
+  style="{{#buggy}}position: absolute; top: 1500px;{{/buggy}}{{#clean}}position: fixed; top: 120px;{{/clean}} left: 50%; width: 360px; margin-left: -180px; background: #fff; border: 1px solid #555; padding: 16px">
+  <h2 id="dialog-title">Payment</h2>
+  <p><label>Card number <input data-g="card" type="text" inputmode="numeric" autocomplete="off"></label></p>
+  <p><button data-g="pay" type="button">Pay</button> <button data-g="cancel" type="button">Cancel</button></p>
+</div>
+<script>
+  const G = window.__gauntlet;
+  const dialog = document.getElementById('dialog');
+  G.find('subscribe').addEventListener('click', () => {
+    dialog.hidden = false;
+  });
+  G.find('cancel').addEventListener('click', () => {
+    dialog.hidden = true;
+  });
+</script>
+</body>
+</html>

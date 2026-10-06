@@ -203,13 +203,34 @@ export function planOf(session: HauntSession): PlanOutput {
       kind,
       controls: controls.flatMap((ref) => {
         const control = session.plan.controls.get(ref);
-        return control
-          ? [{ role: control.role, name: control.name, group: control.group }]
-          : [];
+        if (!control) return [];
+        const alike = sameAs(session, control);
+        return [
+          {
+            role: control.role,
+            name: control.name,
+            group: control.group,
+            ...(alike.length > 1 ? { index: alike.indexOf(control) } : {}),
+          },
+        ];
       }),
       expect,
     })),
   };
+}
+
+// The controls of the inventory that are the same to a reader: same role,
+// name and group, in the order the session met them.
+function sameAs(
+  session: HauntSession,
+  control: { role: string; name: string; group: string },
+): Listed[] {
+  return [...session.plan.controls.values()].filter(
+    (c) =>
+      c.role === control.role &&
+      c.name === control.name &&
+      c.group === control.group,
+  );
 }
 
 // The case with its controls as references of this session. One given by
@@ -217,18 +238,20 @@ export function planOf(session: HauntSession): PlanOutput {
 function resolved(session: HauntSession, one: GivenCase): PlanCase {
   const controls = one.controls.map((control) => {
     if (typeof control === 'string') return control;
-    const found = [...session.plan.controls.values()].filter(
-      (c) =>
-        c.role === control.role &&
-        c.name === control.name &&
-        c.group === control.group,
-    );
-    if (found.length !== 1) {
+    const alike = sameAs(session, control);
+    // One of several by its place among them; the only one otherwise.
+    const found =
+      control.index !== undefined
+        ? alike[control.index]
+        : alike.length === 1
+          ? alike[0]
+          : undefined;
+    if (!found) {
       throw new Error(
-        `Case "${one.id}" names the ${control.role} "${control.name}" (${control.group}), which ${found.length === 0 ? 'is not a control of this session' : `${found.length} controls of this session match`}. Plan it from this session's inventory.`,
+        `Case "${one.id}" names the ${control.role} "${control.name}" (${control.group}), which ${alike.length === 0 ? 'is not a control of this session' : `${alike.length} controls of this session match: say which with "index"`}. Plan it from this session's inventory.`,
       );
     }
-    return found[0].ref;
+    return found.ref;
   });
   return { id: one.id, kind: one.kind, controls, expect: one.expect };
 }
@@ -322,6 +345,16 @@ export async function hauntPlan(
     only?: string[];
   },
 ): Promise<PlanOutput> {
+  if (
+    !manager.has(input.session_id) &&
+    manager.endedSession(input.session_id)
+  ) {
+    // What a tester does when handed a planner's session id: ask it for its
+    // plan. Told only "not found", it gave up and planned on its own.
+    throw new Error(
+      `Session ${input.session_id} has ended. To take its cases into a session of your own, call haunt_plan with your own session_id and "from": "${input.session_id}".`,
+    );
+  }
   const session = manager.get(input.session_id);
   await manager.reapStale(SESSION_TTL_MS);
   // The page as it is now: a plan made on what was read a minute ago would
