@@ -34108,6 +34108,13 @@ var require_axe = __commonJS({
   }
 });
 
+// src/engine/constants.ts
+var REPORTS_DIR = ".haunt-reports";
+var SCREENSHOTS_DIR = ".haunt-reports/screenshots";
+var SCREENSHOT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1e3;
+var SESSION_TTL_MS = 10 * 60 * 1e3;
+var SESSION_MAX_ACTIVE_DURATION_MS = 15 * 60 * 1e3;
+
 // src/engine/session/manager.ts
 var ENDED_KEPT = 50;
 var SessionManager = class {
@@ -34634,13 +34641,6 @@ function controlState(el, of) {
   if (credential) return value ? "(filled)" : "(empty)";
   return value;
 }
-
-// src/engine/constants.ts
-var REPORTS_DIR = ".haunt-reports";
-var SCREENSHOTS_DIR = ".haunt-reports/screenshots";
-var SCREENSHOT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1e3;
-var SESSION_TTL_MS = 10 * 60 * 1e3;
-var SESSION_MAX_ACTIVE_DURATION_MS = 15 * 60 * 1e3;
 
 // src/engine/sabotage.ts
 var current = null;
@@ -35999,24 +35999,37 @@ function planOf(session) {
       kind,
       controls: controls.flatMap((ref2) => {
         const control = session.plan.controls.get(ref2);
-        return control ? [{ role: control.role, name: control.name, group: control.group }] : [];
+        if (!control) return [];
+        const alike = sameAs(session, control);
+        return [
+          {
+            role: control.role,
+            name: control.name,
+            group: control.group,
+            ...alike.length > 1 ? { index: alike.indexOf(control) } : {}
+          }
+        ];
       }),
       expect
     }))
   };
 }
+function sameAs(session, control) {
+  return [...session.plan.controls.values()].filter(
+    (c) => c.role === control.role && c.name === control.name && c.group === control.group
+  );
+}
 function resolved(session, one) {
   const controls = one.controls.map((control) => {
     if (typeof control === "string") return control;
-    const found = [...session.plan.controls.values()].filter(
-      (c) => c.role === control.role && c.name === control.name && c.group === control.group
-    );
-    if (found.length !== 1) {
+    const alike = sameAs(session, control);
+    const found = control.index !== void 0 ? alike[control.index] : alike.length === 1 ? alike[0] : void 0;
+    if (!found) {
       throw new Error(
-        `Case "${one.id}" names the ${control.role} "${control.name}" (${control.group}), which ${found.length === 0 ? "is not a control of this session" : `${found.length} controls of this session match`}. Plan it from this session's inventory.`
+        `Case "${one.id}" names the ${control.role} "${control.name}" (${control.group}), which ${alike.length === 0 ? "is not a control of this session" : `${alike.length} controls of this session match: say which with "index"`}. Plan it from this session's inventory.`
       );
     }
-    return found[0].ref;
+    return found.ref;
   });
   return { id: one.id, kind: one.kind, controls, expect: one.expect };
 }
@@ -42917,6 +42930,9 @@ async function hauntAct(manager, input) {
       const named = observed.value?.ref ?? observed.element?.ref;
       const read = session.snapshot.previous;
       const locator = named && read ? locatorOf(read.elements, read.containers, named) : void 0;
+      if (!result.expectation.held) {
+        result.todo = `Case "${input.case}" failed. If the page is wrong, file an issue with "case": "${input.case}" now. If it is your expectation that was wrong about the page, state the right one under a new case and play it again.`;
+      }
       session.plan.claims.set(input.case, {
         step: session.step_count,
         observed: { ...observed, ...locator ? { locator } : {}, fails: true }
@@ -45166,7 +45182,12 @@ var planCaseSchema = external_exports.object({
   controls: external_exports.array(
     external_exports.union([
       external_exports.string(),
-      external_exports.object({ role: external_exports.string(), name: external_exports.string(), group: external_exports.string() })
+      external_exports.object({
+        role: external_exports.string(),
+        name: external_exports.string(),
+        group: external_exports.string(),
+        index: external_exports.number().int().min(0).optional()
+      })
     ])
   ).describe(
     "The controls it exercises: references from the inventory, or what each is ({ role, name, group }), as `portable` gives them, to register in this session a plan made in another"
@@ -45177,10 +45198,12 @@ var planCaseSchema = external_exports.object({
 export {
   external_exports,
   zodToJsonSchema,
+  SCREENSHOTS_DIR,
   SessionManager,
   CASE_KINDS,
   PLANNER_BRIEF_HEADING,
   TESTER_BRIEF_HEADING,
+  takeSnapshot,
   hauntPlan,
   hauntEndSession,
   malformed,

@@ -1441,6 +1441,9 @@ export async function hauntAct(
         named && read
           ? locatorOf(read.elements, read.containers, named)
           : undefined;
+      if (!result.expectation.held) {
+        result.todo = `Case "${input.case}" failed. If the page is wrong, file an issue with "case": "${input.case}" now. If it is your expectation that was wrong about the page, state the right one under a new case and play it again.`;
+      }
       session.plan.claims.set(input.case, {
         step: session.step_count,
         observed: { ...observed, ...(locator ? { locator } : {}), fails: true },

@@ -66,125 +66,32 @@ Print exactly:
 haunt v0.2.0  —  QA testing
 ```
 
-### How to act on a page
+### What the tools are
 
-Every page is read with `haunt_capture_state` and acted on with `haunt_act`.
+The agents do the testing; this is what you need of the tools yourself, for
+logging in and for the report.
 
 `haunt_capture_state` returns a text snapshot: the page's text in reading
 order, and every element you can act on as a line such as
 `- button "Create account" [e12]`. The part in square brackets is the
-element's **reference**. Lines may also say `disabled`, `covered by e14`,
-`hidden(...)`, `value="..."`, or `-> /path` for a link's destination.
+element's **reference**. `haunt_act` takes a list of actions that name
+elements by reference (`{ "type": "fill", "ref": "e3", "text": "..." }`,
+`{ "type": "click", "ref": "e12" }`) and reports what each really changed.
 
-`haunt_act` takes a list of actions that name elements by reference:
+What the testers bring back, and the report shows:
 
-```
-{ "type": "click", "ref": "e12" }
-{ "type": "fill", "ref": "e7", "text": "hello" }
-{ "type": "type", "ref": "e7", "text": "hello" }      (key by key, for fields that react to keystrokes)
-{ "type": "press", "keys": "Enter" }
-{ "type": "select", "ref": "e9", "values": ["Large"] }
-{ "type": "check", "ref": "e4", "checked": true }
-{ "type": "hover", "ref": "e3" }
-{ "type": "scroll", "direction": "down" }
-{ "type": "goto", "url": "http://localhost:3000/pricing" }
-{ "type": "back" }
-{ "type": "dialog", "accept": true }
-{ "type": "wait_for", "text": "Saved" }
-```
-
-Other actions exist (`drag`, `upload`, `tab`, `scroll_to`, `resize`, `read`,
-`options`, `reload`, `forward`); the tool's schema describes them.
-
-Rules:
-
-- **Only use references from the most recent snapshot of that session.** A
-  reference to an element that no longer exists fails as `stale_ref`.
-- Several actions may go in one call when the later ones do not depend on
-  what the earlier ones do to the page (the fields of one form, then its
-  submit button). The sequence stops at the first failure, navigation,
-  dialog or new tab.
-- Each action's result says what it changed. Read it:
-  - `text_changes` lists the text that appeared and went away (an error
-    message, a confirmation, a total). Before concluding that an action gave
-    no feedback, check `text_changes.added`: a message that appeared is
-    feedback, even though `diff` (which only lists elements) is empty.
-  - `changes.none: true` on a control that should do something (a button, a
-    link) is a finding: the control is dead. The engine raises it as a
-    `dead_control` signal when nothing at all happened; report it naming
-    that signal.
-  - `ok: false` is information about the page, with a `code`: `covered` (and
-    by what), `disabled`, `not_visible`, `stale_ref`… It is a finding only
-    when a real user would be stuck the same way, for instance a button
-    permanently covered by a banner. A stale or unknown reference is your
-    mistake, never an issue.
-  - `sandbox_blocked` means the test sandbox stopped a request to an origin
-    outside the app under test. **Never report it as an issue.**
-  - `console_errors` and `network_errors` belong to the action that returned
-    them.
-- **Signals are facts, not guesses.** `haunt_spawn` and every `haunt_act`
-  return `signals`: what the engine detected by itself, without you having
-  to notice it — HTTP errors, uncaught exceptions and rejections,
-  `console.error`, failed, hung and slow requests, long main-thread blocks,
-  dead controls, and accessibility violations (each page is audited with
-  axe-core the first time it is reached). Each carries an `id` (`s3`), the
-  `step` that caused it, a default `severity` and a `message`. A signal
-  marked `late` comes from an earlier step. `feedback: false` on an error
-  means the page said nothing to the user about it: a silent failure.
-  `expected: true` on a 401 or 403 means a sign-in refused as it should be
-  (a wrong password, and the page said so): not an issue, unless the
-  password was the right one.
-  - Build your issues on them: when an issue is about a signal, put its id
-    in the issue's `"signal"` field. The report then shows the signal under
-    your issue instead of on its own. Raise or lower the severity when the
-    user impact calls for it.
-  - Do not report the same fact twice, and do not invent one: a signal you
-    do not turn into an issue still reaches the report, under "Detected
-    automatically".
-- **Every issue must be checkable.** It names a signal (`"signal"`), or it
-  states what the page shows in `"observed"`: exactly one of `text_present`,
-  `text_absent`, `url`, or `element` (`{ "ref": "e12", "state": "disabled" }`),
-  with the `step` after which it holds (the last step if left out). "No
-  error message after submitting an invalid email" is
-  `"observed": { "text_absent": "valid email", "step": 4 }`.
-  - When the session ends, `haunt_end_session` replays every issue in a
-    fresh browser. One reproduced every time is **confirmed**; one
-    reproduced only some of the time is **flaky**, with its rate; one never
-    reproduced, or with neither a signal nor an observation, is
-    **rejected** and does not reach the report. Each confirmed or flaky
-    issue comes with an evidence bundle (steps, screenshot, trace) that
-    `haunt_replay` plays again.
-  - A pure opinion ("this label is confusing") is not checkable: leave it
-    out.
-  - `haunt_capture_state` with `signals: true` lists the signals of the
-    current page; with `audit: true` it audits the page again as it is now
-    (after a dialog or a panel opened, for instance).
-- **Say what you expect before you act, and let the engine check it.**
-  `haunt_plan` returns the session's inventory: every control it was shown,
-  with its group, its state, and whether an action has exercised it yet.
-  Register a test case for what you are about to try
-  (`"cases": [{ "id": "titles-only", "kind": "normal", "controls": ["e2"],
-  "expect": "With Titles only on, every result's title contains the word" }]`),
-  then pass `"case"` and `"expect"` to the `haunt_act` call that plays it.
-  `expect` is an observation as above, or one of two more:
-  - `list`: the items of a container, read exactly as the page shows them,
-    and what must be true of them.
-    `{ "list": { "within": { "role": "list", "name": "Results" }, "items":
-    "heading", "every_contains": "garlic" } }`. Conditions: `count` (`eq`,
-    `min`, `max`), `every_contains`, `none_contains`, `order` (`ascending` or
-    `descending`, `"as": "number"` for prices and counts), `equals` (the
-    exact items). `haunt_capture_state` with `list` returns the same items,
-    to look before you state.
-  - `value`: what a control holds or its state.
-    `{ "value": { "ref": "e4", "of": "checked", "is": true } }`, with `of`
-    one of `value`, `checked`, `expanded`, `pressed`, `focused`.
-  The result carries `expectation: { held, read }`, and the case gets its
-  verdict. A failed case is an issue's claim: file the issue with
-  `"case": "titles-only"` instead of an observation.
-  - `haunt_plan` again shows the coverage: controls exercised of those
-    listed, cases run, and what is left. From three quarters of the
-    session's budget every result lists what is still untouched.
-- If a dialog opens, answer it with a `dialog` action before anything else.
+- **signals**: what the engine detected by itself (server errors,
+  exceptions, failed and slow requests, dead controls, accessibility
+  violations). An issue names the one it is about in `"signal"`.
+- **issues**, each with a claim the engine can check: a signal, a test case
+  whose expectation did not hold (`"case"`), or a fact about the page in
+  `"observed"`. `haunt_end_session` replays each in a fresh browser: one
+  reproduced every time is **confirmed**, one reproduced only sometimes is
+  **flaky**, one never reproduced is **rejected** and does not reach the
+  report. Each confirmed or flaky issue has an evidence bundle that
+  `haunt_replay` plays again.
+- **coverage**: the controls exercised of those the pages offer and the test
+  cases passed, failed and not run, from `haunt_plan`, counted by the engine.
 
 ### Phase 0.5 — Auth (only if --email and --password are provided)
 
@@ -236,36 +143,27 @@ Otherwise, discover routes from the real page:
 
 Print: `scouting...`
 
-`haunt_spawn` one session on `target_url` with `budget: 5`, then
-`haunt_capture_state`.
-
-**Read real links from the snapshot** — every `link` line ends with its
-destination (`-> /pricing`). Keep the distinct paths on the target's own
-origin. Do NOT guess common routes like /login or /dashboard unless you
-actually see them in the snapshot.
-
-Call `haunt_end_session`. Keep up to 4 areas from the **real links you found**,
-the target itself first. If fewer than 4 real routes exist, test those — do
-not pad with guesses.
+Call `haunt_scout` with `target_url` (and the cookies and secrets of Phase
+0.5 if there are any). It opens the page, reads its real links and returns
+`routes`: the distinct paths on the target's own origin, the target's first,
+at most 4. Those are the areas. Do NOT add routes it did not return.
 
 Print the discovered routes, e.g.: `routes: /  /login  /pricing  /dashboard`
 
 ### Phase 1.5 — Cost estimate
 
-Call `haunt_estimate_cost` with `route_count` (the number of areas, max 4) and
-`steps_per_route` (the budget).
+If `--yes` was given, skip this phase: no call, no prompt.
 
-Print exactly:
+Otherwise call `haunt_estimate_cost` with `route_count` (the number of areas)
+and `steps_per_route` (the budget), and print exactly:
 
 ```
 <summary_line from the tool output>
 proceed? [y/N]
 ```
 
-- If `--yes` flag is present: skip the prompt and continue directly to Phase 2.
-- Otherwise: wait for user input.
-  - If user types `y` or `yes`: continue to Phase 2.
-  - Any other input (including Enter alone): print `aborted.` and stop.
+Wait for user input. If the user types `y` or `yes`, continue to Phase 2. Any
+other input (including Enter alone): print `aborted.` and stop.
 
 ### Phase 2 — Plan, then test
 
@@ -289,8 +187,7 @@ What the app is meant to do:
 ```
 
 Each planner answers with the id of its session and its cases grouped for the
-testers: up to 3 groups per area, each a list of case ids that belong together
-(one form, one list with its filters, one dialog). A planner that found
+testers: one group for most areas, up to 3 for an area with many cases. A planner that found
 nothing to test on its area answers with no group: that area gets one tester
 with no case, which explores.
 

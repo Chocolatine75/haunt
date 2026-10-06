@@ -1,6 +1,7 @@
 import { createRequire } from 'module'; const require = createRequire(import.meta.url);
 import {
   CASE_KINDS,
+  SCREENSHOTS_DIR,
   SessionManager,
   actionSchema,
   expectationSchema,
@@ -15,8 +16,9 @@ import {
   hauntSpawn,
   listQuerySchema,
   planCaseSchema,
+  takeSnapshot,
   zodToJsonSchema
-} from "./chunk-Q2MFLHYO.js";
+} from "./chunk-U57ZHTTL.js";
 import {
   _enum,
   _null,
@@ -8834,6 +8836,10 @@ var StdioServerTransport = class {
   }
 };
 
+// src/mcp/server.ts
+import { existsSync, readFileSync } from "fs";
+import { join } from "path";
+
 // node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-compat.js
 function isZ4Schema(s) {
   const schema = s;
@@ -10573,6 +10579,40 @@ function hauntEstimateCost(input) {
   return { browser_calls, session_size, summary_line };
 }
 
+// src/engine/scout.ts
+async function hauntScout(manager, input) {
+  const { max = 4, ...spawn } = input;
+  const { session_id } = await hauntSpawn(manager, {
+    ...spawn,
+    budget: 1,
+    // It tests nothing: no audit, and nothing to replay.
+    audit: false,
+    replay_budget_ms: 0
+  });
+  const session = manager.get(session_id);
+  try {
+    const snapshot = await takeSnapshot(session, { format: "json" }, true);
+    const here = new URL(session.page.url());
+    const routes = [here.pathname];
+    for (const element of snapshot.elements ?? []) {
+      if (element.role !== "link" || !element.href || element.hidden) continue;
+      let to;
+      try {
+        to = new URL(element.href, here);
+      } catch {
+        continue;
+      }
+      if (to.origin !== here.origin || !/^https?:$/.test(to.protocol)) continue;
+      if (!routes.includes(to.pathname)) routes.push(to.pathname);
+    }
+    return { routes: routes.slice(0, max), title: snapshot.title };
+  } finally {
+    await session.browser.close().catch(() => {
+    });
+    if (manager.has(session_id)) manager.delete(session_id);
+  }
+}
+
 // src/gates/part-2/contract.ts
 var SIGNAL_KINDS = [
   "http_error",
@@ -10722,6 +10762,18 @@ var TOOLS = [
       )
     }),
     run: (manager, input) => hauntSpawn(manager, input)
+  }),
+  defineTool({
+    name: "haunt_scout",
+    description: "The areas of an app worth testing, from the links its page really has: opens the URL, returns the distinct paths on its own origin (the URL's own first), and closes. One call, no session left open. Never guesses a route.",
+    input: external_exports.object({
+      target_url: external_exports.string().describe("URL to start from"),
+      headless: external_exports.boolean().optional(),
+      cookies: external_exports.array(cookieSchema).optional().describe("Session cookies, to scout as a logged-in user"),
+      secrets: external_exports.array(external_exports.string()).optional(),
+      max: external_exports.number().int().positive().optional().describe("How many routes at most. Default: 4")
+    }),
+    run: (manager, input) => hauntScout(manager, input)
   }),
   defineTool({
     name: "haunt_get_cookies",
@@ -10918,9 +10970,19 @@ function createServer(manager = new SessionManager()) {
         throw new Error(describeInputError(name, parsed.error));
       }
       const result = await tool.run(manager, parsed.data);
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
-      };
+      const content = [{ type: "text", text: JSON.stringify(result, null, 2) }];
+      const shot = result?.screenshot_path;
+      if (name === "haunt_capture_state" && shot) {
+        const path = join(SCREENSHOTS_DIR, shot);
+        if (existsSync(path)) {
+          content.push({
+            type: "image",
+            data: readFileSync(path).toString("base64"),
+            mimeType: "image/png"
+          });
+        }
+      }
+      return { content };
     } catch (error) {
       return {
         content: [

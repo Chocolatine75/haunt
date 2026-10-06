@@ -97,7 +97,12 @@ export const planCaseSchema = z.object({
     .array(
       z.union([
         z.string(),
-        z.object({ role: z.string(), name: z.string(), group: z.string() }),
+        z.object({
+          role: z.string(),
+          name: z.string(),
+          group: z.string(),
+          index: z.number().int().min(0).optional(),
+        }),
       ]),
     )
     .describe(

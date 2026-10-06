@@ -114,6 +114,71 @@ describe('a plan handed from a planner to testers', { timeout: 60_000 }, () => {
     ]);
   });
 
+  // Every card of a list has its own "Quick view": on CATTest's recipe
+  // catalogue a tester lost its cases to that, the plan refusing a control
+  // that several matched.
+  it('tells apart controls with the same role, name and group, by their place', async () => {
+    const dupes = async () => {
+      const result = await haunt.call<{ session_id: string }>('haunt_spawn', {
+        target_url: gauntlet.url('dupes'),
+        replay_budget_ms: 0,
+      });
+      return result.data.session_id;
+    };
+    const planner = await dupes();
+    const inventory = (await plan({ session_id: planner })).inventory;
+    const same = (c: { role: string; name: string; group: string }) =>
+      `${c.role}|${c.name}|${c.group}`;
+    const repeated = inventory.find(
+      (c) => inventory.filter((o) => same(o) === same(c)).length > 1,
+    );
+    if (!repeated) throw new Error('dupes has no repeated control');
+    const alike = inventory.filter((c) => same(c) === same(repeated));
+    const second = alike[1];
+
+    const { portable } = await plan({
+      session_id: planner,
+      cases: [
+        {
+          id: 'second-of-them',
+          kind: 'normal',
+          controls: [second.ref],
+          expect: 'The second one acts on its own row',
+        },
+      ],
+    });
+    expect(portable[0].controls).toEqual([
+      {
+        role: second.role,
+        name: second.name,
+        group: second.group,
+        index: 1,
+      },
+    ]);
+
+    const tester = await dupes();
+    const taken = await plan({ session_id: tester, from: planner });
+    const theirs = taken.inventory.filter((c) => same(c) === same(repeated));
+    expect(taken.cases[0].controls).toEqual([theirs[1].ref]);
+
+    // Without its place, it is refused, and the message says what to add.
+    const vague = await haunt.call('haunt_plan', {
+      session_id: tester,
+      cases: [
+        {
+          id: 'which-one',
+          kind: 'normal',
+          controls: [
+            { role: second.role, name: second.name, group: second.group },
+          ],
+          expect: 'One of them',
+        },
+      ],
+    });
+    expect(vague.isError).toBe(true);
+    expect(vague.text).toContain('"index"');
+  });
+
   it('says which session or case is missing, and takes none then', async () => {
     const from = await planned();
     const session_id = await spawn();

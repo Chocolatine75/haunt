@@ -22,6 +22,7 @@ import {
 } from '../engine/plan/schema.js';
 import { hauntEstimateCost } from '../engine/report/estimate-cost.js';
 import { hauntGenerateReport } from '../engine/report/generate-report.js';
+import { hauntScout } from '../engine/scout.js';
 import type { SessionManager } from '../engine/session/manager.js';
 import { hauntSpawn } from '../engine/spawn.js';
 import { SIGNAL_KINDS } from '../gates/part-2/contract.js';
@@ -267,6 +268,27 @@ export const TOOLS: ToolDefinition[] = [
         ),
     }),
     run: (manager, input) => hauntSpawn(manager, input),
+  }),
+  defineTool({
+    name: 'haunt_scout',
+    description:
+      "The areas of an app worth testing, from the links its page really has: opens the URL, returns the distinct paths on its own origin (the URL's own first), and closes. One call, no session left open. Never guesses a route.",
+    input: z.object({
+      target_url: z.string().describe('URL to start from'),
+      headless: z.boolean().optional(),
+      cookies: z
+        .array(cookieSchema)
+        .optional()
+        .describe('Session cookies, to scout as a logged-in user'),
+      secrets: z.array(z.string()).optional(),
+      max: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe('How many routes at most. Default: 4'),
+    }),
+    run: (manager, input) => hauntScout(manager, input),
   }),
   defineTool({
     name: 'haunt_get_cookies',
