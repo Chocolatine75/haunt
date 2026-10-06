@@ -49,7 +49,7 @@ testing 4 areas...
 fix first: add server-side validation to the signup handler — empty submission
            currently returns a 500, leaving users with a blank broken screen
 
-report: .haunt-reports/2026-04-20-confused-beginner.md
+report: .haunt-reports/2026-04-20-localhost-3000.md
 ────────────────────────────────────────
 ```
 
@@ -91,23 +91,20 @@ Find bugs. Read report. Fix with one prompt. Run again.
 ## 🎮 Usage
 
 ```bash
-# Default — a confused first-time user explores your app
+# Test the app: haunt finds its pages, plans what to test on each, and tests it
 /haunt:haunt-test http://localhost:3000
 
 # Watch it happen in real time
 /haunt:haunt-test http://localhost:3000 --headed
 
-# Adversarial — probes every input and URL
-/haunt:haunt-test http://localhost:3000 --personas malicious-user
+# Tell it what the app is meant to do, and it holds the app to that
+/haunt:haunt-test http://localhost:3000 --spec docs/requirements.md
 
-# Accessibility — keyboard-only, finds every broken interaction
-/haunt:haunt-test http://localhost:3000 --personas screen-reader-user
-
-# Full sweep — all three personas at once
-/haunt:haunt-test http://localhost:3000 --personas confused-beginner,malicious-user,screen-reader-user
-
-# Test authenticated areas — Haunt logs in first, then explores
+# Test authenticated areas — Haunt logs in first, then tests
 /haunt:haunt-test http://localhost:3000 --email you@example.com --password secret
+
+# Also send attack payloads. Only against an app you own
+/haunt:haunt-test http://localhost:3000 --hostile
 ```
 
 Reports saved to `.haunt-reports/` — structured markdown with YAML frontmatter.
@@ -116,46 +113,18 @@ Full flag reference: [docs/cli.md](docs/cli.md)
 
 ---
 
-## 👻 The personas
+## 🧪 How it tests
 
-Each phantom user has a different way of going off-script.
+Haunt works the way a QA engineer does, with one job per agent.
 
-| Persona | Who they are | What they do |
-|---|---|---|
-| 😕 `confused-beginner` | First-time user with no context | Submits forms empty, enters wrong data types, modifies URLs, hits back after submit, ignores instructions |
-| 😈 `malicious-user` | User who pushes on everything | Tries unexpected inputs in every field, accesses URLs directly, probes what's reachable without logging in |
-| ♿ `screen-reader-user` | Keyboard-only user | Tabs through every element, triggers modal edge cases, checks if errors are announced, finds unlabeled buttons |
+| Who | What it does |
+|---|---|
+| **Planner** | Reads a page, lists every control it offers, and writes test cases: normal use with realistic values, edge inputs, state changes, keyboard. It cannot act on the page. |
+| **Testers** | Each plays a group of cases in a browser of its own. A tester says what it expects *before* it acts, and the engine checks it: the exact items of a list, what a field holds, a message that is or is not there. |
+| **The engine** | Detects server errors, exceptions, dead buttons and accessibility failures by itself, replays every reported bug three times in a fresh browser before it reaches the report, and counts what was and was not tested. |
 
-> ⚠️ `malicious-user` sends real XSS/SQLi payloads and probes admin routes without
-> authorization. Only point Haunt at apps you own or have explicit permission to test —
-> never a third party's production site.
-
----
-
-## ✍️ Custom personas
-
-Your app has specific failure modes. Write the user who finds them.
-
-```yaml
-name: Impatient Power User
-description: Moves fast, skips steps, expects things to just work
-system_prompt: |
-  You move fast and skip everything that looks optional.
-  Double-click buttons. Refresh mid-flow. Skip required fields and submit anyway.
-  If something needs more than 2 steps, try to skip one.
-  Report anything that breaks when you don't follow the expected sequence.
-browser:
-  headless: true
-  viewport: { width: 1440, height: 900 }
-scenarios:
-  - name: Speed run
-    goal: Break the experience by going too fast
-    max_steps: 10
-```
-
-```bash
-/haunt:haunt-test http://localhost:3000 --personas ./personas/power-user.yaml
-```
+> ⚠️ `--hostile` sends real XSS/SQLi payloads. Only point it at apps you own or
+> have explicit permission to test — never a third party's production site.
 
 ---
 
@@ -167,17 +136,20 @@ scenarios:
     ├── scouting                reads real links from your app's DOM
     │                           maps up to 4 areas to test
     │
-    ├── spawns N phantoms       one browser per area, all parallel
-    │   ├── 👻 /signup          confused beginner tries to register
-    │   ├── 👻 /dashboard       tries the main app without context
-    │   ├── 👻 /pricing         looks at plans, looks for a CTA
-    │   └── 👻 /editor          lands directly, no onboarding
+    ├── planning                one planner per area, all parallel
+    │                           inventory of controls → test cases
     │
-    └── report                  issues ranked by impact
-                                "For Claude" section auto-fixes everything
+    ├── testing                 testers share each area's cases,
+    │   ├── 👻 /signup          one browser each, all parallel:
+    │   ├── 👻 /dashboard       expect → act → check
+    │   └── 👻 /pricing
+    │
+    └── report                  confirmed issues ranked by impact,
+                                what was tested and what was not,
+                                "For Claude" section to fix it all
 ```
 
-No AI vision. No magic. A real browser, a snapshot of every element a user could act on, real clicks and keystrokes on them — and an AI deciding what a confused user would do next.
+A real browser, a snapshot of every element a user could act on, and real clicks and keystrokes on them. A screenshot is taken when something has to be looked at, not at every step.
 
 **Sessions are sandboxed to your app's own origins.** On the first visit haunt records every origin your app loads from (your dev server, your CDN, your API host) and freezes that list. Anything the session requests afterwards from a *genuinely new* origin — including a cross-origin redirect — is blocked and listed under "blocked requests" in the report. That's a sandbox block, not an app bug. If your app only calls a second API origin or port after a user interaction, make sure it's also reached during the initial page load, or that call will show up as blocked. Sessions are also capped at ~15 minutes of active time, after which they must be ended rather than continued.
 
@@ -192,8 +164,7 @@ could not run.
 
 ```bash
 npx --package @haunt/mcp-server haunt-ci https://staging.example.com \
-  --personas confused-beginner,malicious-user \
-  --steps 3
+  --spec docs/requirements.md
 ```
 
 **With Claude Code installed (the default).** `haunt-ci` hands the real
@@ -224,7 +195,7 @@ action the model decided and what it did.
 
 ## 📄 License
 
-MIT — fork it, extend it, add personas, run it in CI.
+MIT — fork it, extend it, run it in CI.
 
 If Haunt finds something real in your app, we'd love to hear what it caught.
 

@@ -33,7 +33,14 @@ export function newRecording(
   viewport: { width: number; height: number },
   spawn: Record<string, unknown>,
 ): Recording {
-  const { cookies: _cookies, secrets: _secrets, ...kept } = spawn;
+  // Nor a persona: a caller written before part 4 may pass one, and it
+  // means nothing any more.
+  const {
+    cookies: _cookies,
+    secrets: _secrets,
+    persona: _persona,
+    ...kept
+  } = spawn;
   return { start_url, viewport, spawn: kept, steps: [], secrets: new Map() };
 }
 
