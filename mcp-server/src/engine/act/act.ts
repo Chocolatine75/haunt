@@ -1051,6 +1051,29 @@ function scrolled(
   );
 }
 
+// Whether the window starts scrolling shortly after it was read. A smooth
+// scroll moves nothing in its first frames: on CATTest 43 a dot that
+// scrolls to the last section with `behavior: 'smooth'` was reported as
+// wired to nothing, and the three dots before it were not. Only asked of a
+// click about to be called dead, so it costs nothing to the others.
+async function scrollsLate(
+  session: HauntSession,
+  read: Snapshot['scroll'] | undefined,
+): Promise<boolean> {
+  const deadline = Date.now() + 400;
+  for (;;) {
+    const now = await withTimeout(
+      session.page.evaluate(() => ({ x: window.scrollX, y: window.scrollY })),
+      500,
+    );
+    if (!now || !read) return false;
+    if (Math.round(now.x) !== Math.round(read.x)) return true;
+    if (Math.round(now.y) !== Math.round(read.y)) return true;
+    if (Date.now() >= deadline) return false;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+}
+
 const withoutFragment = (url: string) => url.split('#')[0];
 
 // Roles whose click is meant to do something (R-S2).
@@ -1243,7 +1266,8 @@ async function runStep(
       !(await withTimeout(
         target.frame.evaluate(reactedSince, startedAt),
         1_000,
-      ))
+      )) &&
+      !(await scrollsLate(session, after.scroll))
     ) {
       collector.raiseDeadControl(stepNumber, page.url(), {
         ref,

@@ -23,14 +23,27 @@ const PAGE = `<!doctype html><html lang="en"><title>dead</title>
   <button id="nothing" type="button">Nothing</button>
   <button id="attach" type="button">Attach a file</button>
   <input id="picked" type="file" hidden>
+  <button id="down" type="button">Go to the end</button>
   <p id="status" role="status"></p>
   <form id="login">
     <input id="email" type="email" aria-label="Email">
     <input id="password" type="password" aria-label="Password">
     <button type="submit">Sign in</button>
   </form>
+  <div style="height: 6000px"></div>
+  <p id="end">The end</p>
   <script>
     const status = document.getElementById('status');
+    document.getElementById('down').addEventListener('click', () => {
+      // Moves a few frames later, as a smooth scroll does on a page busy
+      // with something else.
+      let frames = 15;
+      const later = () => {
+        if (--frames > 0) return requestAnimationFrame(later);
+        document.getElementById('end').scrollIntoView();
+      };
+      requestAnimationFrame(later);
+    });
     document.getElementById('open').addEventListener('click', () => {
       status.textContent = 'Opened';
     });
@@ -128,6 +141,20 @@ describe('dead controls', () => {
     const attach = await ref('Attach a file');
     expect(await deadAfter({ type: 'click', ref: attach })).toEqual([]);
     expect(await deadAfter({ type: 'click', ref: attach })).toEqual([]);
+  }, 30_000);
+
+  // CATTest 43: of five dots that scroll to a section, the one for the last
+  // section was reported as wired to nothing. A smooth scroll has moved
+  // nothing yet when the page is read.
+  it('does not call dead a button whose scroll moves after the page is read', async () => {
+    manager = new SessionManager();
+    ({ session_id } = await hauntSpawn(manager, {
+      target_url: url,
+      timeout: 50,
+    }));
+    expect(
+      await deadAfter({ type: 'click', ref: await ref('Go to the end') }),
+    ).toEqual([]);
   }, 30_000);
 
   // On a real run against demo/, the sign-in button was reported dead with
