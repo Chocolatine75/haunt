@@ -186,11 +186,12 @@ wrote the plan tests what it already believes works.
 ## I. What must not regress
 
 - **R-T17 Earlier gates.** The part 1, 2 and 3 gates pass unchanged, except
-  two tests this part makes wrong, each changed in a pull request of its
-  own with this section as the reason: E3.1, which proves the first case of
-  R-E9 that R-T11 replaces; and G5.6, which lists the test files that must
-  not be deleted and names the two of the persona loader, removed with it by
-  R-T14. The fingerprints the later gates keep of the earlier ones (S8.3,
+  the tests this part makes wrong, changed in pull requests of their own
+  with this section as the reason. E3.1 proves the first case of R-E9, which
+  R-T11 replaces; E6.1 and one sabotage of E7.1 used an issue with no claim
+  as their example of a rejected one, and use one naming a signal the
+  session does not have. G5.6 lists the test files that must not be deleted
+  and names the two of the persona loader, removed with it by R-T14. The fingerprints the later gates keep of the earlier ones (S8.3,
   E7.3, T6.3) follow.
 - **R-T18 Callers updated.** `commands/haunt-test.md` and `haunt-ci`'s loop
   follow the method; the zod schemas in `src/mcp/tools.ts` define every new

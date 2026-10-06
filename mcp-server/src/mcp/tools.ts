@@ -44,7 +44,7 @@ const issueSchema = z.object({
     .string()
     .optional()
     .describe(
-      'The id of the signal this issue is about (s3). An issue must name a signal or carry an observation, or it is rejected',
+      'The id of the signal this issue is about (s3). An issue that names a signal, a case or an observation is replayed and confirmed; one with none is only listed for a person to check',
     ),
   observed: expectationSchema
     .optional()
@@ -70,7 +70,13 @@ const issueSchema = z.object({
 // report as haunt_end_session returned it.
 const verificationSchema = z
   .object({
-    status: z.enum(['confirmed', 'flaky', 'rejected', 'unverified']),
+    status: z.enum([
+      'confirmed',
+      'flaky',
+      'rejected',
+      'unverified',
+      'unchecked',
+    ]),
     attempts: z.number().int().min(0),
     reproduced: z.number().int().min(0),
     rate: z.number().min(0).max(1),

@@ -19,7 +19,7 @@ import {
   planCaseSchema,
   takeSnapshot,
   zodToJsonSchema
-} from "./chunk-IMBHOHWZ.js";
+} from "./chunk-5O7RP2D2.js";
 import {
   _enum,
   _null,
@@ -10642,7 +10642,7 @@ var issueSchema = external_exports.object({
   page_url: external_exports.string(),
   recommendation: external_exports.string(),
   signal: external_exports.string().optional().describe(
-    "The id of the signal this issue is about (s3). An issue must name a signal or carry an observation, or it is rejected"
+    "The id of the signal this issue is about (s3). An issue that names a signal, a case or an observation is replayed and confirmed; one with none is only listed for a person to check"
   ),
   observed: expectationSchema.optional().describe(
     "For an issue no signal shows: the fact about the page the engine checks by replaying the steps (a message that is or is not there, an address, an element\u2019s state, the items of a list, what a control holds)"
@@ -10656,7 +10656,13 @@ var issueSchema = external_exports.object({
   actual: external_exports.string().optional().describe("And what you saw instead")
 });
 var verificationSchema = external_exports.object({
-  status: external_exports.enum(["confirmed", "flaky", "rejected", "unverified"]),
+  status: external_exports.enum([
+    "confirmed",
+    "flaky",
+    "rejected",
+    "unverified",
+    "unchecked"
+  ]),
   attempts: external_exports.number().int().min(0),
   reproduced: external_exports.number().int().min(0),
   rate: external_exports.number().min(0).max(1),

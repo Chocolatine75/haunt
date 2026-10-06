@@ -111,6 +111,9 @@ export async function holds(
   session: HauntSession,
   observed: Observation & { locator?: Locator; fails?: boolean },
 ): Promise<boolean> {
+  // An issue with nothing the engine can check claims only that its steps
+  // can be played (part 4, R-T11): they just were.
+  if ((observed as { steps_only?: boolean }).steps_only) return true;
   const held = await observedHolds(session, observed);
   return observed.fails ? !held : held;
 }

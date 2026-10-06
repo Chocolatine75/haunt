@@ -37527,6 +37527,7 @@ async function textOf(session) {
   return texts.join("\n");
 }
 async function holds(session, observed) {
+  if (observed.steps_only) return true;
   const held = await observedHolds(session, observed);
   return observed.fails ? !held : held;
 }
@@ -43024,7 +43025,7 @@ function writeBundle(dir, file, run, verification, cap) {
     write();
   }
 }
-async function verifyClaim(session, claim, deadline, dir, forSignal) {
+async function verifyClaim(session, claim, deadline, dir, forSignal, stepsOnly = false) {
   const file = stepsFileOf(session, claim);
   const secrets = Object.fromEntries(
     [...session.recording.secrets].map(([value, placeholder]) => [
@@ -43086,8 +43087,14 @@ async function verifyClaim(session, claim, deadline, dir, forSignal) {
         ...stuck?.failed_step !== void 0 ? { failed_step: stuck.failed_step } : {}
       };
     }
+    if (stepsOnly && verification.status !== "rejected" && !sabotaged("tester_unchecked_confirmed")) {
+      verification = {
+        ...verification,
+        status: "unchecked"
+      };
+    }
     const proof = runs.find((r) => r.reproduced);
-    if (proof && (verification.status === "confirmed" || verification.status === "flaky")) {
+    if (proof && (verification.status === "confirmed" || verification.status === "flaky" || stepsOnly)) {
       writeBundle(
         dir,
         file,
@@ -43126,7 +43133,17 @@ async function verifySession(session, issues, signals) {
     if (issue.case !== void 0 && !ofCase && !closedByTester) {
       verification = rejected("unknown_case");
     } else if (!issue.signal && !issue.observed && !ofCase) {
-      verification = rejected("no_claim");
+      verification = await verifyClaim(
+        session,
+        {
+          step: session.step_count,
+          observed: { steps_only: true }
+        },
+        deadline,
+        join3(root, `issue-${i + 1}`),
+        false,
+        true
+      );
     } else if (issue.signal && !signal) {
       verification = rejected("unknown_signal");
     } else if (ofCase && sabotaged("tester_case_not_replayed")) {
@@ -43360,6 +43377,7 @@ function renderSignalGroup(group) {
 var SIGNALS_HEADING = "Detected automatically";
 var FLAKY_HEADING = "Flaky";
 var UNVERIFIED_HEADING = "Unverified";
+var UNCHECKED_HEADING = "To check by hand";
 var COVERAGE_HEADING = "Coverage";
 function coverageAcross(sessions) {
   if (!sessions.some((s) => s.inventory)) return void 0;
@@ -43576,6 +43594,17 @@ function hauntGenerateReport(input) {
   const allIssues = filed.filter((i) => statusOf(i) === "confirmed");
   const flaky = filed.filter((i) => statusOf(i) === "flaky");
   const unverified = filed.filter((i) => statusOf(i) === "unverified");
+  const unchecked = filed.filter((i) => statusOf(i) === "unchecked");
+  const unnamedFailures = input.sessions.flatMap((session) => {
+    const named2 = new Set(
+      [...session.issues, ...session.rejected ?? []].flatMap(
+        (i) => i.case !== void 0 ? [i.case] : []
+      )
+    );
+    return (session.cases ?? []).filter(
+      (one) => one.verdict === "failed" && one.by === "engine" && !named2.has(one.id)
+    ).map((one) => ({ area: session.area, ...one }));
+  });
   const rejectedIssues = [
     ...filed.filter((i) => statusOf(i) === "rejected"),
     ...input.sessions.flatMap((s) => s.rejected ?? [])
@@ -43728,6 +43757,36 @@ function hauntGenerateReport(input) {
       flaky.map(listed).join("\n")
     );
   }
+  if (unchecked.length > 0 || unnamedFailures.length > 0) {
+    bodySections.push(
+      "",
+      `## ${UNCHECKED_HEADING}`,
+      "",
+      "Seen by a tester, and nothing the engine could verify by itself. Not counted. Each comes with the steps that led to it."
+    );
+    if (unchecked.length > 0) {
+      bodySections.push(
+        "",
+        unchecked.map(
+          (issue) => [
+            `- [${issue.severity.toUpperCase()}] ${issue.description} (\`${issue.page_url}\`)`,
+            ...issue.expected ? [`  - Expected: ${issue.expected}`] : [],
+            ...issue.actual ? [`  - Seen: ${issue.actual}`] : [],
+            ...issue.verification?.bundle ? [`  - Steps: \`${issue.verification.bundle}\``] : []
+          ].join("\n")
+        ).join("\n")
+      );
+    }
+    if (unnamedFailures.length > 0) {
+      bodySections.push(
+        "",
+        "Checks that failed, and that no issue was filed for:",
+        ...unnamedFailures.map(
+          (one) => `- "${one.id}" on \`${one.area}\` \u2014 expected: ${one.expect}${one.read !== void 0 ? ` \u2014 the page showed: ${JSON.stringify(one.read)}` : ""}`
+        )
+      );
+    }
+  }
   if (unverified.length > 0) {
     bodySections.push(
       "",
@@ -43829,6 +43888,7 @@ function hauntGenerateReport(input) {
         }),
         flaky,
         unverified,
+        unchecked,
         rejected: rejectedIssues,
         signals: allSignals,
         signal_counts

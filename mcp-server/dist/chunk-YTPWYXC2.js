@@ -16,7 +16,7 @@ import {
   malformed,
   planCaseSchema,
   zodToJsonSchema
-} from "./chunk-IMBHOHWZ.js";
+} from "./chunk-5O7RP2D2.js";
 import {
   Anthropic
 } from "./chunk-MMWLM6BK.js";
@@ -34776,7 +34776,7 @@ var UNAUTHENTICATED_NOTE = "Note: you are NOT logged in for this session. If thi
 var SANDBOX_BLOCK_NOTE = "Note: your last action was blocked by the haunt test sandbox because it targeted an origin outside the app under test. This is NOT an app bug \u2014 do not report it as an issue. Blocked: ";
 var HOW_TO_ACT = `Elements are named by the reference in square brackets, e.g. [e12]. Use that reference in your actions; every action is an object with a "type". A failed action is information about the page (covered, disabled, gone), not necessarily a bug.
 Report an issue as soon as you have seen it \u2014 in this very answer, not later. In particular, look at what your last actions did: a button or a submit that changed nothing on the page, a server error in the console (status 500, an exception), a form accepted or refused without any message, private content shown without logging in. Each of those is an issue a real user would hit.
-Every issue must be checkable: name the signal it is about in "signal", or state what the page shows in "observed" (text_present, text_absent, url, or an element's state, after a step). Each is replayed in a fresh browser before it is reported; one with neither is rejected.`;
+Give every issue something the engine can check: the signal it is about in "signal", the case whose expectation failed in "case", or what the page shows in "observed" (text_present, text_absent, url, an element's state, a list, a value, after a step). Each is replayed in a fresh browser before it is reported. One with none of those is only listed for a person to check, with its "expected" and "actual".`;
 var WRAP_UP = 'The session is over: no further action will be run, so leave "actions" empty. Report in "issues" anything you have seen and not reported yet, including what your last actions just revealed.';
 function describeSignals(title, signals) {
   if (signals.length === 0) return [];

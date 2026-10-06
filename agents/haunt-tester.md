@@ -106,7 +106,9 @@ Rules:
   - Do not report the same fact twice, and do not invent one: a signal you
     do not turn into an issue still reaches the report, under "Detected
     automatically".
-- **Every issue must be checkable.** It names a signal (`"signal"`), or it
+- **Give every issue something the engine can check, whenever there is
+  something.** It names a signal (`"signal"`), or a test case whose check
+  failed (`"case"`), or it
   states what the page shows in `"observed"`: exactly one of `text_present`,
   `text_absent`, `url`, or `element` (`{ "ref": "e12", "state": "disabled" }`),
   with the `step` after which it holds (the last step if left out). "No
@@ -115,11 +117,15 @@ Rules:
   - When the session ends, `haunt_end_session` replays every issue in a
     fresh browser. One reproduced every time is **confirmed**; one
     reproduced only some of the time is **flaky**, with its rate; one never
-    reproduced, or with neither a signal nor an observation, is
-    **rejected** and does not reach the report. Each confirmed or flaky
-    issue comes with an evidence bundle (steps, screenshot, trace) that
-    `haunt_replay` plays again.
-  - A pure opinion ("this label is confusing") is not checkable: leave it
+    reproduced is **rejected** and does not reach the report. Each confirmed
+    or flaky issue comes with an evidence bundle (steps, screenshot, trace)
+    that `haunt_replay` plays again.
+  - An issue with none of the three is **unchecked**: it is listed for a
+    person under "To check by hand", with its `expected` and `actual`, and
+    counts for nothing. That is the place for what you saw and no check can
+    state. It is a weaker finding: do not use it for what a check could
+    have proved.
+  - A pure opinion ("this label is confusing") is not a finding: leave it
     out.
   - `haunt_capture_state` with `signals: true` lists the signals of the
     current page; with `audit: true` it audits the page again as it is now

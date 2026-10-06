@@ -12,7 +12,7 @@ import { groupBy, renderSignalGroup, signalKey } from './group.js';
 // What the report needs of a verification (gates/part-3/contract.ts has the
 // whole shape).
 export interface ReportVerification {
-  status: 'confirmed' | 'flaky' | 'rejected' | 'unverified';
+  status: 'confirmed' | 'flaky' | 'rejected' | 'unverified' | 'unchecked';
   attempts: number;
   reproduced: number;
   rate: number;
@@ -114,6 +114,8 @@ export const SIGNALS_HEADING = 'Detected automatically';
 // not be replayed in time (R-E12).
 export const FLAKY_HEADING = 'Flaky';
 export const UNVERIFIED_HEADING = 'Unverified';
+// The heading of what a tester saw and the engine cannot check (R-T11).
+export const UNCHECKED_HEADING = 'To check by hand';
 // The heading of what was and was not tested (part 4, R-T12).
 export const COVERAGE_HEADING = 'Coverage';
 
@@ -419,6 +421,23 @@ export function hauntGenerateReport(
   const allIssues = filed.filter((i) => statusOf(i) === 'confirmed');
   const flaky = filed.filter((i) => statusOf(i) === 'flaky');
   const unverified = filed.filter((i) => statusOf(i) === 'unverified');
+  // What a tester saw and the engine cannot check (R-T11): for a person.
+  const unchecked = filed.filter((i) => statusOf(i) === 'unchecked');
+  // And the checks that failed without any issue naming them: a tester that
+  // sees its expectation fail and says nothing has still seen it fail.
+  const unnamedFailures = input.sessions.flatMap((session) => {
+    const named = new Set(
+      [...session.issues, ...(session.rejected ?? [])].flatMap((i) =>
+        i.case !== undefined ? [i.case] : [],
+      ),
+    );
+    return (session.cases ?? [])
+      .filter(
+        (one) =>
+          one.verdict === 'failed' && one.by === 'engine' && !named.has(one.id),
+      )
+      .map((one) => ({ area: session.area, ...one }));
+  });
   const rejectedIssues = [
     ...filed.filter((i) => statusOf(i) === 'rejected'),
     ...input.sessions.flatMap((s) => s.rejected ?? []),
@@ -629,6 +648,41 @@ export function hauntGenerateReport(
       flaky.map(listed).join('\n'),
     );
   }
+  if (unchecked.length > 0 || unnamedFailures.length > 0) {
+    bodySections.push(
+      '',
+      `## ${UNCHECKED_HEADING}`,
+      '',
+      'Seen by a tester, and nothing the engine could verify by itself. Not counted. Each comes with the steps that led to it.',
+    );
+    if (unchecked.length > 0) {
+      bodySections.push(
+        '',
+        unchecked
+          .map((issue) =>
+            [
+              `- [${issue.severity.toUpperCase()}] ${issue.description} (\`${issue.page_url}\`)`,
+              ...(issue.expected ? [`  - Expected: ${issue.expected}`] : []),
+              ...(issue.actual ? [`  - Seen: ${issue.actual}`] : []),
+              ...(issue.verification?.bundle
+                ? [`  - Steps: \`${issue.verification.bundle}\``]
+                : []),
+            ].join('\n'),
+          )
+          .join('\n'),
+      );
+    }
+    if (unnamedFailures.length > 0) {
+      bodySections.push(
+        '',
+        'Checks that failed, and that no issue was filed for:',
+        ...unnamedFailures.map(
+          (one) =>
+            `- "${one.id}" on \`${one.area}\` — expected: ${one.expect}${one.read !== undefined ? ` — the page showed: ${JSON.stringify(one.read)}` : ''}`,
+        ),
+      );
+    }
+  }
   if (unverified.length > 0) {
     bodySections.push(
       '',
@@ -743,6 +797,7 @@ export function hauntGenerateReport(
         }),
         flaky,
         unverified,
+        unchecked,
         rejected: rejectedIssues,
         signals: allSignals,
         signal_counts,
