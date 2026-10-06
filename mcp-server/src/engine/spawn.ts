@@ -21,6 +21,7 @@ import type { SessionManager } from './session/manager.js';
 const REPLAY_BUDGET_MS = 120_000;
 import { auditIfNew } from './signals/audit.js';
 import { REPORT_BINDING, SignalCollector } from './signals/collector.js';
+import { layoutIfDue } from './signals/layout.js';
 import { installHooks } from './snapshot/page-script.js';
 import { newSnapshotState, takeSnapshot } from './snapshot/snapshot.js';
 import type { HauntSession } from './types.js';
@@ -354,6 +355,7 @@ export async function hauntSpawn(
   // page is read first; both are step 0, delivered here.
   await takeSnapshot(session, { format: 'json' }, true).catch(() => {});
   await auditIfNew(session, 0);
+  if (session.evidence.audit) await layoutIfDue(session, 0);
 
   return {
     session_id: sessionId,

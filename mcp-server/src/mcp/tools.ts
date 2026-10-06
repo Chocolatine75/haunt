@@ -96,7 +96,8 @@ const reportIssueSchema = issueSchema.extend({
 const signalSchema = z
   .object({
     id: z.string(),
-    kind: z.enum(SIGNAL_KINDS),
+    // Part 2's kinds, and the layout defects of part 5.
+    kind: z.enum([...SIGNAL_KINDS, 'layout']),
     url: z.string(),
     step: z.number().int().min(0),
     message: z.string(),

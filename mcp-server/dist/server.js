@@ -19,7 +19,7 @@ import {
   planCaseSchema,
   takeSnapshot,
   zodToJsonSchema
-} from "./chunk-5O7RP2D2.js";
+} from "./chunk-GWTXGENJ.js";
 import {
   _enum,
   _null,
@@ -10675,7 +10675,8 @@ var reportIssueSchema = issueSchema.extend({
 });
 var signalSchema = external_exports.object({
   id: external_exports.string(),
-  kind: external_exports.enum(SIGNAL_KINDS),
+  // Part 2's kinds, and the layout defects of part 5.
+  kind: external_exports.enum([...SIGNAL_KINDS, "layout"]),
   url: external_exports.string(),
   step: external_exports.number().int().min(0),
   message: external_exports.string(),

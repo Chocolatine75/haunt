@@ -36,6 +36,7 @@ import {
 import { sabotaged } from '../sabotage.js';
 import type { SessionManager } from '../session/manager.js';
 import { auditIfNew } from '../signals/audit.js';
+import { layoutIfDue } from '../signals/layout.js';
 import {
   diffBetween,
   refOfLocal,
@@ -1382,6 +1383,18 @@ export async function hauntAct(
     // A page reached for the first time is audited once it has settled,
     // outside the step's own time (R-S15, R-S17).
     await auditIfNew(session, session.step_count);
+    // And its layout read as the action left it: what a dialog covers, what
+    // a panel pushed out of the window.
+    // And its layout read, when the action may have changed it: it reached
+    // a page, brought controls that were not there (a dialog, a panel), or
+    // changed the size of the window. Not after every action: on a page of
+    // two thousand controls that reading is half an action's time, and a
+    // click that adds nothing moves nothing. Nor after a hover: what a hover
+    // brings sits over the page for as long as the pointer stays, and is
+    // meant to.
+    if (session.evidence.audit && step.ok && step.type !== 'hover') {
+      await layoutIfDue(session, session.step_count);
+    }
     const reason = stopAfter(step);
     // Whatever stops a sequence only matters if something was left to run.
     if (reason && (reason === 'failed' || i < input.actions.length - 1)) {

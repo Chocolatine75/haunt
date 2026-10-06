@@ -168,7 +168,10 @@ MCP, or as many for less.
 ### 5. Bounded, visual perception
 
 Show the tester what a user would see, and catch bugs that only exist
-visually.
+visually. Its first slice, the layout defects geometry alone establishes, is
+specified in [`v3/part-5-layout.md`](v3/part-5-layout.md) and was built
+ahead of the rest: a seventh of the bugs annotated in CATTest are of that
+kind.
 
 Scope: a snapshot limited to what is in the viewport and not covered by
 another element; a compact, diff-based snapshot format; annotated screenshots

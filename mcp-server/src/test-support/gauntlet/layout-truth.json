@@ -1,0 +1,92 @@
+{
+  "lay-covered": {
+    "load": [
+      {
+        "rule": "covered",
+        "severity": "major",
+        "name": "Stop sharing"
+      }
+    ],
+    "steps": [
+      {
+        "type": "click",
+        "target": "menu"
+      },
+      {
+        "type": "click",
+        "target": "menu"
+      },
+      {
+        "type": "click",
+        "target": "notes"
+      },
+      {
+        "type": "click",
+        "target": "panel-open"
+      }
+    ],
+    "after": []
+  },
+  "lay-overlap": {
+    "load": [
+      {
+        "rule": "overlap",
+        "severity": "minor",
+        "name": "Zoom in",
+        "contains": "Out"
+      }
+    ],
+    "steps": [],
+    "after": []
+  },
+  "lay-text": {
+    "load": [
+      {
+        "rule": "text_overflow",
+        "severity": "minor",
+        "name": "View and export invoices",
+        "contains": "spills out"
+      },
+      {
+        "rule": "text_overflow",
+        "severity": "minor",
+        "contains": "Team plan"
+      }
+    ],
+    "steps": [],
+    "after": []
+  },
+  "lay-dialog": {
+    "load": [],
+    "steps": [
+      {
+        "type": "click",
+        "target": "subscribe"
+      }
+    ],
+    "after": [
+      {
+        "rule": "dialog_outside_viewport",
+        "severity": "major",
+        "contains": "Payment"
+      }
+    ]
+  },
+  "lay-narrow": {
+    "load": [],
+    "steps": [
+      {
+        "type": "resize",
+        "width": 375,
+        "height": 700
+      }
+    ],
+    "after": [
+      {
+        "rule": "page_overflow",
+        "severity": "minor",
+        "contains": "375 px"
+      }
+    ]
+  }
+}
