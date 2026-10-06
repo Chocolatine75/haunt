@@ -104,8 +104,8 @@ describe('phantom-user session over MCP', { timeout: 30_000 }, () => {
 
   it('runs spawn → capture → act → end → report and finds the planted bug', async () => {
     const session = await spawn();
-    expect(session.persona_name).toBe('Test Persona');
-    expect(session.persona_goal).toBe('Explore the app');
+    // Nothing of the persona the helper still passes (part 4, R-T14).
+    expect(JSON.stringify(session)).not.toMatch(/persona/i);
 
     const home = await read(session.session_id);
     expect(home.title).toBe('Fixture Home');
@@ -121,7 +121,7 @@ describe('phantom-user session over MCP', { timeout: 30_000 }, () => {
       changes: { navigated: true, url_after: `${app.baseUrl}/signup` },
     });
     expect(toSignup.step).toBe(1);
-    expect(toSignup.steps_remaining).toBe(9);
+    expect(toSignup.steps_remaining).toBe(39);
 
     // The confused-beginner move: submit the form without filling anything.
     const emptySubmit = await act(session.session_id, [
@@ -156,7 +156,6 @@ describe('phantom-user session over MCP', { timeout: 30_000 }, () => {
     );
 
     const ended = await end(session.session_id, 'Signup crashed on me.');
-    expect(ended.persona).toBe('Test Persona');
     expect(ended.step_count).toBe(3);
     expect(ended.issues_found).toMatchObject([
       { ...issue, verification: { status: 'confirmed', attempts: 3 } },
@@ -172,7 +171,6 @@ describe('phantom-user session over MCP', { timeout: 30_000 }, () => {
         sessions: [
           {
             area: '/signup',
-            persona: ended.persona,
             overall_impression: ended.overall_impression,
             issues: ended.issues_found,
             sandbox_blocked_requests: ended.sandbox_blocked_requests,

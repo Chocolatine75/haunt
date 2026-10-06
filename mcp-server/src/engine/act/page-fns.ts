@@ -584,3 +584,137 @@ export function scrollBy(
   if (page) window.scrollBy(options);
   else (target as Element).scrollBy(options);
 }
+
+// The group each control belongs to (part 4, R-T1): "<role>: <name>" of the
+// nearest ancestor that is a form, a search, a dialog, a group, a region, a
+// navigation, a toolbar or a table and has an accessible name; "page"
+// otherwise. A fieldset is named by its legend, a table by its caption.
+export function groupsOf(
+  targets: Array<{ ref: string; doc: string; local: number }>,
+): Record<string, string> {
+  const state = (window as unknown as { __haunt?: PageState }).__haunt;
+  const out: Record<string, string> = {};
+  if (!state) return out;
+  const text = (el: Element | null | undefined) =>
+    (el?.textContent ?? '').replace(/\s+/g, ' ').trim();
+  const nameOf = (el: Element): string => {
+    const label = el.getAttribute('aria-label');
+    if (label?.trim()) return label.trim();
+    const by = el.getAttribute('aria-labelledby');
+    if (by) {
+      const root = el.getRootNode() as Document | ShadowRoot;
+      const named = by
+        .split(/\s+/)
+        .map((id) => text(root.getElementById(id)))
+        .filter(Boolean)
+        .join(' ');
+      if (named) return named;
+    }
+    if (el.tagName === 'FIELDSET') return text(el.querySelector('legend'));
+    if (el.tagName === 'TABLE') return text(el.querySelector('caption'));
+    return '';
+  };
+  const GROUPING = [
+    'form',
+    'search',
+    'dialog',
+    'alertdialog',
+    'group',
+    'region',
+    'navigation',
+    'toolbar',
+    'table',
+  ];
+  const BY_TAG: Record<string, string> = {
+    FORM: 'form',
+    DIALOG: 'dialog',
+    FIELDSET: 'group',
+    SECTION: 'region',
+    NAV: 'navigation',
+    TABLE: 'table',
+    SEARCH: 'search',
+  };
+  const roleOf = (el: Element): string | undefined => {
+    const explicit = el.getAttribute('role')?.trim().split(/\s+/)[0];
+    if (explicit) return GROUPING.includes(explicit) ? explicit : undefined;
+    return BY_TAG[el.tagName];
+  };
+  for (const target of targets) {
+    if (state.doc !== target.doc) continue;
+    const node = state.nodes.get(target.local)?.deref();
+    if (!(node instanceof Element)) continue;
+    let group = 'page';
+    let at: Element | null = node.parentElement;
+    let from: Node = node;
+    for (;;) {
+      if (!at) {
+        // Out of a shadow root, by its host.
+        const root = from.getRootNode();
+        const host = root instanceof ShadowRoot ? root.host : null;
+        if (!host) break;
+        at = host;
+      }
+      const role = roleOf(at);
+      const name = role ? nameOf(at) : '';
+      if (role && name) {
+        group = `${role === 'alertdialog' ? 'dialog' : role}: ${name}`;
+        break;
+      }
+      from = at;
+      at = at.parentElement;
+    }
+    out[target.ref] = group;
+  }
+  return out;
+}
+
+// What a control holds or the state it is in (part 4, R-T9). A credential
+// field tells only whether it is filled.
+export function controlState(
+  el: Element | null,
+  of: 'value' | 'checked' | 'expanded' | 'pressed' | 'focused',
+): string | boolean | null {
+  if (!el) return null;
+  if (of === 'focused') {
+    let active: Element | null = document.activeElement;
+    for (;;) {
+      const inner: Element | null | undefined =
+        active?.shadowRoot?.activeElement;
+      if (!inner) break;
+      active = inner;
+    }
+    return active === el;
+  }
+  if (of === 'checked') {
+    if (el instanceof HTMLInputElement) return el.checked;
+    return el.getAttribute('aria-checked') === 'true';
+  }
+  if (of === 'expanded') return el.getAttribute('aria-expanded') === 'true';
+  if (of === 'pressed') return el.getAttribute('aria-pressed') === 'true';
+  const value =
+    el instanceof HTMLInputElement ||
+    el instanceof HTMLTextAreaElement ||
+    el instanceof HTMLSelectElement
+      ? el.value
+      : (el.textContent ?? '');
+  // The rule of credentialField, repeated: a page function cannot call
+  // another.
+  let credential = false;
+  if (el instanceof HTMLInputElement) {
+    const labels = [...(el.labels ?? [])].map((l) => l.textContent ?? '');
+    const name = [
+      el.getAttribute('aria-label') ?? '',
+      ...labels,
+      el.placeholder,
+      el.name,
+      el.id,
+    ].join(' ');
+    credential =
+      el.type === 'password' ||
+      el.type === 'email' ||
+      /password|one-time-code|cc-number|cc-csc/.test(el.autocomplete || '') ||
+      /pass(word|code|phrase)?|pwd|secret|\bpin\b|e-?mail/i.test(name);
+  }
+  if (credential) return value ? '(filled)' : '(empty)';
+  return value;
+}

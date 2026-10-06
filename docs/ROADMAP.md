@@ -157,9 +157,10 @@ kept by the engine; coverage counted in code; a budget of actions in place
 of three steps; an expectation stated before each action and checked after
 it, with exact readings of lists and values; issues the engine cannot check
 listed for a person instead of dropped; a screenshot on request; personas
-removed; an optional description of the app.
+removed; an optional description of the app; the work split between a
+planner and testers, each an agent of its own.
 
-**Gate**: T1 to T6 of the specification, deterministic, on six new gauntlet
+**Gate**: T1 to T7 of the specification, deterministic, on six new gauntlet
 pages whose defects raise no signal; and, *live*, on the pilot's three
 applications, more annotated bugs found than Claude Code with Playwright
 MCP, or as many for less.
@@ -167,7 +168,10 @@ MCP, or as many for less.
 ### 5. Bounded, visual perception
 
 Show the tester what a user would see, and catch bugs that only exist
-visually.
+visually. Its first slice, the layout defects geometry alone establishes, is
+specified in [`v3/part-5-layout.md`](v3/part-5-layout.md) and was built
+ahead of the rest: a seventh of the bugs annotated in CATTest are of that
+kind.
 
 Scope: a snapshot limited to what is in the viewport and not covered by
 another element; a compact, diff-based snapshot format; annotated screenshots

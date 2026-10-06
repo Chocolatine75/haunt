@@ -27,7 +27,8 @@ Claude setups found one. The session logs say why:
 The tools that do this well share a method (CATJudge's explorer, browser-use's
 agent loop, WebTestBench's checklist, minitap's mobile-use): an explicit plan,
 an expected result before each action, a check after it, and a second pass
-that confirms. Parts 1 to 3 gave haunt the hands, the instruments and the
+that confirms. minitap also splits the work between agents with one job
+each, and reports that as its largest gain; section I takes that up. Parts 1 to 3 gave haunt the hands, the instruments and the
 proof; this part gives it the method. Signals, replays and the handling of
 secrets stay as they are: they are what the plain setups do not have.
 
@@ -38,8 +39,9 @@ Requirements are numbered (`R-T1`); every gate test names the ones it proves.
 Visual checks done by the engine (overflow, overlap, a layout that shifts)
 and screenshot-driven action are part 5. Reading a codebase to derive the
 plan is not in this part: the plan comes from the page and, when given, a
-written description of the app. Choosing a model, or splitting the work
-between several agents, is left to the host.
+written description of the app. A screenshot at every step, as computer use
+takes, is left out on purpose: it is taken on request (R-T13), which keeps
+a run short and cheap. Choosing a model is left to the host.
 
 ---
 
@@ -56,9 +58,10 @@ between several agents, is left to the host.
   use, `edge` input, `state` change, `keyboard`, `visual`) and what is
   expected, in one sentence. A case naming a reference the page does not
   have is refused with the reason.
-- **R-T3 The plan follows the page.** When an action brings controls that
-  were not there (a dialog, a new page, results), the action's result says
-  so, and they are added to the inventory as not yet planned.
+- **R-T3 The plan follows the page.** When an action brings controls a user
+  could not act on before (a dialog that opens, a new page, results), the
+  action's result names them, and they are in the inventory as usable and
+  not yet planned.
 - **R-T4 Coverage is counted by the engine.** A control is **exercised** once
   an action that succeeded named it. A case is **run** once it has a verdict
   (R-T7). `haunt_plan` and `haunt_end_session` return, at any time: controls
@@ -68,8 +71,9 @@ between several agents, is left to the host.
 ## B. Budget
 
 - **R-T5 A budget of actions, not three steps.** A session has a budget of
-  actions (default 40, settable at spawn and with `--steps`). Every
-  `haunt_act` result carries what is left of it.
+  actions (default 40, settable at spawn as `budget` and with `--steps`).
+  It is the step limit the engine already had, which the command capped at
+  three. Every `haunt_act` result carries what is left of it.
 - **R-T6 Told when it runs short.** From three quarters of the budget, each
   result also lists the controls and cases still untouched, so the rest goes
   to what matters. At zero, `haunt_act` refuses further actions and says to
@@ -84,16 +88,17 @@ between several agents, is left to the host.
   A case can also be closed by the tester with a verdict of its own and a
   sentence, when what it expects is not something the engine can read
   (R-T11).
-- **R-T8 Reading a list exactly.** Observations gain `list`: for the items
-  of a container named by reference (or the elements of a role under it),
-  their texts as the page shows them, and a condition on them: `count`
-  equal to, at least or at most a number; `every` item contains (or does not
-  contain) a text; items are in ascending or descending order, as numbers or
-  as text. `haunt_capture_state` returns the same list on request, so the
-  tester can look before it states.
-- **R-T9 Reading a value.** Observations gain `value`: what a field holds, or
-  an element's state attribute (`checked`, `selected`, `expanded`,
-  `pressed`), compared with an expected one. A credential field's value is
+- **R-T8 Reading a list exactly.** Observations gain `list`: for a container
+  named by its role and accessible name (a list is not a control and has no
+  reference), the elements of a given role under it, their texts as the page
+  shows them, and a condition on them: `count` equal to, at least or at most
+  a number; every item contains, or none contains, a text; items are in
+  ascending or descending order, as numbers or as text; the items are
+  exactly a given list. `haunt_capture_state` returns the same list on
+  request, so the tester can look before it states.
+- **R-T9 Reading a value.** Observations gain `value`: what a control holds
+  or its state (`checked`, `expanded`, `pressed`, `focused`), compared with
+  an expected one. A credential field's value is
   never returned or compared in clear: it is `(filled)` or `(empty)`, as in
   the snapshot.
 - **R-T10 A failed expectation is an issue's claim.** An issue can name a
@@ -118,16 +123,18 @@ between several agents, is left to the host.
 ## E. Seeing the page
 
 - **R-T13 A screenshot on request.** `haunt_capture_state` with
-  `screenshot: true` returns an image of the viewport along with the
-  snapshot. Credential fields are masked in it, as in the evidence bundle's
-  (R-E15). It is how the tester judges what text cannot say: a card that
-  jumps, five stars where there should be three.
+  `include_screenshot` returns an image of the viewport along with the
+  snapshot, credential fields masked (R-E15). The engine has had it since
+  part 3; what changes is that the tester is told to use it for what text
+  cannot say: a card that jumps, a layout that overlaps.
 
 ## F. What the tester is told
 
-- **R-T14 No personas.** They are removed: the `persona` input of
-  `haunt_spawn`, the `--personas` flag, the `personas/` directory and its
-  loader, and the persona column of reports. The brief the tester gets is
+- **R-T14 No personas.** They are removed: the `--personas` flag, the
+  `personas/` directory and its loader, and every mention of one in what
+  haunt returns or writes. `haunt_spawn` opens a session without one. The
+  inputs that carried a persona stay accepted and are ignored, since a
+  caller written before this part passes them. The brief the tester gets is
   the method: inventory, plan each control's normal use with realistic
   values, state the expectation, check it, then edge cases, keyboard and
   state changes. What two of the personas were for stays as case kinds:
@@ -146,12 +153,46 @@ between several agents, is left to the host.
   and names the controls not yet exercised. The action is not refused: a
   tester may have a reason. It still counts against the budget.
 
-## H. What must not regress
+## H. One job each
+
+A single agent that plans, acts and judges in one context does each of them
+worse: the plan is forgotten as the snapshots pile up, and a tester that
+wrote the plan tests what it already believes works.
+
+- **R-T20 Two roles under an orchestrator.** A **planner** reads an area's
+  inventory, and the description of the app when there is one, and writes
+  its test cases; it reads and does not act. **Testers** play the cases they
+  are handed, one group of controls each, in a browser session of their own,
+  at the same time; they state expectations, read results and file issues,
+  and do not plan beyond what a result brings. The orchestrator spawns them,
+  hands the plan over, and assembles the report; it tests nothing itself.
+  The plugin ships each role as an agent of its own, and the planner's is
+  given no tool that acts on a page: a boundary, not an instruction.
+- **R-T21 A plan passes from one session to another.** `haunt_plan` returns
+  each case in a form another session of the same page can take: its
+  controls by role, name and group instead of by reference. Registered
+  there, they are resolved to that session's references; a case naming a
+  control that session does not have is refused, with the control named.
+- **R-T22 Coverage is of the app, not of each session.** Sessions that
+  tested the same area count each control once in the report, exercised if
+  any of them exercised it, and each case once. Different areas add up.
+- **R-T23 The same separation in `haunt-ci`.** Its loop asks for the plan
+  first, in a call of its own that carries the planner's brief and the
+  inventory, registers the cases returned, then asks for the actions of one
+  case at a time under the tester's brief, with the case and what it
+  expects in front of the model. A decider that returns no case still gets
+  its session: it explores, as before.
+
+## I. What must not regress
 
 - **R-T17 Earlier gates.** The part 1, 2 and 3 gates pass unchanged, except
-  the one test that proves the first case of R-E9 (E3.1), which R-T11
-  replaces: it is changed in its own pull request, with this section as the
-  reason.
+  the tests this part makes wrong, changed in pull requests of their own
+  with this section as the reason. E3.1 proves the first case of R-E9, which
+  R-T11 replaces; E6.1 and one sabotage of E7.1 used an issue with no claim
+  as their example of a rejected one, and use one naming a signal the
+  session does not have. G5.6 lists the test files that must not be deleted
+  and names the two of the persona loader, removed with it by R-T14. The fingerprints the later gates keep of the earlier ones (S8.3,
+  E7.3, T6.3) follow.
 - **R-T18 Callers updated.** `commands/haunt-test.md` and `haunt-ci`'s loop
   follow the method; the zod schemas in `src/mcp/tools.ts` define every new
   input; `dist/` is rebuilt.
@@ -171,7 +212,7 @@ page answers, raises no signal, and is wrong.
 |---|---|
 | `qa-search` | A search with a "Titles only" switch that also matches descriptions |
 | `qa-filters` | Two filters that combine as "or" where the page says "and", and a result count that disagrees with the list |
-| `qa-sort` | A "Price, low to high" order that sorts prices as text |
+| `qa-sort` | A "Price, low to high" order that sorts prices as text; a disabled button, a toggle and a disclosure, for the states |
 | `qa-form` | A form whose "Remember me" box is unchecked again after saving, and a quantity field that accepts a negative number |
 | `qa-rating` | Star ratings that always show five, whatever the score next to them |
 | `qa-dialog` | A dialog that opens with controls the page did not have, and a Tab key that leaves it for the page behind |
@@ -214,27 +255,50 @@ Deterministic, with a scripted tester, as in parts 1 to 3.
    that.
 2. An issue naming a signal the session does not have is still rejected.
 3. The report's coverage section matches the engine's count, and names the
-   controls never touched.
+   controls never touched; a report of sessions that carry no inventory has
+   no such section.
 
 ### T5 — seeing, the brief, repeats (R-T13 … R-T16)
 
 1. A screenshot is returned on request; with the login page's fields filled,
    it is the same image as with them empty.
-2. `haunt_spawn` takes no persona and refuses one as an unknown input; no
-   tool result, report or sidecar has a persona in it; a report compared
-   with one written before this part still gets its comparison. A `hostile`
-   case is refused without `--hostile` and accepted with it.
+2. `haunt_spawn` opens a session without a persona; no tool result, report
+   or sidecar has one in it; a report compared with one written before this
+   part still gets its comparison. A `hostile` case is refused without
+   `--hostile` and accepted with it.
 3. `--spec` reaches the decider of `haunt-ci` verbatim, and the report names
-   it.
+   it; without one the decider is given the method and no character to play.
 4. The third unchanged repeat of an action is flagged, with what is left to
    exercise; the second is not.
 
 ### T6 — the gate is not lying, and nothing regressed (R-T17 … R-T19)
 
-As E7: sabotages, every requirement claimed, no skipped test, and the
-fingerprints of the earlier gates.
+1. Sabotage: with each property broken on purpose (hidden controls left out
+   of the inventory, coverage counted from the plan, an expectation assumed
+   to hold, a list read outside its container, the budget ignored, a
+   credential read in clear, an unchecked issue confirmed, a case's issue
+   not replayed), the gate test of that property fails.
+2. Every requirement of this document is claimed by a gate test, every
+   numbered test here exists, and none is skipped.
+3. The files of the part 1, 2 and 3 gates are what they were when this part
+   started.
 
-### T7 — live
+### T7 — one job each (R-T20 … R-T23)
+
+1. The cases of a session register in another session of the same page, by
+   what their controls are, and play there; one naming a control that
+   session does not have is refused.
+2. Two sessions on one area count its controls once in the report, and its
+   cases once; a second area adds to them.
+3. `haunt-ci` asks for a plan before any action, under the planner's brief
+   and with the inventory; the cases come back in the session's result; each
+   later call is under the tester's brief and names the case to play. A
+   decider that plans nothing still runs.
+4. The plugin has an agent for each role; the command names both; the
+   planner's has no tool that acts on a page; neither names a tool the
+   server does not provide.
+
+### T8 — live
 
 Run by hand, three times, scorecards under `docs/benchmarks/`: on the three
 CATTest applications of the pilot, with the same model, against Claude Code
@@ -247,5 +311,5 @@ and the prompts given to each tool are committed with the scorecards.
 
 ## Accepted when
 
-T1 to T6 are green on Linux and macOS, the earlier gates still are, and T7's
+T1 to T7 are green on Linux and macOS, the earlier gates still are, and T8's
 scorecards are committed and meet its rule.

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { hauntEndSession } from './end-session.js';
 import { newRecording } from './evidence/recording.js';
+import { newPlanState } from './plan/plan.js';
 import { SessionManager } from './session/manager.js';
 import { SignalCollector } from './signals/collector.js';
 import type { HauntSession } from './types.js';
@@ -25,8 +26,11 @@ function mockSession(overrides: Partial<HauntSession> = {}): HauntSession {
       { width: 1280, height: 720 },
       {},
     ),
+    plan: newPlanState(false),
     evidence: {
       audit: false,
+      layout: false,
+      narrow_check: false,
       replay_budget_ms: 0,
       bundle_cap_bytes: 1_000_000,
     },
@@ -144,14 +148,15 @@ describe('hauntEndSession', () => {
       issues: [late],
     });
 
-    // Both are kept, and both rejected: neither names a signal nor states an
-    // observation the engine could check (part 3, R-E9).
-    expect(output.issues_found).toEqual([]);
+    // Both are kept. Neither names a signal nor states an observation the
+    // engine could check: they were rejected for it (part 3, R-E9), and are
+    // now unchecked, for a person to look at (part 4, R-T11).
+    expect(output.rejected).toEqual([]);
     expect(
-      output.rejected.map((i) => [i.description, i.verification.reason]),
+      output.issues_found.map((i) => [i.description, i.verification.status]),
     ).toEqual([
-      ['earlier', 'no_claim'],
-      ['from the last action', 'no_claim'],
+      ['earlier', 'unchecked'],
+      ['from the last action', 'unchecked'],
     ]);
   });
 });
