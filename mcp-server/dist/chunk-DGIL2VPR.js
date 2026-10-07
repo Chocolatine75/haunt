@@ -43545,10 +43545,11 @@ async function verifyClaim(session, claim, deadline, dir, forSignal, stepsOnly =
       };
     } else {
       const stuck = runs.find((r) => r.outcome === "not_replayable");
+      const unplayed = runs.every((r) => r.outcome === "not_replayable");
       verification = {
-        status: "rejected",
+        status: unplayed ? "unchecked" : "rejected",
         ...base,
-        reason: runs.every((r) => r.outcome === "not_replayable") ? "not_replayable" : "not_reproduced",
+        reason: unplayed ? "not_replayable" : "not_reproduced",
         ...stuck?.failed_step !== void 0 ? { failed_step: stuck.failed_step } : {}
       };
     }

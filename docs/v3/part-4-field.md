@@ -67,6 +67,24 @@ judging, which here is the engine's: expectations checked, issues replayed.
   not changed here. Since one session now does what up to three did, the
   command's default budget is 60 actions.
 
+## C. A finding dropped because the page is not the same twice
+
+Application 30 draws its cards at random each time it loads. Twice, on two
+different days, a tester saw one of its annotated bugs (a dialog left blank
+once a secret has burned) and filed it; twice every replay failed at the
+click on a card that was not on the page the replay opened, the issue was
+rejected as `not_replayable`, and the report did not mention it. A replay
+that could not play the steps has learnt nothing about the issue: it is not
+the same as a replay that played them and did not see the defect.
+
+- **R-F5 Not replayable is not rejected.** An issue none of whose replays
+  could play its steps is **unchecked**, with the reason `not_replayable`
+  and the step that could not be played: listed under "To check by hand",
+  in no count, as R-T11 has it for an issue with no claim. An issue whose
+  steps a replay played and whose claim it did not see stays rejected
+  (R-E9), and so does one naming a case or a signal the session does not
+  have.
+
 - **R-F3 The gate is not lying.** Every requirement here is claimed by a
   gate test; none is skipped.
 
@@ -91,10 +109,18 @@ judging, which here is the engine's: expectations checked, issues replayed.
    writing cases word for word; and its own steps are, in this order: see
    the whole area, take the inventory and plan, play.
 
+### F3 — not replayable is not rejected (R-F5)
+
+1. On a page whose buttons are named at random on each load, an issue
+   filed after pressing one ends unchecked with the reason and the step,
+   and the report lists it under "To check by hand" and counts it nowhere.
+   On the same page, an issue whose steps replay and whose claim is false
+   is rejected.
+
 ### F9 — the gate is not lying (R-F3)
 
 1. Every requirement is claimed by a gate test, and none is skipped.
 
 ## Accepted when
 
-F1, F2 and F9 are green on Linux and macOS and the earlier gates still are.
+F1 to F3 and F9 are green on Linux and macOS and the earlier gates still are.

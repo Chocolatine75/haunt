@@ -11,4 +11,5 @@ export const PASSING: ReadonlySet<string> = new Set<string>([
   'F1.3',
   'F1.1',
   'F2.1',
+  'F3.1',
 ]);

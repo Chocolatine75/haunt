@@ -202,12 +202,18 @@ async function verifyClaim(
       };
     } else {
       const stuck = runs.find((r) => r.outcome === 'not_replayable');
+      // No replay could play the steps: nothing was learnt about what the
+      // issue says, so it is not rejected but left for a person to check
+      // (docs/v3/part-4-field.md, R-F5). On CATTest 30, whose cards are
+      // drawn at random on each load, testers twice saw an annotated bug
+      // (a blank dialog once a secret has burned) and each time it was
+      // rejected here and left out of the report: the card they had
+      // clicked was not on the page a replay opened.
+      const unplayed = runs.every((r) => r.outcome === 'not_replayable');
       verification = {
-        status: 'rejected',
+        status: unplayed ? ('unchecked' as Verification['status']) : 'rejected',
         ...base,
-        reason: runs.every((r) => r.outcome === 'not_replayable')
-          ? 'not_replayable'
-          : 'not_reproduced',
+        reason: unplayed ? 'not_replayable' : 'not_reproduced',
         ...(stuck?.failed_step !== undefined
           ? { failed_step: stuck.failed_step }
           : {}),
