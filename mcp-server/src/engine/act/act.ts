@@ -68,6 +68,10 @@ import { type ValidatedAction, validateAction } from './schema.js';
 export const SETTLE_CAP_MS = 5_000;
 // From this share of the budget, a result says what is left to test (R-T6).
 const BUDGET_WARNING = 0.75;
+// The share of a budget a session asked to keep going may spend before it
+// has registered a case: enough to pass what stands before the app and open
+// what the page keeps closed.
+const FIRST_LOOK = 0.25;
 // How many times in a row an action may leave the page as it was before the
 // result says so (R-T16).
 const REPEATS_FLAGGED = 3;
@@ -1352,6 +1356,19 @@ export async function hauntAct(
   ) {
     throw new Error(
       `Session ${session.id} hit its step limit (${session.max_steps}). Call haunt_end_session instead of acting further.`,
+    );
+  }
+  // Past the first look, nothing is acted on without a plan (R-F6). On
+  // CATTest 24, 27 and 30 the testers skipped the plan their own steps ask
+  // for and acted with no case at all: the engine had no expectation to
+  // check, and what they found could only be listed for a person.
+  if (
+    session.evidence.keep_going &&
+    session.plan.cases.size === 0 &&
+    session.step_count >= Math.ceil(session.max_steps * FIRST_LOOK)
+  ) {
+    throw new Error(
+      `You have used ${session.step_count} actions to look at the area, and no test case is registered. Call haunt_plan for the inventory, register a case for each part of what you have seen, then act again: every action from here plays a case, with what you expect of it.`,
     );
   }
   if (Date.now() - session.start_time > session.max_active_duration_ms) {
