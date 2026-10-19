@@ -102,6 +102,40 @@ export const EVIDENCE_PAGES = [
 ] as const;
 
 export type EvidencePage = (typeof EVIDENCE_PAGES)[number];
+
+// Part 4's pages: functional defects. The page answers, raises no signal,
+// and is wrong; only a tester that states what it expects finds out. The
+// same two variants; what each offers and what a correct tester checks on
+// it is in tester-truth.json.
+export const TESTER_PAGES = [
+  'qa-search',
+  'qa-filters',
+  'qa-sort',
+  'qa-form',
+  'qa-rating',
+  'qa-dialog',
+] as const;
+
+export type TesterPage = (typeof TESTER_PAGES)[number];
+
+// Part 5's pages: a layout defect each, that geometry alone establishes,
+// beside the look-alikes that are not defects. The same two variants; what
+// each must raise is in layout-truth.json.
+export const LAYOUT_PAGES = [
+  'lay-covered',
+  'lay-overlap',
+  'lay-text',
+  'lay-dialog',
+  'lay-narrow',
+] as const;
+
+export type LayoutPage = (typeof LAYOUT_PAGES)[number];
+
+// The page of the engine's sweep (docs/v3/part-4-sweep.md): buttons no test
+// case names, some broken, some that must not be pressed unasked.
+export const SWEEP_PAGES = ['sw-buttons'] as const;
+
+export type SweepPage = (typeof SWEEP_PAGES)[number];
 export type Variant = 'buggy' | 'clean';
 
 export interface Gauntlet {
@@ -109,7 +143,16 @@ export interface Gauntlet {
   baseUrl: string;
   // A second origin serving the same app, for cross-origin frames.
   otherUrl: string;
-  url(page: GauntletPage | SignalPage | EvidencePage, query?: string): string;
+  url(
+    page:
+      | GauntletPage
+      | SignalPage
+      | EvidencePage
+      | TesterPage
+      | LayoutPage
+      | SweepPage,
+    query?: string,
+  ): string;
   // "<METHOD> <path>" of every request, per origin.
   requests: { base: string[]; other: string[] };
   close(): Promise<void>;
@@ -276,7 +319,10 @@ async function handle(
   if (
     (GAUNTLET_PAGES as readonly string[]).includes(first) ||
     (SIGNAL_PAGES as readonly string[]).includes(first) ||
-    (EVIDENCE_PAGES as readonly string[]).includes(first)
+    (EVIDENCE_PAGES as readonly string[]).includes(first) ||
+    (TESTER_PAGES as readonly string[]).includes(first) ||
+    (LAYOUT_PAGES as readonly string[]).includes(first) ||
+    (SWEEP_PAGES as readonly string[]).includes(first)
   ) {
     html(file(join('pages', `${first}.html`)));
     return;
@@ -287,6 +333,9 @@ async function handle(
         ...GAUNTLET_PAGES,
         ...SIGNAL_PAGES,
         ...EVIDENCE_PAGES,
+        ...TESTER_PAGES,
+        ...LAYOUT_PAGES,
+        ...SWEEP_PAGES,
       ]
         .map((p) => `<li><a href="/${p}">${p}</a></li>`)
         .join('')}</ul>`,

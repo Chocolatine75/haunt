@@ -18,7 +18,7 @@ requirement it proves, and every requirement has at least one gate test.
 ## Out of scope
 
 Deciding *what* to do stays with the model. Screenshots as the primary
-perception and coordinate clicks are part 4. HTTP, exception and
+perception and coordinate clicks are part 5. HTTP, exception and
 accessibility signals are part 2. Evidence bundles are part 3. This part
 keeps today's behaviour for all three and must not regress it.
 
@@ -56,7 +56,7 @@ and, in short form, by every action result.
   (`covered by e14`), or when it ignores the pointer (`pointer-events: none`).
   It stays listed: acting on it is allowed and fails with the real reason
   (section D). An element that is not rendered, invisible or of zero size is
-  listed and marked hidden with the reason. Part 4 will later decide what the tester is
+  listed and marked hidden with the reason. Part 5 will later decide what the tester is
   *shown*; this part decides what is *true*.
 - **R-A6 Scroll position.** The snapshot states how far the page and each
   scrollable container can scroll in each direction, in pixels and as a

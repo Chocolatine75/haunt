@@ -62,50 +62,42 @@ describe('hauntSpawn (real origin)', () => {
     }
   });
 
-  it('returns the persona system prompt for the orchestrator to roleplay', async () => {
+  // These three tests were about what a persona brought to a session: its
+  // prompt, its viewport and locale, its number of steps. Personas are gone
+  // (part 4, R-T14); what a session has without one is what is tested now.
+  it('opens without a persona, and returns nothing of one that is passed', async () => {
     manager = new SessionManager();
-    const result = await hauntSpawn(manager, {
-      persona: CONFUSED_BEGINNER,
+    const bare = await hauntSpawn(manager, { target_url: app.baseUrl });
+    expect(Object.keys(bare).sort()).toEqual(['session_id', 'signals']);
+    const given = await hauntSpawn(manager, {
+      persona: 'confused-beginner',
       target_url: app.baseUrl,
     });
-
-    expect(result.persona_name).toBe('Confused Beginner');
-    expect(result.persona_description).toContain(
-      'You are a non-technical user',
-    );
-    expect(result.persona_goal).toBe(
-      'Do the unexpected and find what breaks or gives no feedback',
-    );
+    expect(Object.keys(given).sort()).toEqual(['session_id', 'signals']);
   });
 
-  it("applies the persona's viewport and locale to the browser", async () => {
+  it('opens a 1280x720 viewport with a budget of 40 actions', async () => {
     manager = new SessionManager();
-    const { session_id } = await hauntSpawn(manager, {
-      persona: CONFUSED_BEGINNER,
-      target_url: app.baseUrl,
-    });
-    const { page } = manager.get(session_id);
-
-    expect(page.viewportSize()).toEqual({ width: 1366, height: 768 });
-    expect(await page.evaluate(() => navigator.language)).toBe('en-US');
-  });
-
-  it('falls back to a 1280x720 viewport and 30 steps when the persona sets neither', async () => {
-    const personaPath = join(tmp, 'bare.yaml');
-    writeFileSync(
-      personaPath,
-      'name: Bare\ndescription: d\nsystem_prompt: p\nbrowser:\n  headless: true\n',
-    );
-    manager = new SessionManager();
-    const result = await hauntSpawn(manager, {
-      persona: personaPath,
-      target_url: app.baseUrl,
-    });
+    const result = await hauntSpawn(manager, { target_url: app.baseUrl });
     const session = manager.get(result.session_id);
 
     expect(session.page.viewportSize()).toEqual({ width: 1280, height: 720 });
-    expect(session.max_steps).toBe(30);
-    expect(result.persona_goal).toBe('Explore the application freely');
+    expect(session.max_steps).toBe(40);
+  });
+
+  it('takes its budget from `budget`, or from `timeout`, its older name', async () => {
+    manager = new SessionManager();
+    const one = await hauntSpawn(manager, {
+      target_url: app.baseUrl,
+      budget: 12,
+      timeout: 99,
+    });
+    expect(manager.get(one.session_id).max_steps).toBe(12);
+    const two = await hauntSpawn(manager, {
+      target_url: app.baseUrl,
+      timeout: 7,
+    });
+    expect(manager.get(two.session_id).max_steps).toBe(7);
   });
 
   it('starts the session with zeroed counters and the default duration cap', async () => {

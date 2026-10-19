@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gauntlet — lay-overlap</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<!--
+  A map's controls. In the buggy variant the small zoom button sits inside
+  the large one, off its centre: each still takes a click somewhere, and
+  they are on top of each other.
+
+  Not to be reported: links that wrap in a sentence, a badge on the corner
+  of a button, two pins of a map of the same name on top of each other.
+-->
+<h1>Map</h1>
+<div style="position: relative; height: 120px; border: 1px solid #999">
+  <button data-g="zoom-in" type="button" style="position: absolute; left: 12px; top: 12px; width: 160px; height: 48px; text-align: left">Zoom in</button>
+  <button data-g="zoom-out" type="button" style="position: absolute; left: {{#buggy}}106px{{/buggy}}{{#clean}}190px{{/clean}}; top: {{#buggy}}30px{{/buggy}}{{#clean}}12px{{/clean}}; width: 60px; height: 24px; padding: 0">Out</button>
+</div>
+<p style="width: 180px">
+  See the <a data-g="terms" href="#terms">terms of use of this map and its data</a> and the
+  <a data-g="sources" href="#sources">sources it was drawn from</a>.
+</p>
+<div style="position: relative; height: 60px">
+  <button data-g="pin-1" type="button" aria-label="Brewery" style="position: absolute; left: 40px; top: 10px; width: 32px; height: 32px; padding: 0">B</button>
+  <button data-g="pin-2" type="button" aria-label="Brewery" style="position: absolute; left: 52px; top: 16px; width: 32px; height: 32px; padding: 0">B</button>
+</div>
+<p style="position: relative; display: inline-block">
+  <button data-g="inbox" type="button" style="width: 120px; height: 40px">Inbox</button>
+  <button data-g="badge" type="button" aria-label="3 unread"
+    style="position: absolute; right: -10px; top: -10px; width: 24px; height: 24px; padding: 0">3</button>
+</p>
+</body>
+</html>

@@ -1,17 +1,31 @@
 import { createRequire } from 'module'; const require = createRequire(import.meta.url);
 import {
+  CASE_KINDS,
+  SCREENSHOTS_DIR,
   SessionManager,
   actionSchema,
+  briefEnd,
+  expectationSchema,
   external_exports,
   hauntAct,
   hauntCaptureState,
   hauntEndSession,
   hauntGenerateReport,
   hauntGetCookies,
+  hauntPlan,
   hauntReplay,
   hauntSpawn,
+  heldBack,
+  lastEffects,
+  listQuerySchema,
+  planCaseSchema,
+  planOf,
+  sabotaged,
+  sweptAround,
+  syncInventory,
+  takeSnapshot,
   zodToJsonSchema
-} from "./chunk-XGZGI4IW.js";
+} from "./chunk-67657I6A.js";
 import {
   _enum,
   _null,
@@ -8829,6 +8843,10 @@ var StdioServerTransport = class {
   }
 };
 
+// src/mcp/server.ts
+import { existsSync, readFileSync } from "fs";
+import { join } from "path";
+
 // node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-compat.js
 function isZ4Schema(s) {
   const schema = s;
@@ -10568,6 +10586,168 @@ function hauntEstimateCost(input) {
   return { browser_calls, session_size, summary_line };
 }
 
+// src/engine/scout.ts
+async function hauntScout(manager, input) {
+  const { max = 4, ...spawn } = input;
+  const { session_id } = await hauntSpawn(manager, {
+    ...spawn,
+    budget: 1,
+    // It tests nothing: no audit, and nothing to replay.
+    audit: false,
+    replay_budget_ms: 0
+  });
+  const session = manager.get(session_id);
+  try {
+    const snapshot = await takeSnapshot(session, { format: "json" }, true);
+    const here = new URL(session.page.url());
+    const routes = [here.pathname];
+    for (const element of snapshot.elements ?? []) {
+      if (element.role !== "link" || !element.href || element.hidden) continue;
+      let to;
+      try {
+        to = new URL(element.href, here);
+      } catch {
+        continue;
+      }
+      if (to.origin !== here.origin || !/^https?:$/.test(to.protocol)) continue;
+      if (!routes.includes(to.pathname)) routes.push(to.pathname);
+    }
+    return { routes: routes.slice(0, max), title: snapshot.title };
+  } finally {
+    await session.browser.close().catch(() => {
+    });
+    if (manager.has(session_id)) manager.delete(session_id);
+  }
+}
+
+// src/engine/sweep.ts
+var SWEEP_MAX = 20;
+var DESTRUCTIVE = /\b(delete|remove|destroy|erase|wipe|deactivate|unsubscribe|log ?out|sign ?out|pay|buy|purchase|checkout|check out|place order|order now|send|publish|supprimer|effacer|déconnexion|se déconnecter|payer|acheter|commander|envoyer|publier)\b/i;
+var keyOf = (control) => JSON.stringify([control.group, control.role, control.name]);
+async function buttonsOf(session) {
+  await takeSnapshot(session, { format: "json" }, true);
+  await syncInventory(session);
+  const buttons = (session.snapshot.previous?.elements ?? []).filter(
+    (element) => element.role === "button" && !element.hidden && !element.disabled && !element.covered_by && !element.unclickable
+  );
+  const byFrame = /* @__PURE__ */ new Map();
+  for (const { ref } of buttons) {
+    const target = session.snapshot.targets.get(ref);
+    if (!target) continue;
+    const list = byFrame.get(target.frame) ?? [];
+    list.push({ ref, doc: target.doc, local: target.local });
+    byFrame.set(target.frame, list);
+  }
+  const around = /* @__PURE__ */ new Map();
+  await Promise.all(
+    [...byFrame].map(async ([frame, targets]) => {
+      if (frame.isDetached()) return;
+      const found = await frame.evaluate(sweptAround, targets).catch(() => ({}));
+      for (const [ref, why] of Object.entries(found)) around.set(ref, why);
+    })
+  );
+  return buttons.map(({ ref, role, name }) => ({
+    ref,
+    role,
+    name,
+    group: session.plan.controls.get(ref)?.group ?? "page",
+    ...around.has(ref) && !sabotaged("sweep_forms_included") ? { around: around.get(ref) } : {}
+  }));
+}
+async function hauntSweep(manager, input) {
+  const { sessions = [], max = SWEEP_MAX, ...spawn } = input;
+  const exercised = /* @__PURE__ */ new Set();
+  for (const id of sessions) {
+    const inventory = manager.has(id) ? planOf(manager.get(id)).inventory : manager.endedSession(id)?.result.inventory;
+    if (!inventory) {
+      throw new Error(
+        `No session ${id} to take what was exercised from: it never existed, or ended too long ago.`
+      );
+    }
+    for (const control of inventory) {
+      if (control.exercised) exercised.add(keyOf(control));
+    }
+  }
+  const { session_id } = await hauntSpawn(manager, {
+    ...spawn,
+    // A press, the area opened again, and at most a dialog to answer.
+    budget: max * 3 + 3,
+    // The testers' sessions audited this page and read its layout.
+    audit: false,
+    layout: false
+  });
+  const session = manager.get(session_id);
+  const act = (action) => hauntAct(manager, { session_id, actions: [action] });
+  const pressed = [];
+  const left = /* @__PURE__ */ new Map();
+  const done = /* @__PURE__ */ new Set();
+  try {
+    for (; ; ) {
+      let next;
+      for (const button of await buttonsOf(session)) {
+        const key = keyOf(button);
+        if (done.has(key) || exercised.has(key) || next) continue;
+        const { ref: ref2, around, ...named2 } = button;
+        const why = around ? around : DESTRUCTIVE.test(button.name) ? "destructive" : pressed.length >= max ? "over the limit" : void 0;
+        if (why) left.set(key, { ...named2, why });
+        else next = button;
+      }
+      if (!next) break;
+      const { ref, ...named } = next;
+      done.add(keyOf(next));
+      const result = await act({ type: "click", ref });
+      const step = result.results[0];
+      pressed.push({
+        ...named,
+        changed: step.ok && !step.changes.none,
+        signals: [],
+        ...step.error ? { error: step.error.code } : {},
+        step: result.step
+      });
+      const { runtime } = session;
+      if (runtime.dialog) await act({ type: "dialog", accept: false });
+      while (runtime.tabs.length > 1) {
+        await act({ type: "tab", op: "close", index: runtime.tabs.length - 1 });
+      }
+      const back = await act({ type: "goto", url: input.target_url });
+      if (!back.results[0]?.ok) break;
+    }
+  } catch (error) {
+    if (manager.has(session_id)) {
+      await session.browser.close().catch(() => {
+      });
+      manager.delete(session_id);
+    }
+    throw error;
+  }
+  await lastEffects(session);
+  for (let step = 1; step <= session.step_count; step++) {
+    session.collector.forgetRepeats(0, step);
+  }
+  const dead = pressed.filter((one) => !one.changed && !one.error).length;
+  const ended = await hauntEndSession(manager, {
+    session_id,
+    overall_impression: `Engine sweep: ${pressed.length} buttons no tester pressed were pressed; ${dead} changed nothing.`
+  });
+  return {
+    session_id,
+    pressed: pressed.map(({ step, ...one }) => ({
+      ...one,
+      signals: ended.signals.filter((s) => s.step === step).map((s) => s.id)
+    })),
+    left: [...left.values()],
+    signals: ended.signals.map((signal) => ({
+      id: signal.id,
+      kind: signal.kind,
+      message: signal.message,
+      severity: signal.severity,
+      step: signal.step,
+      status: ended.signal_verification[signal.id]?.status ?? "unverified",
+      ..."name" in signal && typeof signal.name === "string" ? { name: signal.name } : {}
+    }))
+  };
+}
+
 // src/gates/part-2/contract.ts
 var SIGNAL_KINDS = [
   "http_error",
@@ -10596,28 +10776,27 @@ var issueSchema = external_exports.object({
   page_url: external_exports.string(),
   recommendation: external_exports.string(),
   signal: external_exports.string().optional().describe(
-    "The id of the signal this issue is about (s3). An issue must name a signal or carry an observation, or it is rejected"
+    "The id of the signal this issue is about (s3). An issue that names a signal, a case or an observation is replayed and confirmed; one with none is only listed for a person to check"
   ),
-  observed: external_exports.object({
-    step: external_exports.number().int().min(0).optional().describe("The step after which it holds. Default: the last step"),
-    text_present: external_exports.string().optional(),
-    text_absent: external_exports.string().optional(),
-    url: external_exports.string().optional().describe("A string the page URL contains"),
-    element: external_exports.object({
-      ref: external_exports.string(),
-      state: external_exports.enum(["visible", "hidden", "disabled", "enabled", "gone"])
-    }).optional()
-  }).strict().refine(
-    (o) => [o.text_present, o.text_absent, o.url, o.element].filter(
-      (v) => v !== void 0
-    ).length === 1,
-    "An observation states exactly one of text_present, text_absent, url, element"
-  ).optional().describe(
-    "For an issue no signal shows: the fact about the page the engine checks by replaying the steps (a message that is or is not there, an address, an element\u2019s state)"
-  )
+  observed: expectationSchema.optional().describe(
+    "For an issue no signal shows: the fact about the page the engine checks by replaying the steps (a message that is or is not there, an address, an element\u2019s state, the items of a list, what a control holds)"
+  ),
+  case: external_exports.string().optional().describe(
+    "The test case whose check failed. The engine replays the case and checks the same expectation"
+  ),
+  expected: external_exports.string().optional().describe(
+    'For an issue the engine cannot check: what you expected. Listed under "To check by hand"'
+  ),
+  actual: external_exports.string().optional().describe("And what you saw instead")
 });
 var verificationSchema = external_exports.object({
-  status: external_exports.enum(["confirmed", "flaky", "rejected", "unverified"]),
+  status: external_exports.enum([
+    "confirmed",
+    "flaky",
+    "rejected",
+    "unverified",
+    "unchecked"
+  ]),
   attempts: external_exports.number().int().min(0),
   reproduced: external_exports.number().int().min(0),
   rate: external_exports.number().min(0).max(1),
@@ -10630,12 +10809,29 @@ var reportIssueSchema = issueSchema.extend({
 });
 var signalSchema = external_exports.object({
   id: external_exports.string(),
-  kind: external_exports.enum(SIGNAL_KINDS),
+  // Part 2's kinds, and the layout defects of part 5.
+  kind: external_exports.enum([...SIGNAL_KINDS, "layout"]),
   url: external_exports.string(),
   step: external_exports.number().int().min(0),
   message: external_exports.string(),
   severity: external_exports.enum(["major", "minor"]),
   count: external_exports.number().int().positive()
+}).passthrough();
+var caseStatusSchema = external_exports.object({
+  id: external_exports.string(),
+  kind: external_exports.enum(CASE_KINDS),
+  controls: external_exports.array(external_exports.string()),
+  expect: external_exports.string(),
+  verdict: external_exports.enum(["passed", "failed"]).optional()
+}).passthrough();
+var inventoryControlSchema = external_exports.object({
+  ref: external_exports.string(),
+  role: external_exports.string(),
+  name: external_exports.string(),
+  group: external_exports.string(),
+  state: external_exports.enum(["hidden", "disabled", "covered"]).optional(),
+  exercised: external_exports.boolean(),
+  planned: external_exports.boolean()
 }).passthrough();
 var cookieSchema = external_exports.object({
   name: external_exports.string(),
@@ -10652,17 +10848,47 @@ var cookieSchema = external_exports.object({
 function defineTool(tool) {
   return tool;
 }
+var sessionSchema = external_exports.object({
+  area: external_exports.string().describe("The route/area this session tested, e.g. /signup"),
+  persona: external_exports.string().optional(),
+  overall_impression: external_exports.string(),
+  cases: external_exports.array(caseStatusSchema).optional().describe("This session's EndSessionOutput.cases, as returned"),
+  inventory: external_exports.array(inventoryControlSchema).optional().describe(
+    "This session's EndSessionOutput.inventory, as returned: the report counts coverage from it, each control once across the sessions of an area"
+  ),
+  issues: external_exports.array(reportIssueSchema).describe(
+    "This session's EndSessionOutput.issues_found, as returned (with their verification)"
+  ),
+  rejected: external_exports.array(reportIssueSchema).optional().describe("This session's EndSessionOutput.rejected"),
+  sandbox_blocked_requests: external_exports.array(external_exports.string()).optional().describe("This session's EndSessionOutput.sandbox_blocked_requests"),
+  signals: external_exports.array(signalSchema).optional().describe(
+    "This session's EndSessionOutput.signals, as returned: those no issue names get a section of their own"
+  ),
+  signal_verification: external_exports.record(verificationSchema).optional().describe(
+    "This session's EndSessionOutput.signal_verification: only confirmed major signals count in haunt-ci's verdict"
+  )
+});
 var TOOLS = [
   defineTool({
     name: "haunt_spawn",
-    description: "Open a browser session for a persona and navigate to the target URL. Returns persona details (name, goal, system prompt) so the orchestrator can roleplay as that persona.",
+    description: "Open a browser session on the target URL. Returns its id and what went wrong while the page loaded.",
     input: external_exports.object({
-      persona: external_exports.string().describe(
-        "Persona name (e.g. confused-beginner) or absolute path to a YAML file"
-      ),
+      persona: external_exports.string().optional().describe("No longer used. Accepted and ignored"),
       target_url: external_exports.string().describe("URL to test (e.g. http://localhost:3000)"),
       headless: external_exports.boolean().optional().describe("Run browser in headless mode. Default: true"),
-      timeout: external_exports.number().optional().describe("Maximum navigation steps for this session. Default: 30"),
+      budget: external_exports.number().int().positive().optional().describe(
+        "How many actions the session may run before it has to end. Default: 40"
+      ),
+      timeout: external_exports.number().optional().describe("Older name of `budget`"),
+      keep_going: external_exports.boolean().optional().describe(
+        "For a tester. Past a quarter of the budget, haunt_act refuses to act until a test case is registered with haunt_plan. And haunt_end_session refuses, three times at most, while test cases have no verdict or controls were never used and a quarter of the budget is left: the answer lists what is left and what to do next. Default: false"
+      ),
+      narrow_check: external_exports.boolean().optional().describe(
+        "Before the session ends, read its layout once more on a window 375 px wide: what breaks on a phone shows there. Default: false"
+      ),
+      hostile: external_exports.boolean().optional().describe(
+        "Allow test cases of kind `hostile`, which send attack payloads. Only against an app you own. Default: false"
+      ),
       cookies: external_exports.array(cookieSchema).optional().describe(
         "Session cookies to inject before navigation (for authenticated testing)"
       ),
@@ -10686,6 +10912,37 @@ var TOOLS = [
     run: (manager, input) => hauntSpawn(manager, input)
   }),
   defineTool({
+    name: "haunt_scout",
+    description: "The areas of an app worth testing, from the links its page really has: opens the URL, returns the distinct paths on its own origin (the URL's own first), and closes. One call, no session left open. Never guesses a route.",
+    input: external_exports.object({
+      target_url: external_exports.string().describe("URL to start from"),
+      headless: external_exports.boolean().optional(),
+      cookies: external_exports.array(cookieSchema).optional().describe("Session cookies, to scout as a logged-in user"),
+      secrets: external_exports.array(external_exports.string()).optional(),
+      max: external_exports.number().int().positive().optional().describe("How many routes at most. Default: 4")
+    }),
+    run: (manager, input) => hauntScout(manager, input)
+  }),
+  defineTool({
+    name: "haunt_sweep",
+    description: "Press the buttons of an area that no tester pressed, each on the page as it loads, and report what breaks: a button wired to nothing, a handler that throws, a failed request. One call, no session left open: it ends its own session, whose id goes to haunt_generate_report with the testers'. Presses nothing inside a form and nothing whose name says it deletes, pays, sends or signs out.",
+    input: external_exports.object({
+      target_url: external_exports.string().describe("The area to sweep"),
+      sessions: external_exports.array(external_exports.string()).optional().describe(
+        "The ids of the sessions that tested this area, ended or not: a button one of them exercised is not pressed again"
+      ),
+      max: external_exports.number().int().positive().optional().describe("How many buttons to press at most. Default: 20"),
+      headless: external_exports.boolean().optional(),
+      cookies: external_exports.array(cookieSchema).optional().describe("Session cookies, to sweep as a logged-in user"),
+      secrets: external_exports.array(external_exports.string()).optional(),
+      replay_budget_ms: external_exports.number().int().min(0).optional().describe(
+        "How long it may spend replaying what it found to verify it. Default: 120000"
+      ),
+      bundle_cap_bytes: external_exports.number().int().positive().optional()
+    }),
+    run: (manager, input) => hauntSweep(manager, input)
+  }),
+  defineTool({
     name: "haunt_get_cookies",
     description: "Extract all cookies from the current browser session. Use after a successful login to capture the session cookies for reuse in authenticated test sessions.",
     input: external_exports.object({
@@ -10702,16 +10959,53 @@ var TOOLS = [
     input: external_exports.object({
       session_id: external_exports.string(),
       actions: external_exports.array(external_exports.record(external_exports.unknown())).min(1),
-      issues: external_exports.array(issueSchema).optional()
+      issues: external_exports.array(issueSchema).optional(),
+      case: external_exports.string().optional(),
+      expect: expectationSchema.optional()
     }),
     listing: external_exports.object({
       session_id: external_exports.string().describe("Session ID from haunt_spawn"),
       actions: external_exports.array(actionSchema).min(1).describe(
         "Run in order; execution stops when one fails or changes the page under the rest"
       ),
-      issues: external_exports.array(issueSchema).optional().describe("Issues the orchestrator observed during this step")
+      issues: external_exports.array(issueSchema).optional().describe("Issues the orchestrator observed during this step"),
+      case: external_exports.string().optional().describe(
+        "The test case of the plan these actions play. With `expect`, the check gives the case its verdict"
+      ),
+      expect: expectationSchema.optional().describe(
+        "What you expect once these actions have run, stated before you see the result. The engine checks it and answers `expectation: { held, read }`"
+      )
     }),
     run: (manager, input) => hauntAct(manager, input)
+  }),
+  defineTool({
+    name: "haunt_plan",
+    description: "The test plan of a session. With only a session id: the inventory (every control the session was shown, with its group, its state, and whether it was exercised), the cases, and the coverage, counted by the engine from the actions that ran. With `cases`: registers test cases. With `close`: gives a verdict to a case the engine cannot check by itself.",
+    input: external_exports.object({
+      session_id: external_exports.string().describe("Session ID from haunt_spawn"),
+      cases: external_exports.array(planCaseSchema).optional(),
+      from: external_exports.string().optional().describe(
+        "The id of another session, live or ended: registers its cases here, resolved to this session's controls. How a tester takes the cases a planner wrote"
+      ),
+      only: external_exports.array(external_exports.string()).optional().describe("With `from`: the ids of the cases to take. Default: all"),
+      brief: external_exports.boolean().optional().describe(
+        "Leave the inventory out of the answer: only the cases and the coverage. Use it once you have read the inventory"
+      ),
+      close: external_exports.array(
+        external_exports.object({
+          id: external_exports.string(),
+          verdict: external_exports.enum(["passed", "failed"]),
+          note: external_exports.string().describe("What you saw, in one sentence")
+        })
+      ).optional()
+    }),
+    // On a page of a hundred controls the inventory is most of the answer,
+    // and a caller that has read it once does not need it back with every
+    // case it registers.
+    run: async (manager, { brief, ...input }) => {
+      const plan = await hauntPlan(manager, input);
+      return brief ? { cases: plan.cases, coverage: plan.coverage } : plan;
+    }
   }),
   defineTool({
     name: "haunt_capture_state",
@@ -10732,23 +11026,34 @@ var TOOLS = [
       ),
       audit: external_exports.boolean().optional().describe(
         "Run the accessibility audit (axe-core, WCAG 2 A and AA) on the page as it is now and list its violations with the other signals of the page. Each page is already audited once, when first reached; ask again after the page has changed"
+      ),
+      list: listQuerySchema.optional().describe(
+        "Also return the items of a container exactly as the page shows them, to look before stating an expectation about them"
       )
     }),
     run: (manager, input) => hauntCaptureState(manager, input)
   }),
   defineTool({
     name: "haunt_end_session",
-    description: "Close the browser session, replay every issue in a fresh browser to verify it, and return them: confirmed, flaky (with the rate a replay reproduced it) or unverified in issues_found, each with its evidence bundle; rejected ones apart, with why.",
+    description: "Close the browser session, replay every issue in a fresh browser to verify it, and return them: confirmed, flaky (with the rate a replay reproduced it) or unverified in issues_found, each with its evidence bundle; rejected ones apart, with why. A session spawned with keep_going that still has work left answers `ended: false`, three times at most, with what is left and what to do next, and stays open.",
     input: external_exports.object({
       session_id: external_exports.string(),
-      overall_impression: external_exports.string().optional().describe(
-        "The orchestrator's summary of the session from the persona's perspective"
+      brief: external_exports.boolean().optional().describe(
+        "Return what became of each issue and the counts, without the signals and the inventory. They stay on the server: haunt_generate_report takes them from the session id"
       ),
+      overall_impression: external_exports.string().optional().describe("What the session found, in a sentence or two"),
       issues: external_exports.array(issueSchema).optional().describe(
         "Issues found since the last haunt_act call, typically from the result of the last action"
       )
     }),
-    run: (manager, input) => hauntEndSession(manager, input)
+    // An agent that ends its session needs to know what became of its
+    // issues, not to carry a hundred controls back to whoever spawned it.
+    run: async (manager, { brief, ...input }) => {
+      const held = await heldBack(manager, input);
+      if (held) return held;
+      const ended = await hauntEndSession(manager, input);
+      return brief ? briefEnd(ended) : ended;
+    }
   }),
   defineTool({
     name: "haunt_estimate_cost",
@@ -10764,24 +11069,14 @@ var TOOLS = [
     description: "Compute issue counts, sort issues by severity, render the markdown report, and write it to .haunt-reports/. Returns the exact terminal summary to print. Call once in Phase 3 after all sessions have ended \u2014 do not hand-write the report file.",
     input: external_exports.object({
       target_url: external_exports.string(),
-      personas: external_exports.array(external_exports.string()).describe("Persona names used in this run"),
+      personas: external_exports.array(external_exports.string()).optional().describe("No longer used: personas are gone. Accepted and ignored"),
+      spec: external_exports.string().optional().describe(
+        "The name of the description of the app the testers were given, if any"
+      ),
       sessions: external_exports.array(
-        external_exports.object({
-          area: external_exports.string().describe("The route/area this session tested, e.g. /signup"),
-          persona: external_exports.string(),
-          overall_impression: external_exports.string(),
-          issues: external_exports.array(reportIssueSchema).describe(
-            "This session's EndSessionOutput.issues_found, as returned (with their verification)"
-          ),
-          rejected: external_exports.array(reportIssueSchema).optional().describe("This session's EndSessionOutput.rejected"),
-          sandbox_blocked_requests: external_exports.array(external_exports.string()).optional().describe(
-            "This session's EndSessionOutput.sandbox_blocked_requests"
-          ),
-          signals: external_exports.array(signalSchema).optional().describe(
-            "This session's EndSessionOutput.signals, as returned: those no issue names get a section of their own"
-          ),
-          signal_verification: external_exports.record(verificationSchema).optional().describe(
-            "This session's EndSessionOutput.signal_verification: only confirmed major signals count in haunt-ci's verdict"
+        sessionSchema.partial({ overall_impression: true, issues: true }).extend({
+          session_id: external_exports.string().optional().describe(
+            "The id of a session that has ended: its result is taken from the server, and the other fields here only add to it or correct it. Prefer this to passing the result yourself"
           )
         })
       ).describe("One entry per ended session"),
@@ -10789,7 +11084,25 @@ var TOOLS = [
         "Path to a previous report (its .md path, or the .json sidecar directly) to diff against. Annotates each current issue as new vs. still present, and lists issues from that run no longer found."
       )
     }),
-    run: (_manager, input) => hauntGenerateReport(input)
+    run: (manager, input) => hauntGenerateReport({
+      ...input,
+      sessions: input.sessions.map((given) => {
+        const { session_id, ...own } = given;
+        if (session_id === void 0) return sessionSchema.parse(own);
+        const ended = manager.endedSession(session_id);
+        if (!ended) {
+          throw new Error(
+            `No ended session ${session_id}: end it with haunt_end_session before the report, or pass its result.`
+          );
+        }
+        return sessionSchema.parse({
+          ...ended.result,
+          // Named `issues_found` where a session returns them.
+          issues: ended.result.issues_found,
+          ...own
+        });
+      })
+    })
   }),
   defineTool({
     name: "haunt_replay",
@@ -10843,9 +11156,19 @@ function createServer(manager = new SessionManager()) {
         throw new Error(describeInputError(name, parsed.error));
       }
       const result = await tool.run(manager, parsed.data);
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
-      };
+      const content = [{ type: "text", text: JSON.stringify(result) }];
+      const shot = result?.screenshot_path;
+      if (name === "haunt_capture_state" && shot) {
+        const path = join(SCREENSHOTS_DIR, shot);
+        if (existsSync(path)) {
+          content.push({
+            type: "image",
+            data: readFileSync(path).toString("base64"),
+            mimeType: "image/png"
+          });
+        }
+      }
+      return { content };
     } catch (error) {
       return {
         content: [

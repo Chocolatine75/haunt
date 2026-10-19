@@ -30,13 +30,13 @@ describe('hauntSpawn', () => {
     });
 
     expect(result.session_id).toBeTruthy();
-    expect(result.persona_name).toBe('Test Persona');
-    expect(result.persona_goal).toBe('Explore the app');
+    // A persona is still accepted, and nothing comes back of it (R-T14).
+    expect(JSON.stringify(result)).not.toMatch(/persona/i);
 
     const session = manager.get(result.session_id);
     expect(session.pages_visited).toEqual(['data:text/html,<h1>hello</h1>']);
-    // Fixture's scenario max_steps is 10; no input.timeout override given
-    expect(session.max_steps).toBe(10);
+    // The default budget of actions, whatever a persona used to say.
+    expect(session.max_steps).toBe(40);
   });
 
   it('input.timeout overrides the persona default max_steps', async () => {

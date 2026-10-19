@@ -48,7 +48,6 @@ const USAGE =
   'Usage: haunt-benchmark [url] [--ground-truth path] [--provider anthropic|mistral] [--model id] [--out path] [--email addr --password pw] [--login-url url]';
 const DEFAULT_TARGET_URL = 'http://localhost:3000';
 const DEFAULT_GROUND_TRUTH_PATH = 'demo/benchmark-ground-truth.json';
-const BENCHMARK_PERSONA = 'confused-beginner';
 const BENCHMARK_STEPS = 3;
 
 const VALUED_FLAGS = [
@@ -154,7 +153,6 @@ export async function runBenchmark(
 
   const { report } = await runHeadlessTest(decide, manager, {
     targetUrl: options.targetUrl,
-    personas: [BENCHMARK_PERSONA],
     steps: BENCHMARK_STEPS,
     headless: true,
     cookies: options.cookies,

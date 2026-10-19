@@ -291,7 +291,9 @@ describe('S8 the gate itself', () => {
   });
 });
 
-// Updated once since part 2 started, for G1.2 waiting on its late frame
-// rather than on a fixed second (#37): the assertions did not change.
+// Updated twice since part 2 started. For G1.2 waiting on its late frame
+// rather than on a fixed second (#37): the assertions did not change. Then
+// for G5.6 no longer naming the test files of the persona loader, which
+// part 4 removes with personas (R-T14).
 const PART_1_HASH =
-  '5fdb1b72f30ba98661a02f7d58d698b1b6e26edcad5c004badada82e3cfc59b9';
+  '22f3486a59d5879e8dc78467f261a5966f61aa75101646fea4463c0ff9a65d31';

@@ -1,8 +1,9 @@
 import type { Browser, BrowserContext, Page } from 'playwright';
 import type { Signal } from '../gates/part-2/contract.js';
-import type { Observation } from '../gates/part-3/contract.js';
+import type { Expectation } from '../gates/part-4/contract.js';
 import type { SessionRuntime } from './act/runtime.js';
 import type { Recording } from './evidence/recording.js';
+import type { PlanState } from './plan/plan.js';
 import type { SignalCollector } from './signals/collector.js';
 import type { SnapshotState } from './snapshot/snapshot.js';
 
@@ -27,31 +28,19 @@ export interface Issue {
   // The id of the signal this issue is about (part 2, R-S21): the report
   // shows the signal under the issue instead of on its own.
   signal?: string;
-  // A fact about the page the engine can read back (part 3, R-E1).
-  observed?: Observation;
-}
-
-export interface PersonaScenario {
-  name: string;
-  goal: string;
-  max_steps: number;
-}
-
-export interface PersonaConfig {
-  name: string;
-  description: string;
-  system_prompt: string;
-  browser: {
-    headless: boolean;
-    viewport?: { width: number; height: number };
-    locale?: string;
-  };
-  scenarios: PersonaScenario[];
+  // A fact about the page the engine can read back (part 3, R-E1; part 4
+  // adds a list read exactly and the state of a control).
+  observed?: Expectation;
+  // The test case whose check failed (part 4, R-T10).
+  case?: string;
+  // For an issue the engine cannot check: what was expected and what was
+  // seen (part 4, R-T11).
+  expected?: string;
+  actual?: string;
 }
 
 export interface HauntSession {
   id: string;
-  persona: PersonaConfig;
   browser: Browser;
   page: Page;
   issues: Issue[];
@@ -81,9 +70,20 @@ export interface HauntSession {
   signals: Signal[];
   // Every action that ran, replayable in another browser (part 3).
   recording: Recording;
+  // What the pages offer, the cases planned and what was done (part 4).
+  plan: PlanState;
   evidence: {
     // Whether pages are audited for accessibility (a replay's are not).
     audit: boolean;
+    // Whether their layout is read (part 5), and once more on a narrow
+    // window before the session ends.
+    layout: boolean;
+    narrow_check: boolean;
+    // Whether a call to end it is refused while work is left, and an
+    // action while no case is planned (docs/v3/part-4-field.md, R-F1,
+    // R-F6), and how many times it has been held back.
+    keep_going: boolean;
+    held_back?: number;
     replay_budget_ms: number;
     bundle_cap_bytes: number;
     // Kept in memory for the replays, never written.

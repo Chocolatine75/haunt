@@ -144,8 +144,12 @@ From the repo root: `node scripts/check-versions.mjs`.
   finding that is the point.
 - **A sandbox block is not an app bug.** Blocked requests go to
   `sandbox_blocked_requests`, never to `network_errors` or `issues`.
-- **`malicious-user` sends real attack payloads.** Only run it against
-  `demo/` or an app the user owns.
+- **`--hostile` sends real attack payloads.** Only run it against `demo/` or
+  an app the user owns.
+- **The briefs are written once**, in `src/engine/brief.ts`. The plugin's
+  tester (`agents/haunt-tester.md`) holds the tester's brief and the method
+  for writing cases word for word, and `haunt-ci` sends the briefs; change
+  them together.
 - Reports and screenshots are written to `.haunt-reports/` in the current
   directory. It is gitignored; tests clean up what they write.
 

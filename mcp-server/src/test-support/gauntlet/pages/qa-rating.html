@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — qa-rating</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<!--
+  Products with a score and the stars that go with it. In the buggy variant
+  every product shows five stars, whatever its score says.
+-->
+<h1>Kettles</h1>
+<p><button data-g="refresh" type="button">Refresh ratings</button></p>
+<ul data-g="products" id="products" aria-label="Products"></ul>
+<p id="result" role="status"></p>
+<script>
+  const PRODUCTS = [
+    ['Copper kettle', 'copper', 5],
+    ['Glass kettle', 'glass', 3],
+    ['Travel kettle', 'travel', 2],
+    ['Steel kettle', 'steel', 4],
+  ];
+  const G = window.__gauntlet;
+  let refreshed = 0;
+  function render() {
+    document.getElementById('products').innerHTML = PRODUCTS.map(([name, id, score]) => {
+      const stars = '{{VARIANT}}' === 'buggy' ? 5 : score;
+      return (
+        `<li>${name}, scored ${score}.0 by buyers ` +
+        `<span data-g="stars-${id}" role="img" aria-label="${stars} out of 5 stars">` +
+        `${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}</span></li>`
+      );
+    }).join('');
+  }
+  G.find('refresh').addEventListener('click', () => {
+    render();
+    document.getElementById('result').textContent = `Ratings refreshed ${++refreshed} time${refreshed === 1 ? '' : 's'}`;
+  });
+  render();
+</script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — qa-dialog</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<!--
+  A dialog with controls the page did not have before it opened. In the
+  buggy variant the Tab key leaves it for the page behind; in the clean one
+  it goes round inside.
+-->
+<h1>Profile</h1>
+<p>Signed in as <span id="shown">Ada</span></p>
+<p><button data-g="edit" id="edit" type="button">Edit profile</button></p>
+<p><a data-g="help" id="help" href="#help">Help</a></p>
+<div data-g="dialog" id="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title" hidden
+  style="position: fixed; inset: 15% 20% auto; background: #fff; border: 1px solid #555; padding: 16px">
+  <h2 id="dialog-title">Edit profile</h2>
+  <p><label>Display name <input data-g="display-name" id="display-name" type="text" value="Ada"></label></p>
+  <p>
+    <button data-g="save-profile" type="button">Save profile</button>
+    <button data-g="cancel" type="button">Cancel</button>
+  </p>
+</div>
+<script>
+  const G = window.__gauntlet;
+  const dialog = document.getElementById('dialog');
+  const inside = ['display-name', 'save-profile', 'cancel'].map((id) => G.find(id));
+  const close = () => {
+    dialog.hidden = true;
+    G.find('edit').focus();
+  };
+  G.find('edit').addEventListener('click', () => {
+    dialog.hidden = false;
+    inside[0].focus();
+  });
+  G.find('cancel').addEventListener('click', close);
+  G.find('save-profile').addEventListener('click', () => {
+    document.getElementById('shown').textContent = inside[0].value;
+    close();
+  });
+  dialog.addEventListener('keydown', (event) => {
+    if (event.key !== 'Tab' || '{{VARIANT}}' === 'buggy') return;
+    const first = inside[0];
+    const last = inside[inside.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  });
+</script>
+</body>
+</html>

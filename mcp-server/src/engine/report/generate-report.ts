@@ -1,5 +1,10 @@
 // mcp-server/src/engine/report/generate-report.ts
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import type {
+  CaseStatus,
+  InventoryControl,
+  ReportCoverage,
+} from '../../gates/part-4/contract.js';
 import { REPORTS_DIR } from '../constants.js';
 import type { Issue, IssueSeverity } from '../types.js';
 import { groupBy, renderSignalGroup, signalKey } from './group.js';
@@ -7,7 +12,7 @@ import { groupBy, renderSignalGroup, signalKey } from './group.js';
 // What the report needs of a verification (gates/part-3/contract.ts has the
 // whole shape).
 export interface ReportVerification {
-  status: 'confirmed' | 'flaky' | 'rejected' | 'unverified';
+  status: 'confirmed' | 'flaky' | 'rejected' | 'unverified' | 'unchecked';
   attempts: number;
   reproduced: number;
   rate: number;
@@ -44,7 +49,13 @@ export type ReportIssue = Issue & { verification?: ReportVerification };
 
 export interface SessionResult {
   area: string;
-  persona: string;
+  // Ignored: personas are gone (part 4). Still accepted, as callers written
+  // before pass one.
+  persona?: string;
+  // The session's plan and inventory, as haunt_end_session returned them
+  // (part 4): what the coverage of the report is counted from.
+  cases?: CaseStatus[];
+  inventory?: InventoryControl[];
   overall_impression: string;
   issues: ReportIssue[];
   // Issues verification rejected: in the sidecar only.
@@ -59,7 +70,11 @@ export interface SessionResult {
 
 export interface GenerateReportInput {
   target_url: string;
-  personas: string[];
+  // Ignored but for the report's file name, which callers written before
+  // part 4 rely on.
+  personas?: string[];
+  // The name of the description of the app the testers were given (R-T15).
+  spec?: string;
   sessions: SessionResult[];
   // Injectable for tests; defaults to today (UTC) when omitted.
   date?: string;
@@ -99,6 +114,72 @@ export const SIGNALS_HEADING = 'Detected automatically';
 // not be replayed in time (R-E12).
 export const FLAKY_HEADING = 'Flaky';
 export const UNVERIFIED_HEADING = 'Unverified';
+// The heading of what a tester saw and the engine cannot check (R-T11).
+export const UNCHECKED_HEADING = 'To check by hand';
+// The heading of what was and was not tested (part 4, R-T12).
+export const COVERAGE_HEADING = 'Coverage';
+
+// The coverage of the app across its sessions (R-T22): testers that shared
+// an area count each of its controls once, exercised if any of them
+// exercised it, and each case once. Undefined when no session carries an
+// inventory.
+function coverageAcross(sessions: SessionResult[]): ReportCoverage | undefined {
+  if (!sessions.some((s) => s.inventory)) return undefined;
+  const controls = new Map<
+    string,
+    { area: string; role: string; name: string; exercised: boolean }
+  >();
+  const cases = new Map<string, { id: string; verdict?: string }>();
+  for (const session of sessions) {
+    for (const control of session.inventory ?? []) {
+      const key = JSON.stringify([
+        session.area,
+        control.group,
+        control.role,
+        control.name,
+      ]);
+      const known = controls.get(key);
+      if (known) known.exercised ||= control.exercised;
+      else {
+        controls.set(key, {
+          area: session.area,
+          role: control.role,
+          name: control.name,
+          exercised: control.exercised,
+        });
+      }
+    }
+    for (const one of session.cases ?? []) {
+      const key = JSON.stringify([session.area, one.id]);
+      const known = cases.get(key);
+      // A failure anywhere is the case's verdict; then a pass.
+      if (!known) cases.set(key, { id: one.id, verdict: one.verdict });
+      else if (one.verdict === 'failed' || !known.verdict) {
+        known.verdict = one.verdict ?? known.verdict;
+      }
+    }
+  }
+  const all = [...controls.values()];
+  const planned = [...cases.values()];
+  return {
+    controls: {
+      listed: all.length,
+      exercised: all.filter((c) => c.exercised).length,
+    },
+    cases: {
+      planned: planned.length,
+      run: planned.filter((c) => c.verdict).length,
+      passed: planned.filter((c) => c.verdict === 'passed').length,
+      failed: planned.filter((c) => c.verdict === 'failed').length,
+    },
+    left: {
+      controls: all
+        .filter((c) => !c.exercised)
+        .map(({ area, role, name }) => ({ area, role, name })),
+      cases: planned.filter((c) => !c.verdict).map((c) => c.id),
+    },
+  };
+}
 // The heading of the sign-ins refused as they should be (R-S14).
 export const EXPECTED_HEADING = 'Expected, not counted';
 
@@ -340,6 +421,23 @@ export function hauntGenerateReport(
   const allIssues = filed.filter((i) => statusOf(i) === 'confirmed');
   const flaky = filed.filter((i) => statusOf(i) === 'flaky');
   const unverified = filed.filter((i) => statusOf(i) === 'unverified');
+  // What a tester saw and the engine cannot check (R-T11): for a person.
+  const unchecked = filed.filter((i) => statusOf(i) === 'unchecked');
+  // And the checks that failed without any issue naming them: a tester that
+  // sees its expectation fail and says nothing has still seen it fail.
+  const unnamedFailures = input.sessions.flatMap((session) => {
+    const named = new Set(
+      [...session.issues, ...(session.rejected ?? [])].flatMap((i) =>
+        i.case !== undefined ? [i.case] : [],
+      ),
+    );
+    return (session.cases ?? [])
+      .filter(
+        (one) =>
+          one.verdict === 'failed' && one.by === 'engine' && !named.has(one.id),
+      )
+      .map((one) => ({ area: session.area, ...one }));
+  });
   const rejectedIssues = [
     ...filed.filter((i) => statusOf(i) === 'rejected'),
     ...input.sessions.flatMap((s) => s.rejected ?? []),
@@ -431,11 +529,18 @@ export function hauntGenerateReport(
     ),
   ).length;
 
-  const personaSlug = input.personas
-    .join('-')
+  // Named after what was tested: two reports of a day on two apps do not
+  // overwrite each other.
+  const slug = (
+    input.personas?.length
+      ? input.personas.join('-')
+      : input.target_url.replace(/^[a-z]+:\/\//i, '').replace(/[?#].*$/, '')
+  )
     .toLowerCase()
-    .replace(/[^a-z0-9-]+/g, '-');
-  const report_path = `${REPORTS_DIR}/${date}-${personaSlug}.md`;
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  const report_path = `${REPORTS_DIR}/${date}-${slug || 'report'}.md`;
+  const coverage = coverageAcross(input.sessions);
 
   let comparison: ComparisonResult | undefined;
   let comparison_error: string | undefined;
@@ -461,7 +566,6 @@ export function hauntGenerateReport(
     'haunt: true',
     `target: ${input.target_url}`,
     `date: ${date}`,
-    `personas: [${input.personas.join(', ')}]`,
     `areas_tested: ${input.sessions.length}`,
     'issues:',
     `  total: ${counts.total}`,
@@ -491,7 +595,7 @@ export function hauntGenerateReport(
     : '_No issues found._';
 
   const impressionsSection = input.sessions
-    .map((s) => `**${s.area} — ${s.persona}:** "${s.overall_impression}"`)
+    .map((s) => `**${s.area}:** "${s.overall_impression}"`)
     .join('\n');
 
   const forClaudeSection = sorted.length
@@ -502,7 +606,10 @@ export function hauntGenerateReport(
     frontmatter,
     '',
     `# Haunt Report — ${input.target_url}`,
-    `${date} · ${input.sessions.length} areas · ${counts.total} issues · ${input.personas.join(', ')}`,
+    `${date} · ${input.sessions.length} areas · ${counts.total} issues`,
+    ...(input.spec
+      ? [`Tested against the description \`${input.spec}\`.`]
+      : []),
     '',
     '## Issues',
     '',
@@ -541,6 +648,41 @@ export function hauntGenerateReport(
       flaky.map(listed).join('\n'),
     );
   }
+  if (unchecked.length > 0 || unnamedFailures.length > 0) {
+    bodySections.push(
+      '',
+      `## ${UNCHECKED_HEADING}`,
+      '',
+      'Seen by a tester, and nothing the engine could verify by itself. Not counted. Each comes with the steps that led to it.',
+    );
+    if (unchecked.length > 0) {
+      bodySections.push(
+        '',
+        unchecked
+          .map((issue) =>
+            [
+              `- [${issue.severity.toUpperCase()}] ${issue.description} (\`${issue.page_url}\`)`,
+              ...(issue.expected ? [`  - Expected: ${issue.expected}`] : []),
+              ...(issue.actual ? [`  - Seen: ${issue.actual}`] : []),
+              ...(issue.verification?.bundle
+                ? [`  - Steps: \`${issue.verification.bundle}\``]
+                : []),
+            ].join('\n'),
+          )
+          .join('\n'),
+      );
+    }
+    if (unnamedFailures.length > 0) {
+      bodySections.push(
+        '',
+        'Checks that failed, and that no issue was filed for:',
+        ...unnamedFailures.map(
+          (one) =>
+            `- "${one.id}" on \`${one.area}\` — expected: ${one.expect}${one.read !== undefined ? ` — the page showed: ${JSON.stringify(one.read)}` : ''}`,
+        ),
+      );
+    }
+  }
   if (unverified.length > 0) {
     bodySections.push(
       '',
@@ -561,6 +703,26 @@ export function hauntGenerateReport(
       '',
       expectedGroups.map(renderSignalGroup).join('\n'),
     );
+  }
+
+  if (coverage) {
+    const { controls, cases, left } = coverage;
+    bodySections.push(
+      '',
+      `## ${COVERAGE_HEADING}`,
+      '',
+      'Counted by the engine from the actions that ran, not from what a tester says it did.',
+      '',
+      `- ${controls.exercised} of ${controls.listed} controls exercised`,
+      `- ${cases.planned} test cases: ${cases.passed} passed, ${cases.failed} failed, ${cases.planned - cases.run} not run`,
+    );
+    if (left.controls.length > 0) {
+      bodySections.push(
+        '',
+        'Never exercised:',
+        ...left.controls.map((c) => `- ${c.role} "${c.name}" — \`${c.area}\``),
+      );
+    }
   }
 
   bodySections.push('', '## Session Impressions', '', impressionsSection);
@@ -620,7 +782,8 @@ export function hauntGenerateReport(
       {
         target_url: input.target_url,
         date,
-        personas: input.personas,
+        ...(input.spec ? { spec: input.spec } : {}),
+        ...(coverage ? { coverage } : {}),
         // Every issue filed, so that a later comparison matches each; one
         // listed under another says which, by its index here.
         issues: sortedFiled.map((issue) => {
@@ -634,6 +797,7 @@ export function hauntGenerateReport(
         }),
         flaky,
         unverified,
+        unchecked,
         rejected: rejectedIssues,
         signals: allSignals,
         signal_counts,

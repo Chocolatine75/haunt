@@ -19,9 +19,8 @@ export interface AuthenticateOptions {
   email: string;
   password: string;
   headless: boolean;
-  // Only used for its browser/viewport defaults — the login flow itself is
-  // deterministic, not persona-reasoned. Defaults to 'confused-beginner';
-  // overridable so tests can point at a fixture persona.
+  // Ignored: personas are gone. Still accepted from a caller written
+  // before.
   persona?: string;
 }
 
@@ -55,7 +54,6 @@ export async function authenticate(
   options: AuthenticateOptions,
 ): Promise<Cookie[]> {
   const spawnResult = await hauntSpawn(manager, {
-    persona: options.persona ?? 'confused-beginner',
     target_url: options.loginUrl,
     headless: options.headless,
     // Two fills and a click per attempt, with room to spare.

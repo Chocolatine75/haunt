@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gauntlet — qa-sort</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<!--
+  A product list with a sort order. In the buggy variant "Price, low to
+  high" compares the prices as text, so $1,050.00 comes before $20.00.
+-->
+<h1>Desk shop</h1>
+<p><label>Sort by
+  <select data-g="sort" id="sort">
+    <option value="featured">Featured</option>
+    <option value="price-asc">Price, low to high</option>
+    <option value="price-desc">Price, high to low</option>
+  </select>
+</label></p>
+<p>
+  <button data-g="compact" type="button" aria-pressed="false">Compact view</button>
+  <button data-g="details" type="button" aria-expanded="false" aria-controls="shipping">Shipping details</button>
+</p>
+<p id="shipping" hidden>Orders leave the warehouse within two working days.</p>
+<p><button data-g="compare" type="button" disabled>Compare selected</button></p>
+<ul data-g="products" id="products" aria-label="Products"></ul>
+<script>
+  const PRODUCTS = [
+    ['Desk lamp', '$20.00'],
+    ['Standing desk', '$1,050.00'],
+    ['Notebook', '$9.50'],
+    ['Monitor arm', '$120.00'],
+    ['Pencil', '$8.00'],
+  ];
+  const G = window.__gauntlet;
+  const amount = (price) => Number(price.replace(/[$,]/g, ''));
+  function render() {
+    const order = G.find('sort').value;
+    const sorted = [...PRODUCTS];
+    if (order !== 'featured') {
+      sorted.sort((a, b) =>
+        '{{VARIANT}}' === 'buggy' ? (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0) : amount(a[1]) - amount(b[1]),
+      );
+      if (order === 'price-desc') sorted.reverse();
+    }
+    document.getElementById('products').innerHTML = sorted
+      .map(([name, price]) => `<li>${name} — ${price}</li>`)
+      .join('');
+  }
+  G.find('sort').addEventListener('change', render);
+  G.find('compact').addEventListener('click', (event) => {
+    const on = event.currentTarget.getAttribute('aria-pressed') !== 'true';
+    event.currentTarget.setAttribute('aria-pressed', String(on));
+    document.getElementById('products').style.lineHeight = on ? '1.1' : '';
+  });
+  G.find('details').addEventListener('click', (event) => {
+    const open = event.currentTarget.getAttribute('aria-expanded') !== 'true';
+    event.currentTarget.setAttribute('aria-expanded', String(open));
+    document.getElementById('shipping').hidden = !open;
+  });
+  render();
+</script>
+</body>
+</html>

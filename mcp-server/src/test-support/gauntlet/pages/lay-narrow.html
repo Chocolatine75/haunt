@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gauntlet — lay-narrow</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<!--
+  A page that has to fit a phone. In the buggy variant its header is 620
+  pixels wide whatever the window: at 375 the page scrolls sideways.
+
+  Not to be reported: on a wide window, a table wider than the page.
+-->
+<header style="{{#buggy}}width: 620px;{{/buggy}}{{#clean}}max-width: 100%;{{/clean}} box-sizing: border-box; background: #eee; padding: 8px">
+  <a data-g="home" href="#home">Home</a>
+  <a data-g="account" href="#account">Your account and subscription</a>
+</header>
+<h1>Orders</h1>
+<div data-g="wide" tabindex="0" role="region" aria-label="All orders" style="{{#clean}}overflow-x: auto;{{/clean}}{{#buggy}}overflow-x: auto;{{/buggy}}">
+  <table style="width: 1500px">
+    <caption>All orders</caption>
+    <tr><th>Order</th><th>Customer</th><th>Total</th></tr>
+    <tr><td>1001</td><td>Ada Lovelace</td><td>$120.00</td></tr>
+  </table>
+</div>
+<p><button data-g="refresh" type="button">Refresh</button></p>
+</body>
+</html>

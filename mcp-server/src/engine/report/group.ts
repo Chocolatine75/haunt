@@ -49,6 +49,10 @@ export function signalKey(signal: GroupableSignal): string {
       return `${signal.kind}|${signal.message}`;
     case 'a11y':
       return `a11y|${signal.rule ?? signal.message}`;
+    // A layout defect is about a control on its page: the same "Menu"
+    // covered on two pages is two places to fix.
+    case 'layout':
+      return `layout|${signal.url}|${signal.rule ?? ''}|${signal.message.replace(/\d+ px/g, '')}`;
     case 'dead_control':
       return `dead_control|${signal.url}|${signal.role ?? ''}|${signal.name ?? ''}`;
     case 'long_task':

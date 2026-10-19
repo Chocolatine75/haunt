@@ -17,15 +17,19 @@ describe('E3 nothing on a model’s word', () => {
     gate(
       'E3.1',
       'R-E1 R-E9',
-      'an issue with no signal and no observation is rejected with that reason',
+      // Until part 4 it was rejected, with the reason `no_claim`. Part 4
+      // keeps it for a person to look at (R-T11): what a tester saw and
+      // could not state as a check was being lost. What this test holds is
+      // what part 3 is about: nothing is confirmed on a model's word.
+      'an issue with no signal and no observation is confirmed by nothing: it ends unchecked',
       async () => {
         const session = await ctx.ev('ev-sequence');
         await session.play();
         const ended = await session.end([{ ...ISSUE, page_url: session.url }]);
-        expect(ended.issues_found).toEqual([]);
-        expect(ended.rejected.map((i) => i.verification)).toMatchObject([
-          { status: 'rejected', reason: 'no_claim' },
-        ]);
+        expect(ended.rejected).toEqual([]);
+        expect(
+          ended.issues_found.map((i) => i.verification.status as string),
+        ).toEqual(['unchecked']);
       },
     );
   });

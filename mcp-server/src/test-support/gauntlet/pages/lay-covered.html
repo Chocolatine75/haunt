@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gauntlet — lay-covered</title>
+<link rel="stylesheet" href="/_g.css">
+<script src="/_g.js"></script>
+</head>
+<body>
+<!--
+  A call screen. In the buggy variant "Stop sharing" sits under the control
+  bar, both pinned to the window: no scrolling uncovers it.
+
+  What must not be reported, in both variants: the header that content
+  scrolls under, the menu that opens over the page, the backdrop of a panel
+  built without the role of a dialog, the message that shows for a moment.
+-->
+<header style="position: sticky; top: 0; background: #fff; border-bottom: 1px solid #999; padding: 8px">
+  <button data-g="menu" type="button" aria-expanded="false" aria-controls="menu-list">Menu</button>
+  <div id="menu-list" role="menu" hidden
+    style="position: absolute; top: 40px; left: 8px; background: #fff; border: 1px solid #555; padding: 8px; width: 220px">
+    <button data-g="menu-mute" role="menuitem" type="button">Mute everyone</button>
+  </div>
+</header>
+<h1>Team call</h1>
+<p><button data-g="invite" type="button">Invite someone</button></p>
+<p><button data-g="notes" type="button">Open notes</button></p>
+<p><button data-g="panel-open" type="button">Show participants</button></p>
+<div style="height: 1400px"></div>
+<p><button data-g="feedback" type="button">Send feedback</button></p>
+
+<div style="position: fixed; right: 16px; bottom: {{#buggy}}6px{{/buggy}}{{#clean}}76px{{/clean}}">
+  <button data-g="stop-sharing" type="button">Stop sharing</button>
+</div>
+<div data-g="bar" style="position: fixed; left: 0; right: 0; bottom: 0; height: 56px; background: #222; color: #fff; padding: 8px">
+  <button data-g="mute" type="button">Mute</button>
+  <button data-g="camera" type="button">Camera</button>
+</div>
+
+<div id="backdrop" hidden style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5)">
+  <div style="margin: 80px auto; width: 320px; background: #fff; padding: 16px">
+    <h2>Participants</h2>
+    <button data-g="panel-close" type="button">Close</button>
+  </div>
+</div>
+<p id="toast" role="status" style="position: fixed; top: 96px; left: 8px; background: #fff; border: 1px solid #555; padding: 12px 40px"></p>
+<script>
+  const G = window.__gauntlet;
+  G.find('menu').addEventListener('click', (event) => {
+    const open = event.currentTarget.getAttribute('aria-expanded') !== 'true';
+    event.currentTarget.setAttribute('aria-expanded', String(open));
+    document.getElementById('menu-list').hidden = !open;
+  });
+  G.find('panel-open').addEventListener('click', () => {
+    document.getElementById('backdrop').hidden = false;
+  });
+  G.find('panel-close').addEventListener('click', () => {
+    document.getElementById('backdrop').hidden = true;
+  });
+  G.find('notes').addEventListener('click', () => {
+    document.getElementById('toast').textContent = 'Notes opened in a new panel';
+  });
+</script>
+</body>
+</html>

@@ -2,8 +2,10 @@
 import { mkdirSync } from 'node:fs';
 import type { Snapshot } from '../gates/part-1/contract.js';
 import type { Signal } from '../gates/part-2/contract.js';
+import type { ListQuery } from '../gates/part-4/contract.js';
 import { SCREENSHOTS_DIR, SESSION_TTL_MS } from './constants.js';
 import { maskedScreenshot } from './evidence/screenshot.js';
+import { readList } from './plan/expect.js';
 import type { SessionManager } from './session/manager.js';
 import { auditNow } from './signals/audit.js';
 import { type SnapshotOptions, takeSnapshot } from './snapshot/snapshot.js';
@@ -16,11 +18,15 @@ export interface CaptureInput extends SnapshotOptions {
   // Audit the page as it is now (R-S15). Implies `signals`, with this
   // audit's findings in place of earlier ones.
   audit?: boolean;
+  // Also return the items of a container, as an expectation would read
+  // them (part 4, R-T8).
+  list?: ListQuery;
 }
 
 export type CaptureOutput = Snapshot & {
   screenshot_path?: string;
   signals?: Signal[];
+  list?: string[];
 };
 
 // The page as a tester reads it: every actionable element with its
@@ -33,8 +39,12 @@ export async function hauntCaptureState(
   const session = manager.get(input.session_id);
   await manager.reapStale(SESSION_TTL_MS);
 
-  const { session_id, include_screenshot, signals, audit, ...options } = input;
+  const { session_id, include_screenshot, signals, audit, list, ...options } =
+    input;
   const output: CaptureOutput = await takeSnapshot(session, options);
+  if (list && !session.runtime.dialog) {
+    output.list = await readList(session, list);
+  }
   if (audit) {
     const { collector } = session;
     const found = await auditNow(session, collector.currentStep);

@@ -73,9 +73,10 @@ describe('record', () => {
     const recording = newRecording(
       'http://a.test/',
       { width: 800, height: 600 },
-      { persona: 'p', cookies: [{ name: 'c', value: 'v' }] },
+      { budget: 12, persona: 'p', cookies: [{ name: 'c', value: 'v' }] },
     );
-    expect(recording.spawn).toEqual({ persona: 'p' });
+    // Neither the cookies nor a persona an older caller still passes.
+    expect(recording.spawn).toEqual({ budget: 12 });
     const locator = { role: 'textbox', name: 'Password', index: 0, path: [] };
     record(
       recording,
