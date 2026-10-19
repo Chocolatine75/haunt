@@ -168,6 +168,11 @@ wrote the plan tests what it already believes works.
   hands the plan over, and assembles the report; it tests nothing itself.
   The plugin ships each role as an agent of its own, and the planner's is
   given no tool that acts on a page: a boundary, not an instruction.
+  *Replaced for the plugin on 6 October 2026 by R-F4 of
+  [`part-4-field.md`](part-4-field.md): one tester per area sees the area,
+  plans and plays, since a plan written without acting covered only what a
+  page shows as it loads. What stays of this requirement: the orchestrator
+  tests nothing itself.*
 - **R-T21 A plan passes from one session to another.** `haunt_plan` returns
   each case in a form another session of the same page can take: its
   controls by role, name and group instead of by reference. Registered
@@ -294,9 +299,10 @@ Deterministic, with a scripted tester, as in parts 1 to 3.
    and with the inventory; the cases come back in the session's result; each
    later call is under the tester's brief and names the case to play. A
    decider that plans nothing still runs.
-4. The plugin has an agent for each role; the command names both; the
-   planner's has no tool that acts on a page; neither names a tool the
-   server does not provide.
+4. The plugin's agent names no tool the server does not provide, and the
+   orchestrator tests nothing itself. (Was: an agent for each role, the
+   planner's without a tool that acts. R-F4 replaced that; its own gate
+   test is F2.1.)
 
 ### T8 — live
 

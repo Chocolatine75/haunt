@@ -11,9 +11,9 @@ wrong with it.
 
 - `url` — Target URL (required). Must be a running server, e.g. http://localhost:3000
 - `--spec` — A file describing what the app is meant to do (a README, a
-  requirements page). Given to the planner and the testers as it is: what it
-  says the app does is what they hold it to.
-- `--steps` — The budget of actions of each tester (default: 40)
+  requirements page). Given to the testers as it is: what it says the app
+  does is what they hold it to.
+- `--steps` — The budget of actions of each tester (default: 60)
 - `--headed` — Show the browser window in real time (default: headless)
 - `--routes` — Comma-separated paths to test directly (e.g. `/signup,/pricing`),
   skipping Phase 1's route discovery. Use when you already know which areas
@@ -46,18 +46,14 @@ Then stop. Do NOT debug.
 ## Who does what
 
 You are the orchestrator. You find the areas to test, hand each to a
-**planner**, hand the planner's cases to **testers**, and assemble the report.
-You test nothing yourself: an agent that plans, acts and judges in one context
-does each of them worse.
+**tester**, have the engine sweep what the testers left, and assemble the
+report. You test nothing yourself.
 
-- `haunt-planner` reads one area and writes its test cases. It cannot act on
-  the page: it has no tool for it.
-- `haunt-tester` plays the cases it is handed, in a browser session of its own,
-  and reports what is wrong.
-
-Both are agents of this plugin; spawn them with the Agent tool. What follows
-describes haunt's tools, which you use for scouting and logging in and which
-the agents use for the rest.
+`haunt-tester` tests one area in a browser session of its own: it sees the
+whole area first, writes its test cases from what it saw, plays them and
+reports what is wrong. It is an agent of this plugin; spawn it with the Agent
+tool. What follows describes haunt's tools, which you use for scouting and
+logging in and which the testers use for the rest.
 
 ## Behavior
 
@@ -120,7 +116,7 @@ Print: `logging in as <email>...`
 
 Print: `authenticated  —  cookies captured`
 
-Store the cookies. Hand them to every planner and tester in Phase 2, with the email and password as secrets: the sessions never type them, and haunt keeps them out of every bundle only if it knows them.
+Store the cookies. Hand them to every tester in Phase 2, with the email and password as secrets: the sessions never type them, and haunt keeps them out of every bundle only if it knows them.
 
 If login fails (still on login page after submit, or error visible):
 - If `--debug-auth`: print `  · login failed — session not detected`
@@ -132,7 +128,7 @@ Parse arguments:
 - `target_url` — the URL argument
 - `spec` — the content of the file given with `--spec`, read with the Read
   tool; none if not given
-- `budget` — from `--steps` (default: 40)
+- `budget` — from `--steps` (default: 60)
 - `headless` — true unless `--headed`
 - `hostile` — true only if `--hostile`
 - `routes` — from `--routes`, comma-separated, or empty if not given
@@ -168,14 +164,14 @@ proceed? [y/N]
 Wait for user input. If the user types `y` or `yes`, continue to Phase 2. Any
 other input (including Enter alone): print `aborted.` and stop.
 
-### Phase 2 — Plan, then test
+### Phase 2 — Test
 
-Print: `planning N areas...`
+Print: `testing N areas...`
 
-**SILENCE RULE: unless `--verbose` is passed, print NOTHING between tool calls. No step labels, no reasoning summaries, no observations. Zero text output between the `planning N areas...` line and the final summary block.**
+**SILENCE RULE: unless `--verbose` is passed, print NOTHING between tool calls. No step labels, no reasoning summaries, no observations. Zero text output between the `testing N areas...` line and the final summary block.**
 
-**2a. One planner per area, all in a single message (in parallel).** Spawn a
-`haunt-planner` agent for each area with this, and nothing else:
+**2a. One tester per area, all in a single message (in parallel).** Spawn a
+`haunt-tester` agent for each area with this, and nothing else:
 
 ```
 Area: <full URL of the area>
@@ -183,34 +179,7 @@ Headless: <true|false>
 Cookies: <the cookies captured in Phase 0.5, as JSON, or "none">
 Secrets: <the email and password, or "none">
 Hostile cases allowed: <yes|no>
-Budget of each tester: <budget> actions
-<if a spec was given:>
-What the app is meant to do:
-<the spec, as it is>
-```
-
-Each planner answers with the id of its session and its cases grouped for the
-testers: one group for most areas, up to 3 for an area with many cases. A planner that found
-nothing to test on its area answers with no group: that area gets one tester
-with no case, which explores.
-
-On a planner's failure: print `skipped /area: <error>` and continue without
-that area.
-
-Print: `testing M groups...`
-
-**2b. One tester per group, all in a single message (in parallel).** Spawn a
-`haunt-tester` agent for each group with this, and nothing else:
-
-```
-Area: <full URL of the area>
-Headless: <true|false>
-Cookies: <as above>
-Secrets: <as above>
-Hostile cases allowed: <yes|no>
 Budget: <budget> actions
-Planner's session: <the planner's session id>
-Your cases: <the ids of this group, comma-separated, or "none: explore">
 <if a spec was given:>
 What the app is meant to do:
 <the spec, as it is>
@@ -219,12 +188,12 @@ What the app is meant to do:
 Each tester answers with the id of its session, ended, and a sentence or two
 on what it found. Keep track of which area each session id belongs to.
 
-CRITICAL: the planners go in one message, and the testers in one message.
-Never spawn them one after the other.
+CRITICAL: the testers go in one message. Never spawn them one after the
+other.
 
 On a tester's failure: print `skipped /area: <error>` and continue.
 
-**2c. Sweep each area (skip if `--no-sweep` was given).** Once every tester
+**2b. Sweep each area (skip if `--no-sweep` was given).** Once every tester
 has answered, call `haunt_sweep` once per area, all in a single message, with
 `target_url` (the area's full URL), `sessions` (the ids of the tester
 sessions of that area), `headless`, and the cookies and secrets of Phase 0.5
@@ -252,8 +221,7 @@ Call `haunt_generate_report` with:
   `{ "session_id": "<id>", "area": "<its route, e.g. /signup>",
   "overall_impression": "<what the tester said it found>" }`. The server has
   each ended session's issues, signals, cases and inventory: do not copy them.
-  For a sweep's session the impression is `engine sweep`. The planners'
-  sessions are not reported: they tested nothing.
+  For a sweep's session the impression is `engine sweep`.
 - `spec`: the name of the `--spec` file, if one was given
 - `compare_with: <path>`, if `--compare <path>` was given
 

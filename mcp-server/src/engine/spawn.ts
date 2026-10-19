@@ -63,6 +63,10 @@ export interface SpawnInput {
   // width of a phone (part 5): a page that breaks at 375 px shows it there
   // and nowhere else.
   narrow_check?: boolean;
+  // A first call to end the session is refused while it has cases
+  // unplayed and budget unspent: the tester is told what is left. On nine
+  // applications of CATTest every tester ended with both.
+  keep_going?: boolean;
   // Values that must not leave the engine though no field of this session
   // ever has them typed: the account it was signed in with elsewhere (R-E15).
   secrets?: string[];
@@ -350,6 +354,7 @@ export async function hauntSpawn(
       audit: input.audit !== false,
       layout: input.layout ?? input.audit !== false,
       narrow_check: input.narrow_check === true,
+      keep_going: input.keep_going === true,
       replay_budget_ms: input.replay_budget_ms ?? REPLAY_BUDGET_MS,
       bundle_cap_bytes: input.bundle_cap_bytes ?? BUNDLE_CAP_BYTES,
       cookies: input.cookies,

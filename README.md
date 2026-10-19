@@ -136,13 +136,13 @@ Haunt works the way a QA engineer does, with one job per agent.
     ├── scouting                reads real links from your app's DOM
     │                           maps up to 4 areas to test
     │
-    ├── planning                one planner per area, all parallel
-    │                           inventory of controls → test cases
+    ├── testing                 one tester per area, one browser each,
+    │   ├── 👻 /signup          all parallel: see the whole area,
+    │   ├── 👻 /dashboard       plan its test cases, then
+    │   └── 👻 /pricing         expect → act → check
     │
-    ├── testing                 testers share each area's cases,
-    │   ├── 👻 /signup          one browser each, all parallel:
-    │   ├── 👻 /dashboard       expect → act → check
-    │   └── 👻 /pricing
+    ├── sweep                   the engine presses the buttons no
+    │                           tester pressed, and reports what breaks
     │
     └── report                  confirmed issues ranked by impact,
                                 what was tested and what was not,

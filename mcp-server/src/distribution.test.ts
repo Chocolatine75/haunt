@@ -9,7 +9,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { PLANNER_BRIEF, TESTER_BRIEF } from './engine/brief.js';
+import { CASE_METHOD, TESTER_BRIEF } from './engine/brief.js';
 import {
   type HauntClient,
   connectInMemory,
@@ -242,8 +242,8 @@ describe('plugin packaging', () => {
 
   // The agents are what Claude Code runs; the briefs are what haunt-ci
   // sends. One method, written once (engine/brief.ts).
-  it('ships an agent per role that holds its brief, word for word', () => {
-    expect(read('agents/haunt-planner.md')).toContain(PLANNER_BRIEF);
+  it('ships a tester that holds its brief and the way to write cases, word for word', () => {
     expect(read('agents/haunt-tester.md')).toContain(TESTER_BRIEF);
+    expect(read('agents/haunt-tester.md')).toContain(CASE_METHOD);
   });
 });

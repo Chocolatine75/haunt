@@ -306,43 +306,40 @@ describe('T7 one job each', () => {
         .filter(Boolean);
     };
 
+    // Was: an agent for each role, both named by the command, the
+    // planner's without a tool that acts. On nine more applications of
+    // CATTest a plan written without acting covered only what a page shows
+    // as it loads, and R-F4 (docs/v3/part-4-field.md) gave planning to the
+    // tester. What is left to check here is what R-T20 still says.
     gate(
       'T7.4',
       'R-T20',
-      'an agent for each role, both named by the command; the planner’s cannot act on a page',
+      'the plugin’s agent names no tool the server does not provide, and the orchestrator tests nothing itself',
       async () => {
         const command = read('commands/haunt-test.md');
         const { tools } = await ctx.haunt.client.listTools();
         const provided = new Set(tools.map((tool) => tool.name));
-        const allowed: Record<string, string[]> = {};
-        for (const role of ['planner', 'tester']) {
-          const path = `agents/haunt-${role}.md`;
-          expect(existsSync(join(REPO_ROOT, path)), path).toBe(true);
-          expect(command, role).toContain(`haunt-${role}`);
-          const source = read(path);
-          allowed[role] = toolsOf(source);
-          expect(
-            allowed[role].length,
-            `${path} lists its tools`,
-          ).toBeGreaterThan(0);
-          // Nothing but haunt's own tools, and only ones that exist.
-          for (const tool of allowed[role]) {
-            const name = tool.replace(/^mcp__(plugin_haunt_)?haunt__/, '');
-            expect(tool, tool).toMatch(/^mcp__(plugin_haunt_)?haunt__/);
-            expect(provided, tool).toContain(name);
-          }
-          // In its text, that is: the front matter names the tools as the
-          // host does, checked above.
-          const text = source.replace(/^---\n[\s\S]*?\n---/, '');
-          for (const name of text.match(/\bhaunt_[a-z_]+\b/g) ?? []) {
-            expect(provided, `${path} mentions ${name}`).toContain(name);
-          }
+        const path = 'agents/haunt-tester.md';
+        expect(existsSync(join(REPO_ROOT, path)), path).toBe(true);
+        expect(command).toContain('haunt-tester');
+        const source = read(path);
+        const allowed = toolsOf(source);
+        expect(allowed.length, `${path} lists its tools`).toBeGreaterThan(0);
+        // Nothing but haunt's own tools, and only ones that exist.
+        for (const tool of allowed) {
+          const name = tool.replace(/^mcp__(plugin_haunt_)?haunt__/, '');
+          expect(tool, tool).toMatch(/^mcp__(plugin_haunt_)?haunt__/);
+          expect(provided, tool).toContain(name);
         }
-        const short = (role: string) =>
-          allowed[role].map((tool) => tool.replace(/^.*__/, ''));
-        expect(short('planner')).not.toContain('haunt_act');
-        expect(short('planner')).toContain('haunt_plan');
-        expect(short('tester')).toContain('haunt_act');
+        // In its text, that is: the front matter names the tools as the
+        // host does, checked above.
+        const text = source.replace(/^---\n[\s\S]*?\n---/, '');
+        for (const name of text.match(/\bhaunt_[a-z_]+\b/g) ?? []) {
+          expect(provided, `${path} mentions ${name}`).toContain(name);
+        }
+        const short = allowed.map((tool) => tool.replace(/^.*__/, ''));
+        expect(short).toContain('haunt_act');
+        expect(short).toContain('haunt_plan');
         // The orchestrator tests nothing itself.
         expect(command).not.toMatch(/do NOT spawn sub-agents/i);
       },
