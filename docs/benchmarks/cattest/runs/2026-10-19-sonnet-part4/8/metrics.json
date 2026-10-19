@@ -1,0 +1,254 @@
+{
+  "agents": [
+    {
+      "role": "orchestrator",
+      "tools": {
+        "ToolSearch": {
+          "calls": 1,
+          "chars": 0,
+          "max_chars": 0,
+          "errors": 0
+        },
+        "Bash": {
+          "calls": 1,
+          "chars": 27,
+          "max_chars": 27,
+          "errors": 0
+        },
+        "haunt_scout": {
+          "calls": 1,
+          "chars": 60,
+          "max_chars": 60,
+          "errors": 0
+        },
+        "Agent": {
+          "calls": 1,
+          "chars": 1094,
+          "max_chars": 1094,
+          "errors": 0
+        },
+        "haunt_sweep": {
+          "calls": 1,
+          "chars": 2547,
+          "max_chars": 2547,
+          "errors": 0
+        },
+        "haunt_generate_report": {
+          "calls": 1,
+          "chars": 6313,
+          "max_chars": 6313,
+          "errors": 0
+        }
+      },
+      "context_tokens": [
+        21861,
+        32810,
+        33094,
+        33721,
+        34342,
+        36212,
+        39794
+      ],
+      "output_tokens": 1055,
+      "images": 0,
+      "turns": 7,
+      "max_context_tokens": 39794,
+      "input_tokens_total": 231834,
+      "tool_chars_total": 10041
+    },
+    {
+      "role": "haunt:haunt-tester",
+      "tools": {
+        "haunt_spawn": {
+          "calls": 2,
+          "chars": 361,
+          "max_chars": 361,
+          "errors": 0
+        },
+        "haunt_capture_state": {
+          "calls": 6,
+          "chars": 6915,
+          "max_chars": 2650,
+          "errors": 0
+        },
+        "haunt_act": {
+          "calls": 16,
+          "chars": 41270,
+          "max_chars": 12923,
+          "errors": 0
+        },
+        "haunt_end_session": {
+          "calls": 8,
+          "chars": 5749,
+          "max_chars": 2144,
+          "errors": 0
+        },
+        "haunt_plan": {
+          "calls": 2,
+          "chars": 2749,
+          "max_chars": 2749,
+          "errors": 0
+        },
+        "SubagentHandback": {
+          "calls": 1,
+          "chars": 61,
+          "max_chars": 61,
+          "errors": 0
+        }
+      },
+      "context_tokens": [
+        16443,
+        18150,
+        21103,
+        27578,
+        34100,
+        39937,
+        41364,
+        41805,
+        43281,
+        45100,
+        52209,
+        52864,
+        53875,
+        55408,
+        55795
+      ],
+      "output_tokens": 361,
+      "images": 3,
+      "turns": 15,
+      "max_context_tokens": 55795,
+      "input_tokens_total": 599012,
+      "tool_chars_total": 57105
+    }
+  ],
+  "held_back": 3,
+  "act_refused_without_case": 0,
+  "sessions": {
+    "191f31e3-9c97-4d57-92f0-437a843d4773": {
+      "steps": 11
+    }
+  },
+  "coverage": {
+    "controls": {
+      "listed": 29,
+      "exercised": 8
+    },
+    "cases": {
+      "planned": 3,
+      "run": 3,
+      "passed": 3,
+      "failed": 0
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Close sidebar"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": ""
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\ud83c\udf7a Deschutes Brewery Bend, OR"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\ud83c\udf7a Rogue Ales Newport, OR"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\ud83c\udf7a Elysian Brewing Seattle, WA"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\ud83c\udf7a 10 Barrel Brewing Bend, OR"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\ud83c\udf7a Ninkasi Brewing Eugene, OR"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\ud83c\udf7a Skookum Brewery Arlington, WA"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\ud83c\udf7a Double Mountain Brewery Hood River, OR"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\ud83c\udf7a Pelican Brewing Pacific City, OR"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\ud83c\udf7a Aslan Brewing Bellingham, WA"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Toggle brewery list"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\ud83c\udf7a \ud83c\udf7a \ud83c\udf7a \ud83c\udf7a \ud83c\udf7a \ud83c\udf7a \ud83c\udf7a \ud83c\udf7a \ud83c\udf7a \ud83c\udf7a \ud83c\udf7a \ud83c\udf7a Leaflet \u00a9 OpenStreetMap contributors"
+        },
+        {
+          "area": "/",
+          "role": "link",
+          "name": "Leaflet"
+        },
+        {
+          "area": "/",
+          "role": "link",
+          "name": "OpenStreetMap"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\ud83c\udf7a"
+        },
+        {
+          "area": "/",
+          "role": "link",
+          "name": "\ud83d\udccd Get Directions"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Rogue Ales \ud83e\udd7e Near: Yaquina Head Trail Style: Experimental brews \u2605\u2605\u2605\u2605\u2606 4.3/5 \ud83d\udd50 Sun-Thu 11am-9pm, Fri-Sat 11am-10pm \ud83d..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Rogue Ales"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\u2630"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Loading map tiles..."
+        }
+      ],
+      "cases": []
+    }
+  },
+  "transcripts_found": true
+}

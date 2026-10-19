@@ -1,0 +1,27 @@
+{
+  "app": 24,
+  "model": "sonnet",
+  "haunt": "HEAD@7680ba0",
+  "date": "2026-10-19 18:03",
+  "seconds": 115,
+  "cost_usd": 0.27038930000000005,
+  "turns": 3,
+  "is_error": false,
+  "model_usage": {
+    "claude-sonnet-5-5": {
+      "inputTokens": 44,
+      "outputTokens": 4849,
+      "cacheReadInputTokens": 571538,
+      "cacheCreationInputTokens": 49006,
+      "webSearchRequests": 0,
+      "costUSD": 0.27038930000000005,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 472,
+      "canonicalModel": "claude-sonnet-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "printed": "```\n----------------------------------------\n2 areas tested · 1 issues\n\n [!!] 1 major\n\nno critical issues\n\nfix first: Add aria-label to each control button.\n\nreport: .haunt-reports/2026-10-19-localhost-4124.md\n----------------------------------------\n```"
+}

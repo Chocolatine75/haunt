@@ -1,0 +1,209 @@
+{
+  "agents": [
+    {
+      "role": "orchestrator",
+      "tools": {
+        "ToolSearch": {
+          "calls": 1,
+          "chars": 0,
+          "max_chars": 0,
+          "errors": 0
+        },
+        "Bash": {
+          "calls": 1,
+          "chars": 27,
+          "max_chars": 27,
+          "errors": 0
+        },
+        "haunt_scout": {
+          "calls": 1,
+          "chars": 65,
+          "max_chars": 65,
+          "errors": 0
+        },
+        "Agent": {
+          "calls": 1,
+          "chars": 1095,
+          "max_chars": 1095,
+          "errors": 0
+        },
+        "haunt_sweep": {
+          "calls": 1,
+          "chars": 89,
+          "max_chars": 89,
+          "errors": 0
+        },
+        "haunt_generate_report": {
+          "calls": 1,
+          "chars": 3680,
+          "max_chars": 3680,
+          "errors": 0
+        }
+      },
+      "context_tokens": [
+        21861,
+        32810,
+        33124,
+        33721,
+        34371,
+        35143,
+        37209
+      ],
+      "output_tokens": 1028,
+      "images": 0,
+      "turns": 7,
+      "max_context_tokens": 37209,
+      "input_tokens_total": 228239,
+      "tool_chars_total": 4956
+    },
+    {
+      "role": "haunt:haunt-tester",
+      "tools": {
+        "haunt_spawn": {
+          "calls": 2,
+          "chars": 66,
+          "max_chars": 66,
+          "errors": 0
+        },
+        "haunt_capture_state": {
+          "calls": 22,
+          "chars": 34299,
+          "max_chars": 3309,
+          "errors": 0
+        },
+        "haunt_act": {
+          "calls": 30,
+          "chars": 25882,
+          "max_chars": 3531,
+          "errors": 0
+        },
+        "haunt_plan": {
+          "calls": 4,
+          "chars": 5492,
+          "max_chars": 1952,
+          "errors": 0
+        },
+        "haunt_end_session": {
+          "calls": 6,
+          "chars": 2946,
+          "max_chars": 1037,
+          "errors": 1
+        },
+        "SubagentHandback": {
+          "calls": 1,
+          "chars": 61,
+          "max_chars": 61,
+          "errors": 0
+        }
+      },
+      "context_tokens": [
+        16443,
+        18031,
+        20622,
+        21784,
+        25392,
+        30523,
+        31958,
+        32513,
+        36541,
+        39961,
+        40659,
+        43274,
+        44509,
+        47889,
+        48976,
+        50235,
+        52822,
+        53872,
+        57756,
+        58377,
+        60882,
+        61704,
+        62678,
+        64719,
+        66575
+      ],
+      "output_tokens": 629,
+      "images": 12,
+      "turns": 25,
+      "max_context_tokens": 66575,
+      "input_tokens_total": 1088695,
+      "tool_chars_total": 68746
+    }
+  ],
+  "held_back": 1,
+  "act_refused_without_case": 0,
+  "sessions": {
+    "e6d52cba-e15e-4315-b68b-70a64f2b6221": {
+      "steps": 38
+    }
+  },
+  "coverage": {
+    "controls": {
+      "listed": 23,
+      "exercised": 13
+    },
+    "cases": {
+      "planned": 3,
+      "run": 3,
+      "passed": 3,
+      "failed": 0
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "link",
+          "name": "Terms & Conditions"
+        },
+        {
+          "area": "/",
+          "role": "link",
+          "name": "Privacy Policy"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "\ud83d\udccb Copy Code"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\u00d7 \ud83c\udfa1 Spin the Wheel! Click SPIN and watch where fate takes you! \ud83c\udfb0 SPIN"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "\ud83d\udcac WhatsApp"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "\ud83d\udd17 Copy Link"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": ""
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\ud83c\udf89 Congratulations! You won: 10% Off! BEAN-WA4N-46AU \ud83d\udccb Copy Code \ud83c\udf9f Share for a Bonus Entry! Share to enter our gran..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\u00d7 \ud83c\udfb2 Roll the Dice! Roll doubles to win! Higher pairs = bigger prizes! \u2680 \u2680 \ud83c\udfb2 ROLL!"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\u00d7 \ud83c\udfc6 Your Prizes \ud83c\udfc6 10% Off BEAN-WA4N-46AU Won from: Spin Wheel"
+        }
+      ],
+      "cases": []
+    }
+  },
+  "transcripts_found": true
+}

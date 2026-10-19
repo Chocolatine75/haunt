@@ -1,0 +1,513 @@
+{
+  "target_url": "http://localhost:4108/",
+  "date": "2026-10-19",
+  "coverage": {
+    "controls": {
+      "listed": 29,
+      "exercised": 8
+    },
+    "cases": {
+      "planned": 3,
+      "run": 3,
+      "passed": 3,
+      "failed": 0
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Close sidebar"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": ""
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "🍺 Deschutes Brewery Bend, OR"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "🍺 Rogue Ales Newport, OR"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "🍺 Elysian Brewing Seattle, WA"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "🍺 10 Barrel Brewing Bend, OR"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "🍺 Ninkasi Brewing Eugene, OR"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "🍺 Skookum Brewery Arlington, WA"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "🍺 Double Mountain Brewery Hood River, OR"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "🍺 Pelican Brewing Pacific City, OR"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "🍺 Aslan Brewing Bellingham, WA"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Toggle brewery list"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "🍺 🍺 🍺 🍺 🍺 🍺 🍺 🍺 🍺 🍺 🍺 🍺 Leaflet © OpenStreetMap contributors"
+        },
+        {
+          "area": "/",
+          "role": "link",
+          "name": "Leaflet"
+        },
+        {
+          "area": "/",
+          "role": "link",
+          "name": "OpenStreetMap"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "🍺"
+        },
+        {
+          "area": "/",
+          "role": "link",
+          "name": "📍 Get Directions"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Rogue Ales 🥾 Near: Yaquina Head Trail Style: Experimental brews ★★★★☆ 4.3/5 🕐 Sun-Thu 11am-9pm, Fri-Sat 11am-10pm \ud83d..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Rogue Ales"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "☰"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Loading map tiles..."
+        }
+      ],
+      "cases": []
+    }
+  },
+  "issues": [
+    {
+      "severity": "major",
+      "category": "accessibility",
+      "description": "The brewery list sidebar is scrollable but cannot be reached by keyboard, and list items are non-focusable generic elements.",
+      "page_url": "http://localhost:4108/",
+      "recommendation": "Make the scroll region focusable (tabindex=0) and render list items as buttons.",
+      "signal": "s1",
+      "verification": {
+        "status": "confirmed",
+        "attempts": 3,
+        "reproduced": 3,
+        "rate": 1,
+        "bundle": ".haunt-reports/evidence/191f31e3-9c97-4d57-92f0-437a843d4773/issue-1"
+      },
+      "signals": [
+        {
+          "id": "s1",
+          "kind": "a11y",
+          "url": "http://localhost:4108/",
+          "step": 0,
+          "message": "Scrollable region must have keyboard access (1 element)",
+          "severity": "major",
+          "count": 1,
+          "rule": "scrollable-region-focusable",
+          "impact": "serious",
+          "nodes": 1,
+          "refs": [
+            "e2"
+          ],
+          "help": "Scrollable region must have keyboard access"
+        }
+      ]
+    }
+  ],
+  "flaky": [],
+  "unverified": [],
+  "unchecked": [],
+  "rejected": [],
+  "signals": [
+    {
+      "id": "s1",
+      "kind": "a11y",
+      "url": "http://localhost:4108/",
+      "step": 0,
+      "message": "Scrollable region must have keyboard access (1 element)",
+      "severity": "major",
+      "count": 1,
+      "rule": "scrollable-region-focusable",
+      "impact": "serious",
+      "nodes": 1,
+      "refs": [
+        "e2"
+      ],
+      "help": "Scrollable region must have keyboard access"
+    },
+    {
+      "id": "s2",
+      "kind": "layout",
+      "url": "http://localhost:4108/",
+      "step": 4,
+      "message": "The button \"🍺\" is covered by the generic \"🍺 🍺 🍺 🍺 🍺 🍺 🍺 🍺 🍺 🍺 🍺 🍺 Leaflet © OpenStreetMap contributors\": a click on it lands on what covers it",
+      "severity": "major",
+      "count": 1,
+      "rule": "covered",
+      "ref": "e20",
+      "role": "button",
+      "name": "🍺"
+    },
+    {
+      "id": "s3",
+      "kind": "layout",
+      "url": "http://localhost:4108/",
+      "step": 5,
+      "message": "The button \"🍺\" is covered by the generic \"🍺 🍺 🍺 🍺 🍺 🍺 🍺 🍺 🍺 🍺 🍺 🍺 Rogue Ales 🥾 Near: Yaquina Head Trail Style: Experimental brews ★★★★☆ 4.3/5 🕐 S...\": a click on it lands on what covers it",
+      "severity": "major",
+      "count": 1,
+      "rule": "covered",
+      "ref": "e20",
+      "role": "button",
+      "name": "🍺"
+    },
+    {
+      "id": "s4",
+      "kind": "layout",
+      "url": "http://localhost:4108/",
+      "step": 7,
+      "message": "The button \"🍺\" is covered by the generic \"🍺 🍺 🍺 🍺 🍺 🍺 🍺 🍺 🍺 🍺 🍺 🍺 pFriem Family Brewers 🥾 Near: Eagle Creek Trail Style: Belgian-inspired ales ★★★...\": a click on it lands on what covers it",
+      "severity": "major",
+      "count": 1,
+      "rule": "covered",
+      "ref": "e20",
+      "role": "button",
+      "name": "🍺"
+    },
+    {
+      "id": "s5",
+      "kind": "layout",
+      "url": "http://localhost:4108/",
+      "step": 11,
+      "message": "The button \"Zoom in\" is covered by the button \"Toggle brewery list\": a click on it lands on what covers it",
+      "severity": "major",
+      "count": 1,
+      "rule": "covered",
+      "ref": "e31",
+      "role": "button",
+      "name": "Zoom in"
+    },
+    {
+      "id": "s6",
+      "kind": "layout",
+      "url": "http://localhost:4108/",
+      "step": 11,
+      "message": "The button \"Toggle brewery list\" and the button \"Zoom in\" overlap",
+      "severity": "minor",
+      "count": 1,
+      "rule": "overlap",
+      "ref": "e16",
+      "role": "button",
+      "name": "Toggle brewery list"
+    },
+    {
+      "id": "s1",
+      "kind": "http_error",
+      "url": "http://localhost:4108/",
+      "step": 0,
+      "message": "GET /6/10/24.png answered 429",
+      "severity": "minor",
+      "count": 1,
+      "method": "GET",
+      "request_url": "https://b.tile.openstreetmap.org/6/10/24.png",
+      "status": 429,
+      "resource_type": "image"
+    },
+    {
+      "id": "s2",
+      "kind": "http_error",
+      "url": "http://localhost:4108/",
+      "step": 0,
+      "message": "GET /6/11/21.png answered 429",
+      "severity": "minor",
+      "count": 1,
+      "method": "GET",
+      "request_url": "https://c.tile.openstreetmap.org/6/11/21.png",
+      "status": 429,
+      "resource_type": "image"
+    },
+    {
+      "id": "s3",
+      "kind": "http_error",
+      "url": "http://localhost:4108/",
+      "step": 0,
+      "message": "GET /6/10/22.png answered 429",
+      "severity": "minor",
+      "count": 1,
+      "method": "GET",
+      "request_url": "https://c.tile.openstreetmap.org/6/10/22.png",
+      "status": 429,
+      "resource_type": "image"
+    },
+    {
+      "id": "s4",
+      "kind": "http_error",
+      "url": "http://localhost:4108/",
+      "step": 0,
+      "message": "GET /6/12/22.png answered 429",
+      "severity": "minor",
+      "count": 1,
+      "method": "GET",
+      "request_url": "https://b.tile.openstreetmap.org/6/12/22.png",
+      "status": 429,
+      "resource_type": "image"
+    },
+    {
+      "id": "s5",
+      "kind": "http_error",
+      "url": "http://localhost:4108/",
+      "step": 0,
+      "message": "GET /6/9/24.png answered 429",
+      "severity": "minor",
+      "count": 1,
+      "method": "GET",
+      "request_url": "https://a.tile.openstreetmap.org/6/9/24.png",
+      "status": 429,
+      "resource_type": "image"
+    },
+    {
+      "id": "s6",
+      "kind": "http_error",
+      "url": "http://localhost:4108/",
+      "step": 0,
+      "message": "GET /6/9/21.png answered 429",
+      "severity": "minor",
+      "count": 1,
+      "method": "GET",
+      "request_url": "https://a.tile.openstreetmap.org/6/9/21.png",
+      "status": 429,
+      "resource_type": "image"
+    },
+    {
+      "id": "s7",
+      "kind": "http_error",
+      "url": "http://localhost:4108/",
+      "step": 0,
+      "message": "GET /6/11/22.png answered 429",
+      "severity": "minor",
+      "count": 1,
+      "method": "GET",
+      "request_url": "https://a.tile.openstreetmap.org/6/11/22.png",
+      "status": 429,
+      "resource_type": "image"
+    },
+    {
+      "id": "s8",
+      "kind": "http_error",
+      "url": "http://localhost:4108/",
+      "step": 0,
+      "message": "GET /6/12/24.png answered 429",
+      "severity": "minor",
+      "count": 1,
+      "method": "GET",
+      "request_url": "https://a.tile.openstreetmap.org/6/12/24.png",
+      "status": 429,
+      "resource_type": "image"
+    },
+    {
+      "id": "s9",
+      "kind": "http_error",
+      "url": "http://localhost:4108/",
+      "step": 0,
+      "message": "GET /6/11/23.png answered 429",
+      "severity": "minor",
+      "count": 1,
+      "method": "GET",
+      "request_url": "https://b.tile.openstreetmap.org/6/11/23.png",
+      "status": 429,
+      "resource_type": "image"
+    },
+    {
+      "id": "s10",
+      "kind": "http_error",
+      "url": "http://localhost:4108/",
+      "step": 0,
+      "message": "GET /6/8/21.png answered 429",
+      "severity": "minor",
+      "count": 1,
+      "method": "GET",
+      "request_url": "https://c.tile.openstreetmap.org/6/8/21.png",
+      "status": 429,
+      "resource_type": "image"
+    },
+    {
+      "id": "s11",
+      "kind": "http_error",
+      "url": "http://localhost:4108/",
+      "step": 0,
+      "message": "GET /6/9/23.png answered 429",
+      "severity": "minor",
+      "count": 1,
+      "method": "GET",
+      "request_url": "https://c.tile.openstreetmap.org/6/9/23.png",
+      "status": 429,
+      "resource_type": "image"
+    },
+    {
+      "id": "s12",
+      "kind": "http_error",
+      "url": "http://localhost:4108/",
+      "step": 0,
+      "message": "GET /6/10/21.png answered 429",
+      "severity": "minor",
+      "count": 1,
+      "method": "GET",
+      "request_url": "https://b.tile.openstreetmap.org/6/10/21.png",
+      "status": 429,
+      "resource_type": "image"
+    },
+    {
+      "id": "s13",
+      "kind": "http_error",
+      "url": "http://localhost:4108/",
+      "step": 0,
+      "message": "GET /6/12/21.png answered 429",
+      "severity": "minor",
+      "count": 1,
+      "method": "GET",
+      "request_url": "https://a.tile.openstreetmap.org/6/12/21.png",
+      "status": 429,
+      "resource_type": "image"
+    },
+    {
+      "id": "s14",
+      "kind": "http_error",
+      "url": "http://localhost:4108/",
+      "step": 0,
+      "message": "GET /6/9/22.png answered 429",
+      "severity": "minor",
+      "count": 1,
+      "method": "GET",
+      "request_url": "https://b.tile.openstreetmap.org/6/9/22.png",
+      "status": 429,
+      "resource_type": "image"
+    },
+    {
+      "id": "s15",
+      "kind": "http_error",
+      "url": "http://localhost:4108/",
+      "step": 0,
+      "message": "GET /6/10/23.png answered 429",
+      "severity": "minor",
+      "count": 1,
+      "method": "GET",
+      "request_url": "https://a.tile.openstreetmap.org/6/10/23.png",
+      "status": 429,
+      "resource_type": "image"
+    },
+    {
+      "id": "s16",
+      "kind": "http_error",
+      "url": "http://localhost:4108/",
+      "step": 0,
+      "message": "GET /6/8/24.png answered 429",
+      "severity": "minor",
+      "count": 1,
+      "method": "GET",
+      "request_url": "https://c.tile.openstreetmap.org/6/8/24.png",
+      "status": 429,
+      "resource_type": "image"
+    },
+    {
+      "id": "s17",
+      "kind": "http_error",
+      "url": "http://localhost:4108/",
+      "step": 0,
+      "message": "GET /6/8/23.png answered 429",
+      "severity": "minor",
+      "count": 1,
+      "method": "GET",
+      "request_url": "https://b.tile.openstreetmap.org/6/8/23.png",
+      "status": 429,
+      "resource_type": "image"
+    },
+    {
+      "id": "s18",
+      "kind": "http_error",
+      "url": "http://localhost:4108/",
+      "step": 0,
+      "message": "GET /6/8/22.png answered 429",
+      "severity": "minor",
+      "count": 1,
+      "method": "GET",
+      "request_url": "https://a.tile.openstreetmap.org/6/8/22.png",
+      "status": 429,
+      "resource_type": "image"
+    },
+    {
+      "id": "s19",
+      "kind": "http_error",
+      "url": "http://localhost:4108/",
+      "step": 0,
+      "message": "GET /6/12/23.png answered 429",
+      "severity": "minor",
+      "count": 1,
+      "method": "GET",
+      "request_url": "https://c.tile.openstreetmap.org/6/12/23.png",
+      "status": 429,
+      "resource_type": "image"
+    },
+    {
+      "id": "s20",
+      "kind": "http_error",
+      "url": "http://localhost:4108/",
+      "step": 0,
+      "message": "GET /6/11/24.png answered 429",
+      "severity": "minor",
+      "count": 1,
+      "method": "GET",
+      "request_url": "https://c.tile.openstreetmap.org/6/11/24.png",
+      "status": 429,
+      "resource_type": "image"
+    }
+  ],
+  "signal_counts": {
+    "total": 25,
+    "major": 4,
+    "minor": 21
+  }
+}

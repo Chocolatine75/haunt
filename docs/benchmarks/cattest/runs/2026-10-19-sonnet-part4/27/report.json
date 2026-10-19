@@ -1,0 +1,445 @@
+{
+  "target_url": "http://localhost:4127/",
+  "date": "2026-10-19",
+  "coverage": {
+    "controls": {
+      "listed": 79,
+      "exercised": 23
+    },
+    "cases": {
+      "planned": 9,
+      "run": 9,
+      "passed": 8,
+      "failed": 1
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Cancel"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "AI Agents"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "AI Agents"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Quantum Computing"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Spatial Computing (AR/VR)"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "Spatial Computing (AR/VR)"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Blockchain/Web3"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "Blockchain/Web3"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Biotech/Neurotech"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "Biotech/Neurotech"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Edge Computing"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "Edge Computing"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "▼ Discussion & Q&A 3"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "▲ 8"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "▲ 5"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "▲ 7"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "💬 Reply (1)"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "▲ 4"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "💬 Reply (0)"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Rust"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Go"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "TypeScript"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Python"
+        },
+        {
+          "area": "/",
+          "role": "checkbox",
+          "name": "Python"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Zig"
+        },
+        {
+          "area": "/",
+          "role": "checkbox",
+          "name": "Zig"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Swift"
+        },
+        {
+          "area": "/",
+          "role": "checkbox",
+          "name": "Swift"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Kotlin"
+        },
+        {
+          "area": "/",
+          "role": "checkbox",
+          "name": "Kotlin"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Elixir"
+        },
+        {
+          "area": "/",
+          "role": "checkbox",
+          "name": "Elixir"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "▼ Discussion & Q&A 2"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "▲ 9"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "▲ 6"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "▲ 3"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "GitHub Copilot"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "GitHub Copilot"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Claude"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "ChatGPT"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "ChatGPT"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Cursor"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "Cursor"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Codeium"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "Codeium"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "None — I prefer unassisted coding"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "None — I prefer unassisted coding"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "▲ 11"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "▲ 0"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "ML Maria Lopez ⚙️"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Change Display Name Cancel Update"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "🗳️ Someone just voted on \"What's your preferred AI coding assistan...\""
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "TechPulse Weekly Tech Debates & Discussions 🌙 ML Maria L ⚙️"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "💬 Reply (3)"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "▲ 14"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "☀️"
+        }
+      ],
+      "cases": []
+    }
+  },
+  "issues": [
+    {
+      "severity": "minor",
+      "category": "ux",
+      "description": "Clicking Share gives no visible feedback (no copied/shared message)",
+      "page_url": "http://localhost:4127/",
+      "recommendation": "Show a confirmation toast or fallback when sharing",
+      "case": "share",
+      "verification": {
+        "status": "confirmed",
+        "attempts": 3,
+        "reproduced": 3,
+        "rate": 1,
+        "bundle": ".haunt-reports/evidence/f2996299-9d53-4a14-9736-25b872bf9fcc/issue-1"
+      }
+    },
+    {
+      "severity": "minor",
+      "category": "ux",
+      "description": "Join the Debate with empty name does nothing, no validation message",
+      "page_url": "http://localhost:4127/",
+      "recommendation": "Show an error for empty name",
+      "signal": "s2",
+      "verification": {
+        "status": "confirmed",
+        "attempts": 3,
+        "reproduced": 3,
+        "rate": 1,
+        "bundle": ".haunt-reports/evidence/f2996299-9d53-4a14-9736-25b872bf9fcc/issue-2"
+      },
+      "signals": [
+        {
+          "id": "s2",
+          "kind": "dead_control",
+          "url": "http://localhost:4127/",
+          "step": 1,
+          "message": "Clicking the button \"Join the Debate\" changed nothing",
+          "severity": "major",
+          "count": 1,
+          "ref": "e2",
+          "role": "button",
+          "name": "Join the Debate"
+        }
+      ]
+    },
+    {
+      "severity": "minor",
+      "category": "ux",
+      "description": "Ask with empty question does nothing, no feedback",
+      "page_url": "http://localhost:4127/",
+      "recommendation": "Show validation message",
+      "signal": "s3",
+      "verification": {
+        "status": "confirmed",
+        "attempts": 3,
+        "reproduced": 3,
+        "rate": 1,
+        "bundle": ".haunt-reports/evidence/f2996299-9d53-4a14-9736-25b872bf9fcc/issue-3"
+      },
+      "signals": [
+        {
+          "id": "s3",
+          "kind": "dead_control",
+          "url": "http://localhost:4127/",
+          "step": 29,
+          "message": "Clicking the button \"Ask\" changed nothing",
+          "severity": "major",
+          "count": 1,
+          "ref": "e97",
+          "role": "button",
+          "name": "Ask"
+        }
+      ]
+    },
+    {
+      "severity": "minor",
+      "category": "ux",
+      "description": "The same user can upvote the same question repeatedly (12 -> 13 -> 14); no one-vote-per-user or toggle",
+      "page_url": "http://localhost:4127/",
+      "recommendation": "Limit to one upvote per user, with toggle",
+      "observed": {
+        "text_present": "▲ 14",
+        "step": 31
+      },
+      "verification": {
+        "status": "confirmed",
+        "attempts": 3,
+        "reproduced": 3,
+        "rate": 1,
+        "bundle": ".haunt-reports/evidence/f2996299-9d53-4a14-9736-25b872bf9fcc/issue-4"
+      }
+    }
+  ],
+  "flaky": [],
+  "unverified": [],
+  "unchecked": [],
+  "rejected": [],
+  "signals": [
+    {
+      "id": "s1",
+      "kind": "a11y",
+      "url": "http://localhost:4127/",
+      "step": 0,
+      "message": "Elements must meet minimum color contrast ratio thresholds (1 element)",
+      "severity": "major",
+      "count": 1,
+      "rule": "color-contrast",
+      "impact": "serious",
+      "nodes": 1,
+      "refs": [
+        "e2"
+      ],
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "id": "s2",
+      "kind": "dead_control",
+      "url": "http://localhost:4127/",
+      "step": 1,
+      "message": "Clicking the button \"Join the Debate\" changed nothing",
+      "severity": "major",
+      "count": 1,
+      "ref": "e2",
+      "role": "button",
+      "name": "Join the Debate"
+    },
+    {
+      "id": "s3",
+      "kind": "dead_control",
+      "url": "http://localhost:4127/",
+      "step": 29,
+      "message": "Clicking the button \"Ask\" changed nothing",
+      "severity": "major",
+      "count": 1,
+      "ref": "e97",
+      "role": "button",
+      "name": "Ask"
+    }
+  ],
+  "signal_counts": {
+    "total": 1,
+    "major": 1,
+    "minor": 0
+  }
+}

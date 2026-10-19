@@ -1,0 +1,129 @@
+{
+  "target_url": "http://localhost:4146/",
+  "date": "2026-10-19",
+  "coverage": {
+    "controls": {
+      "listed": 23,
+      "exercised": 13
+    },
+    "cases": {
+      "planned": 3,
+      "run": 3,
+      "passed": 3,
+      "failed": 0
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "link",
+          "name": "Terms & Conditions"
+        },
+        {
+          "area": "/",
+          "role": "link",
+          "name": "Privacy Policy"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "📋 Copy Code"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "× 🎡 Spin the Wheel! Click SPIN and watch where fate takes you! 🎰 SPIN"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "💬 WhatsApp"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "🔗 Copy Link"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": ""
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "🎉 Congratulations! You won: 10% Off! BEAN-WA4N-46AU 📋 Copy Code 🎟 Share for a Bonus Entry! Share to enter our gran..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "× 🎲 Roll the Dice! Roll doubles to win! Higher pairs = bigger prizes! ⚀ ⚀ 🎲 ROLL!"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "× 🏆 Your Prizes 🏆 10% Off BEAN-WA4N-46AU Won from: Spin Wheel"
+        }
+      ],
+      "cases": []
+    }
+  },
+  "issues": [],
+  "flaky": [],
+  "unverified": [],
+  "unchecked": [
+    {
+      "severity": "minor",
+      "category": "ux",
+      "description": "After the games are unlocked and played, the padlock icon still overlays the game cards (over the icon and title), alongside the completed check mark.",
+      "page_url": "http://localhost:4146/",
+      "recommendation": "Hide the lock overlay once unlocked.",
+      "expected": "Padlock removed once games are unlocked",
+      "actual": "Padlock overlaps icon and title on played cards",
+      "verification": {
+        "status": "unchecked",
+        "attempts": 10,
+        "reproduced": 1,
+        "rate": 0.1,
+        "bundle": ".haunt-reports/evidence/e6d52cba-e15e-4315-b68b-70a64f2b6221/issue-1"
+      }
+    },
+    {
+      "severity": "minor",
+      "category": "ux",
+      "description": "Scratch card did not reveal its prize after scratching well over 50% of the surface (may be a simulated input artifact).",
+      "page_url": "http://localhost:4146/",
+      "recommendation": "Verify the scratch percentage calculation.",
+      "expected": "Prize revealed after 50% scratched",
+      "actual": "No reveal, no prize recorded",
+      "verification": {
+        "status": "unchecked",
+        "attempts": 6,
+        "reproduced": 1,
+        "rate": 0.16666666666666666,
+        "bundle": ".haunt-reports/evidence/e6d52cba-e15e-4315-b68b-70a64f2b6221/issue-2"
+      }
+    }
+  ],
+  "rejected": [],
+  "signals": [
+    {
+      "id": "s1",
+      "kind": "layout",
+      "url": "http://localhost:4146/",
+      "step": 36,
+      "message": "The button \"🏆 Your Prizes\" is covered by the generic \"× 🏆 Your Prizes 🏆 10% Off BEAN-WA4N-46AU Won from: Spin Wheel\": a click on it lands on what covers it",
+      "severity": "major",
+      "count": 1,
+      "rule": "covered",
+      "ref": "e12",
+      "role": "button",
+      "name": "🏆 Your Prizes"
+    }
+  ],
+  "signal_counts": {
+    "total": 1,
+    "major": 1,
+    "minor": 0
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "app": 2,
+  "model": "sonnet",
+  "haunt": "HEAD@7680ba0",
+  "date": "2026-10-19 18:00",
+  "seconds": 118,
+  "cost_usd": 0.4115231,
+  "turns": 3,
+  "is_error": false,
+  "model_usage": {
+    "claude-sonnet-5-5": {
+      "inputTokens": 52,
+      "outputTokens": 7162,
+      "cacheReadInputTokens": 845631,
+      "cacheCreationInputTokens": 78407,
+      "webSearchRequests": 0,
+      "costUSD": 0.4115231,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 882,
+      "canonicalModel": "claude-sonnet-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "printed": "```\n----------------------------------------\n2 areas tested · 1 issues\n\n [!!] 1 major\n\nno critical issues\n\nfix first: Trap focus in the lightbox (inert background or Tab loop) and set aria-modal/role=dialog.\n\nreport: .haunt-reports/2026-10-19-localhost-4102.md\n----------------------------------------\n```"
+}
