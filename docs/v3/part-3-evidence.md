@@ -77,6 +77,10 @@ with the tester. Visual checks are part 5.
   signal id does not exist in the session, or that no replay reproduces is
   **rejected**: it is not in the report's issues, and the sidecar lists it
   with the reason.
+  *Since 7 October 2026 (R-F5 of [`part-4-field.md`](part-4-field.md)): an
+  issue none of whose replays could play its steps is unchecked, not
+  rejected. On a page that is not the same twice, that was dropping real
+  findings.*
 - **R-E10 Signals verify themselves too.** A signal no issue names is
   replayed the same way before it is listed under "Detected automatically",
   and carries its own status. A signal that never reproduces is listed as

@@ -233,7 +233,7 @@ export const TOOLS: ToolDefinition[] = [
         .boolean()
         .optional()
         .describe(
-          'Refuse a first haunt_end_session while test cases have no verdict or controls were never used and a quarter of the budget is left: the answer lists what is left instead of ending. The next call ends the session. Default: false',
+          'For a tester. Past a quarter of the budget, haunt_act refuses to act until a test case is registered with haunt_plan. And haunt_end_session refuses, three times at most, while test cases have no verdict or controls were never used and a quarter of the budget is left: the answer lists what is left and what to do next. Default: false',
         ),
       narrow_check: z
         .boolean()
@@ -495,7 +495,7 @@ export const TOOLS: ToolDefinition[] = [
   defineTool({
     name: 'haunt_end_session',
     description:
-      'Close the browser session, replay every issue in a fresh browser to verify it, and return them: confirmed, flaky (with the rate a replay reproduced it) or unverified in issues_found, each with its evidence bundle; rejected ones apart, with why. A session spawned with keep_going that still has work left answers `ended: false` once, with what is left, and stays open.',
+      'Close the browser session, replay every issue in a fresh browser to verify it, and return them: confirmed, flaky (with the rate a replay reproduced it) or unverified in issues_found, each with its evidence bundle; rejected ones apart, with why. A session spawned with keep_going that still has work left answers `ended: false`, three times at most, with what is left and what to do next, and stays open.',
     input: z.object({
       session_id: z.string(),
       brief: z

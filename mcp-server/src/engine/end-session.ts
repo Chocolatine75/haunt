@@ -88,6 +88,8 @@ const WORTH_GOING_ON = 0.25;
 // are named.
 const CONTROLS_WORTH = 5;
 const CONTROLS_NAMED = 20;
+// How many times a session is held back before it is let go.
+const HELD_MAX = 3;
 
 export interface HeldBack {
   ended: false;
@@ -96,17 +98,22 @@ export interface HeldBack {
     controls: Array<{ ref: string; role: string; name: string }>;
   };
   steps_remaining: number;
+  // One thing to do, named.
+  next: string;
   todo: string;
 }
 
-// Whether a session asked to end is held back instead (R-F1): once, when it
+// Whether a session asked to end is held back instead (R-F1): when it
 // asked for that at spawn and still has cases without a verdict or controls
-// never used, and a quarter of its budget or more. The issues passed with
-// the call are kept either way.
+// never used, and a quarter of its budget or more. Three times at most. The
+// issues passed with the call are kept either way.
 //
 // On nine applications of CATTest the testers used 11 to 30 of their 40
 // actions and left cases unplayed on every one. The brief tells them to
 // spend the rest on what remains; a line in a prompt did not make them.
+// Nor did being held back once: two of three called again at once. So it
+// is three times, and each names one thing to do rather than a list to
+// choose from.
 export async function heldBack(
   manager: SessionManager,
   input: EndSessionInput,
@@ -114,7 +121,8 @@ export async function heldBack(
   if (!manager.has(input.session_id)) return undefined;
   const session = manager.get(input.session_id);
   const { evidence } = session;
-  if (!evidence.keep_going || evidence.held_back) return undefined;
+  const times = evidence.held_back ?? 0;
+  if (!evidence.keep_going || times >= HELD_MAX) return undefined;
   const steps_remaining = session.max_steps - session.step_count;
   if (steps_remaining < session.max_steps * WORTH_GOING_ON) return undefined;
   if (session.runtime.dialog || session.page.isClosed()) return undefined;
@@ -123,17 +131,44 @@ export async function heldBack(
   await takeSnapshot(session, { format: 'json' }, true).catch(() => {});
   await syncInventory(session).catch(() => {});
   const cases = coverageOf(session).left.cases;
+  // A page that draws itself again gives its controls new references: on
+  // CATTest 27 the count of controls "never used" went from 90 to 116
+  // while the tester was using them, and it was sent back to a button it
+  // had already pressed. A control is used when one of the same role, name
+  // and group was, and only what is on the page now is named.
+  const keyOf = (control: { role: string; name: string; group: string }) =>
+    JSON.stringify([control.group, control.role, control.name]);
+  const used = new Set(
+    [...session.plan.controls.values()].filter((c) => c.exercised).map(keyOf),
+  );
+  const shown = new Set(
+    (session.snapshot.previous?.elements ?? []).map((element) => element.ref),
+  );
+  const seen = new Set<string>();
   const controls = [...session.plan.controls.values()]
-    .filter((control) => !control.exercised && !control.state)
+    .filter((control) => {
+      const key = keyOf(control);
+      if (!shown.has(control.ref) || control.state || used.has(key)) {
+        return false;
+      }
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
     .map(({ ref, role, name }) => ({ ref, role, name }));
-  if (cases.length === 0 && controls.length < CONTROLS_WORTH) return undefined;
+  // With no case at all nothing was checked, whatever was pressed.
+  const unplanned = session.plan.cases.size === 0;
+  if (!unplanned && cases.length === 0 && controls.length < CONTROLS_WORTH) {
+    return undefined;
+  }
 
-  evidence.held_back = true;
+  evidence.held_back = times + 1;
   const known = new Set(session.issues.map((issue) => JSON.stringify(issue)));
   for (const issue of input.issues ?? []) {
     if (!known.has(JSON.stringify(issue))) session.issues.push(issue);
   }
   const parts = [
+    unplanned ? 'no test case was registered' : '',
     cases.length > 0
       ? `${cases.length} case${cases.length === 1 ? ' has' : 's have'} no verdict (${cases.join(', ')})`
       : '',
@@ -141,11 +176,21 @@ export async function heldBack(
       ? `${controls.length} control${controls.length === 1 ? ' was' : 's were'} never used`
       : '',
   ].filter(Boolean);
+  const unplayed =
+    cases.length > 0 ? session.plan.cases.get(cases[0]) : undefined;
+  const control = controls[0];
+  const next = unplanned
+    ? 'Call haunt_plan for the inventory and register a case for each part of what you have seen, saying what each should show. Then play them, each with `expect` and `case` in the haunt_act call.'
+    : unplayed
+      ? `Play case "${unplayed.id}" now: ${unplayed.expect} State that as \`expect\` with "case": "${unplayed.id}" in the haunt_act call.`
+      : `Register a case with haunt_plan for the ${control.role} "${control.name}" [${control.ref}], saying what using it should show, and play it.`;
+  const calls = HELD_MAX - evidence.held_back;
   return {
     ended: false,
     left: { cases, controls: controls.slice(0, CONTROLS_NAMED) },
     steps_remaining,
-    todo: `Not ended: ${parts.join(' and ')}, and ${steps_remaining} actions are left. Play the cases that have no verdict. For the controls never used, register a case for what each is for and play it. The issues you passed are kept. Call haunt_end_session again when that is done, or now if nothing more can be tested: it will end the session.`,
+    next,
+    todo: `Not ended: ${parts.join(' and ')}, and ${steps_remaining} actions are left. Do this next: ${next} Then go on with what is left, a case for each control never used. The issues you passed are kept. haunt_end_session will ${calls > 0 ? `refuse ${calls} more time${calls === 1 ? '' : 's'} while work is left` : 'end the session at the next call'}.`,
   };
 }
 
@@ -159,6 +204,10 @@ export async function hauntEndSession(
   for (const issue of input.issues ?? []) {
     if (!known.has(JSON.stringify(issue))) session.issues.push(issue);
   }
+
+  // The session is ending: what follows is the engine's own action, and no
+  // plan is asked of it (R-F6).
+  session.evidence.keep_going = false;
 
   // The page once more, on a window the width of a phone (part 5). As an
   // action like any other, so that it is recorded and a replay makes it
