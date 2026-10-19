@@ -42369,6 +42369,7 @@ function validateAction(input) {
 // src/engine/act/act.ts
 var SETTLE_CAP_MS = 5e3;
 var BUDGET_WARNING = 0.75;
+var FIRST_LOOK = 0.25;
 var REPEATS_FLAGGED = 3;
 var QUIET_MS = 30;
 var ACTIONABLE_MS = 1700;
@@ -43317,6 +43318,11 @@ async function hauntAct(manager, input) {
       `Session ${session.id} hit its step limit (${session.max_steps}). Call haunt_end_session instead of acting further.`
     );
   }
+  if (session.evidence.keep_going && session.plan.cases.size === 0 && session.step_count >= Math.ceil(session.max_steps * FIRST_LOOK)) {
+    throw new Error(
+      `You have used ${session.step_count} actions to look at the area, and no test case is registered. Call haunt_plan for the inventory, register a case for each part of what you have seen, then act again: every action from here plays a case, with what you expect of it.`
+    );
+  }
   if (Date.now() - session.start_time > session.max_active_duration_ms) {
     throw new Error(
       `Session ${session.id} exceeded its active-duration cap (${session.max_active_duration_ms}ms). Call haunt_end_session instead of acting further.`
@@ -43689,11 +43695,13 @@ async function lastEffects(session) {
 var WORTH_GOING_ON = 0.25;
 var CONTROLS_WORTH = 5;
 var CONTROLS_NAMED = 20;
+var HELD_MAX = 3;
 async function heldBack(manager, input) {
   if (!manager.has(input.session_id)) return void 0;
   const session = manager.get(input.session_id);
   const { evidence } = session;
-  if (!evidence.keep_going || evidence.held_back) return void 0;
+  const times = evidence.held_back ?? 0;
+  if (!evidence.keep_going || times >= HELD_MAX) return void 0;
   const steps_remaining = session.max_steps - session.step_count;
   if (steps_remaining < session.max_steps * WORTH_GOING_ON) return void 0;
   if (session.runtime.dialog || session.page.isClosed()) return void 0;
@@ -43702,22 +43710,47 @@ async function heldBack(manager, input) {
   await syncInventory(session).catch(() => {
   });
   const cases = coverageOf(session).left.cases;
-  const controls = [...session.plan.controls.values()].filter((control2) => !control2.exercised && !control2.state).map(({ ref: ref2, role, name }) => ({ ref: ref2, role, name }));
-  if (cases.length === 0 && controls.length < CONTROLS_WORTH) return void 0;
-  evidence.held_back = true;
+  const keyOf = (control3) => JSON.stringify([control3.group, control3.role, control3.name]);
+  const used = new Set(
+    [...session.plan.controls.values()].filter((c) => c.exercised).map(keyOf)
+  );
+  const shown = new Set(
+    (session.snapshot.previous?.elements ?? []).map((element) => element.ref)
+  );
+  const seen = /* @__PURE__ */ new Set();
+  const controls = [...session.plan.controls.values()].filter((control3) => {
+    const key = keyOf(control3);
+    if (!shown.has(control3.ref) || control3.state || used.has(key)) {
+      return false;
+    }
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).map(({ ref: ref2, role, name }) => ({ ref: ref2, role, name }));
+  const unplanned = session.plan.cases.size === 0;
+  if (!unplanned && cases.length === 0 && controls.length < CONTROLS_WORTH) {
+    return void 0;
+  }
+  evidence.held_back = times + 1;
   const known = new Set(session.issues.map((issue) => JSON.stringify(issue)));
   for (const issue of input.issues ?? []) {
     if (!known.has(JSON.stringify(issue))) session.issues.push(issue);
   }
   const parts = [
+    unplanned ? "no test case was registered" : "",
     cases.length > 0 ? `${cases.length} case${cases.length === 1 ? " has" : "s have"} no verdict (${cases.join(", ")})` : "",
     controls.length > 0 ? `${controls.length} control${controls.length === 1 ? " was" : "s were"} never used` : ""
   ].filter(Boolean);
+  const unplayed = cases.length > 0 ? session.plan.cases.get(cases[0]) : void 0;
+  const control2 = controls[0];
+  const next = unplanned ? "Call haunt_plan for the inventory and register a case for each part of what you have seen, saying what each should show. Then play them, each with `expect` and `case` in the haunt_act call." : unplayed ? `Play case "${unplayed.id}" now: ${unplayed.expect} State that as \`expect\` with "case": "${unplayed.id}" in the haunt_act call.` : `Register a case with haunt_plan for the ${control2.role} "${control2.name}" [${control2.ref}], saying what using it should show, and play it.`;
+  const calls = HELD_MAX - evidence.held_back;
   return {
     ended: false,
     left: { cases, controls: controls.slice(0, CONTROLS_NAMED) },
     steps_remaining,
-    todo: `Not ended: ${parts.join(" and ")}, and ${steps_remaining} actions are left. Play the cases that have no verdict. For the controls never used, register a case for what each is for and play it. The issues you passed are kept. Call haunt_end_session again when that is done, or now if nothing more can be tested: it will end the session.`
+    next,
+    todo: `Not ended: ${parts.join(" and ")}, and ${steps_remaining} actions are left. Do this next: ${next} Then go on with what is left, a case for each control never used. The issues you passed are kept. haunt_end_session will ${calls > 0 ? `refuse ${calls} more time${calls === 1 ? "" : "s"} while work is left` : "end the session at the next call"}.`
   };
 }
 async function hauntEndSession(manager, input) {
@@ -43726,6 +43759,7 @@ async function hauntEndSession(manager, input) {
   for (const issue of input.issues ?? []) {
     if (!known.has(JSON.stringify(issue))) session.issues.push(issue);
   }
+  session.evidence.keep_going = false;
   if (session.evidence.narrow_check && session.evidence.layout && !session.runtime.dialog && !session.page.isClosed()) {
     session.max_steps = Math.max(session.max_steps, session.step_count + 1);
     await hauntAct(manager, {
