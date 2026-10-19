@@ -1,0 +1,189 @@
+{
+  "target_url": "http://localhost:4143/",
+  "date": "2026-10-19",
+  "coverage": {
+    "controls": {
+      "listed": 17,
+      "exercised": 13
+    },
+    "cases": {
+      "planned": 4,
+      "run": 4,
+      "passed": 2,
+      "failed": 2
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Close modal"
+        },
+        {
+          "area": "/",
+          "role": "textbox",
+          "name": "Phone (Optional)"
+        },
+        {
+          "area": "/",
+          "role": "dialog",
+          "name": "Book Your Consultation"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "× Book Your Consultation Complete the form below and our expedition team will reach out within 24 hours. Full Name * ..."
+        }
+      ],
+      "cases": []
+    }
+  },
+  "issues": [
+    {
+      "severity": "major",
+      "category": "accessibility",
+      "description": "Begin Your Journey button has insufficient color contrast (white on gold).",
+      "page_url": "http://localhost:4143/",
+      "recommendation": "Darken the button background or text.",
+      "signal": "s2",
+      "verification": {
+        "status": "confirmed",
+        "attempts": 3,
+        "reproduced": 3,
+        "rate": 1,
+        "bundle": ".haunt-reports/evidence/c64f9b5c-f0ab-4185-84f4-ff81530c78f5/issue-2"
+      },
+      "signals": [
+        {
+          "id": "s2",
+          "kind": "a11y",
+          "url": "http://localhost:4143/",
+          "step": 0,
+          "message": "Elements must meet minimum color contrast ratio thresholds (1 element)",
+          "severity": "major",
+          "count": 1,
+          "rule": "color-contrast",
+          "impact": "serious",
+          "nodes": 1,
+          "refs": [
+            "e7"
+          ],
+          "help": "Elements must meet minimum color contrast ratio thresholds"
+        }
+      ]
+    }
+  ],
+  "flaky": [],
+  "unverified": [],
+  "unchecked": [
+    {
+      "severity": "minor",
+      "category": "ux",
+      "description": "Download Expedition Guide button does nothing visible (no download, no feedback).",
+      "page_url": "http://localhost:4143/",
+      "recommendation": "Provide a download or message.",
+      "expected": "A download or feedback after clicking",
+      "actual": "No change at all",
+      "verification": {
+        "status": "unchecked",
+        "attempts": 3,
+        "reproduced": 3,
+        "rate": 1,
+        "bundle": ".haunt-reports/evidence/c64f9b5c-f0ab-4185-84f4-ff81530c78f5/issue-1"
+      }
+    }
+  ],
+  "rejected": [],
+  "signals": [
+    {
+      "id": "s1",
+      "kind": "http_error",
+      "url": "http://localhost:4143/",
+      "step": 0,
+      "message": "GET /video-files/857251/857251-hd_1920_1080_25fps.mp4 answered 403",
+      "severity": "minor",
+      "count": 1,
+      "method": "GET",
+      "request_url": "https://videos.pexels.com/video-files/857251/857251-hd_1920_1080_25fps.mp4",
+      "status": 403,
+      "resource_type": "media",
+      "while_logged_out": true
+    },
+    {
+      "id": "s2",
+      "kind": "a11y",
+      "url": "http://localhost:4143/",
+      "step": 0,
+      "message": "Elements must meet minimum color contrast ratio thresholds (1 element)",
+      "severity": "major",
+      "count": 1,
+      "rule": "color-contrast",
+      "impact": "serious",
+      "nodes": 1,
+      "refs": [
+        "e7"
+      ],
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "id": "s3",
+      "kind": "http_error",
+      "url": "http://localhost:4143/",
+      "step": 1,
+      "message": "GET /video-files/857251/857251-hd_1920_1080_25fps.mp4 answered 403",
+      "severity": "minor",
+      "count": 1,
+      "method": "GET",
+      "request_url": "https://videos.pexels.com/video-files/857251/857251-hd_1920_1080_25fps.mp4",
+      "status": 403,
+      "resource_type": "media",
+      "while_logged_out": true,
+      "feedback": true
+    },
+    {
+      "id": "s4",
+      "kind": "request_hung",
+      "url": "http://localhost:4143/",
+      "step": 0,
+      "message": "GET /video-files/3571264/3571264-uhd_2560_1440_30fps.mp4 has had no answer for 12.8 s",
+      "severity": "major",
+      "count": 1,
+      "method": "GET",
+      "request_url": "https://videos.pexels.com/video-files/3571264/3571264-uhd_2560_1440_30fps.mp4",
+      "duration_ms": 12811,
+      "late": true
+    },
+    {
+      "id": "s1",
+      "kind": "http_error",
+      "url": "http://localhost:4143/",
+      "step": 0,
+      "message": "GET /video-files/857251/857251-hd_1920_1080_25fps.mp4 answered 403",
+      "severity": "minor",
+      "count": 1,
+      "method": "GET",
+      "request_url": "https://videos.pexels.com/video-files/857251/857251-hd_1920_1080_25fps.mp4",
+      "status": 403,
+      "resource_type": "media",
+      "while_logged_out": true
+    },
+    {
+      "id": "s2",
+      "kind": "request_hung",
+      "url": "http://localhost:4143/",
+      "step": 0,
+      "message": "GET /video-files/3571264/3571264-uhd_2560_1440_30fps.mp4 has had no answer for 13.3 s",
+      "severity": "major",
+      "count": 1,
+      "method": "GET",
+      "request_url": "https://videos.pexels.com/video-files/3571264/3571264-uhd_2560_1440_30fps.mp4",
+      "duration_ms": 13307,
+      "late": true
+    }
+  ],
+  "signal_counts": {
+    "total": 2,
+    "major": 1,
+    "minor": 1
+  }
+}

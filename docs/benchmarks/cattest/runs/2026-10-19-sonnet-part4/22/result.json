@@ -1,0 +1,27 @@
+{
+  "app": 22,
+  "model": "sonnet",
+  "haunt": "HEAD@7680ba0",
+  "date": "2026-10-19 18:01",
+  "seconds": 62,
+  "cost_usd": 0.2823406,
+  "turns": 3,
+  "is_error": false,
+  "model_usage": {
+    "claude-sonnet-5-5": {
+      "inputTokens": 42,
+      "outputTokens": 4666,
+      "cacheReadInputTokens": 568646,
+      "cacheCreationInputTokens": 54211,
+      "webSearchRequests": 0,
+      "costUSD": 0.2823406,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 225,
+      "canonicalModel": "claude-sonnet-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "printed": "----------------------------------------\n2 areas tested · 0 issues\n\n\nno critical issues\n\nreport: .haunt-reports/2026-10-19-localhost-4122.md\n----------------------------------------"
+}

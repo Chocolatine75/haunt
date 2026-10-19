@@ -1,0 +1,27 @@
+{
+  "app": 41,
+  "model": "sonnet",
+  "haunt": "HEAD@7680ba0",
+  "date": "2026-10-19 18:05",
+  "seconds": 91,
+  "cost_usd": 0.2304401,
+  "turns": 8,
+  "is_error": false,
+  "model_usage": {
+    "claude-sonnet-5-5": {
+      "inputTokens": 34,
+      "outputTokens": 4076,
+      "cacheReadInputTokens": 427071,
+      "cacheCreationInputTokens": 42298,
+      "webSearchRequests": 0,
+      "costUSD": 0.2304401,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 157,
+      "canonicalModel": "claude-sonnet-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "printed": "```\n----------------------------------------\n2 areas tested \u00b7 1 issues\n\n1 more detected automatically (1 major)\n\n [!!] 1 major\n\nno critical issues\n\nfix first: Wire the button to an order flow or show feedback\n\nreport: .haunt-reports/2026-10-19-localhost-4141.md\n----------------------------------------\n```"
+}

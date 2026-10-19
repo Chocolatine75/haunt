@@ -1,0 +1,27 @@
+{
+  "app": 8,
+  "model": "sonnet",
+  "haunt": "HEAD@7680ba0",
+  "date": "2026-10-19 18:05",
+  "seconds": 262,
+  "cost_usd": 0.34556819999999994,
+  "turns": 3,
+  "is_error": false,
+  "model_usage": {
+    "claude-sonnet-5-5": {
+      "inputTokens": 46,
+      "outputTokens": 4554,
+      "cacheReadInputTokens": 759777,
+      "cacheCreationInputTokens": 71023,
+      "webSearchRequests": 0,
+      "costUSD": 0.34556819999999994,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 418,
+      "canonicalModel": "claude-sonnet-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "printed": "```\n----------------------------------------\n2 areas tested \u00b7 1 issues\n\n25 more detected automatically (4 major)\n\n [!!] 1 major\n\nno critical issues\n\nfix first: Make the scroll region focusable (tabindex=0) and render list items as buttons.\n\nreport: .haunt-reports/2026-10-19-localhost-4108.md\n----------------------------------------\n```"
+}

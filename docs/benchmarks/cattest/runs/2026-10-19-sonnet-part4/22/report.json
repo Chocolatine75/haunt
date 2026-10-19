@@ -1,0 +1,177 @@
+{
+  "target_url": "http://localhost:4122/",
+  "date": "2026-10-19",
+  "coverage": {
+    "controls": {
+      "listed": 34,
+      "exercised": 5
+    },
+    "cases": {
+      "planned": 4,
+      "run": 4,
+      "passed": 3,
+      "failed": 1
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "MS Morgan Smith @morgansmith20 2m Just deployed my first Rust microservice to production. The memory safety guarantee..."
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Reply"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "MG Mia Garcia @miagarcia46 5m Hot take: TypeScript's type system is Turing complete and that's both amazing and terri..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "MK Max Kim @maxkim31 8m Day 45 of building my SaaS. Finally got payment integration working. Stripe's docs are chef's..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "SO Skyler Okafor @skylerokafor51 12m Anyone else think the AI code assistants are getting scary good? Just had one fi..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "RN Rowan Nakamura @rowannakamura19 18m The amount of JavaScript frameworks released this week is too damn high 68 65 227"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "EW Eli Williams @eliwilliams15 25m Just realized my entire production database has been running without backups for 6..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "JC Jordan Chen @jordanchen21 33m Interviewer: 'What's your biggest weakness?' Me: 'I mass-produce side projects that ..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "EL Eli Lee @elilee6 45m TIL you can use CSS :has() selector in production now. Game changer for styling parent elemen..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "EP Ellis Patel @ellispatel52 58m Unpopular opinion: Monoliths are fine for 90% of startups. Stop over-engineering wit..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "RL Rowan Larson @rowanlarson59 1h My VS Code has more extensions than my app has users #IndieHacker #DevLife 24 147 299"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Scroll to top"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Y You @currentuser now Hello 1 1"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "EW Eli Williams @eliwilliams83 3m I use tabs. My coworker uses spaces. We've agreed to let the formatter handle it. P..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "JG Jordan Garcia @jordangarcia76 3m Three years ago I couldn't center a div. Today I'm leading a team of 8 engineers...."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "SN Skyler Nakamura @skylernakamura27 5m Postgres is criminally underrated. Before reaching for Redis, have you tried ..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "RJ Rowan Johnson @rowanjohnson49 4m Python 3.12 performance improvements are no joke. Seeing 15-20% speedups on our M..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "FN Finley Nakamura @finleynakamura15 3m Had a production incident at 3 AM. Root cause: someone hardcoded a date that ..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Show new posts"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "JW Jane Williams @janewilliams66 2m Just deployed my first Rust microservice to production. The memory safety guarant..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "EJ Eli Johnson @elijohnson3 5m Hot take: TypeScript's type system is Turing complete and that's both amazing and terr..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "RP Rowan Park @rowanpark69 8m Day 45 of building my SaaS. Finally got payment integration working. Stripe's docs are ..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "RC Reese Chen @reesechen34 12m Anyone else think the AI code assistants are getting scary good? Just had one fix a bu..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "SG Skyler Garcia @skylergarcia16 18m The amount of JavaScript frameworks released this week is too damn high 51 83 236"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "KS Kai Smith @kaismith5 25m Just realized my entire production database has been running without backups for 6 months..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "QS Quinn Smith @quinnsmith77 33m Interviewer: 'What's your biggest weakness?' Me: 'I mass-produce side projects that ..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "HM Harper Meyer @harpermeyer50 45m TIL you can use CSS :has() selector in production now. Game changer for styling pa..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "KK Kai Kumar @kaikumar63 58m Unpopular opinion: Monoliths are fine for 90% of startups. Stop over-engineering with mi..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "AR Avery Rivera @averyrivera10 1h My VS Code has more extensions than my app has users #IndieHacker #DevLife 22 86 163"
+        }
+      ],
+      "cases": []
+    }
+  },
+  "issues": [],
+  "flaky": [],
+  "unverified": [],
+  "unchecked": [],
+  "rejected": [],
+  "signals": [],
+  "signal_counts": {
+    "total": 0,
+    "major": 0,
+    "minor": 0
+  }
+}
