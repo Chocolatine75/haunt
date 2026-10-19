@@ -18,10 +18,10 @@ Test a running web app the way a QA engineer would.
 
 | Option | Default | Description |
 |---|---|---|
-| `--spec <file>` | — | A file describing what the app is meant to do. The planner and the testers hold the app to it |
+| `--spec <file>` | — | A file describing what the app is meant to do. The testers hold the app to it |
 | `--hostile` | — | Also plan attack payloads (script injection, forged parameters). Only against an app you own |
 | `--headed` | headless | Show the browser window in real time |
-| `--steps <N>` | `40` | The budget of actions of each tester |
+| `--steps <N>` | `60` | The budget of actions of each tester |
 | `--no-sweep` | — | Do not press, once the testers are done, the buttons none of them pressed. By default the engine presses each once, outside forms, and reports those that do nothing or throw |
 | `--routes <list>` | — | Comma-separated paths to test directly (e.g. `/signup,/pricing`), skipping DOM-based route discovery |
 | `--compare <path>` | — | Diff this run against a previous report's `.md` path — annotates issues as new/still-present, lists resolved ones |
@@ -52,7 +52,7 @@ Test a running web app the way a QA engineer would.
 # Debug a login that silently fails
 /haunt:haunt-test http://localhost:3000 --email you@example.com --password secret --debug-auth
 
-# A shorter, cheaper run — 15 actions per tester instead of 40
+# A shorter, cheaper run — 15 actions per tester instead of 60
 /haunt:haunt-test http://localhost:3000 --steps 15
 
 # Skip confirmation prompt (for scripted use)

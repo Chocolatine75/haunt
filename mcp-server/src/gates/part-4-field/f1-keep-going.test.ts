@@ -1,15 +1,17 @@
 // What nine more applications showed (docs/v3/part-4-field.md), A: a tester
 // that asks to end with cases unplayed and its budget unspent is held back
 // once, and told what is left.
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { CASE_METHOD, TESTER_BRIEF } from '../../engine/brief.js';
 import { useSignals } from '../part-2/harness.js';
 import { PASSING } from './status.js';
 
 const HERE = fileURLToPath(new URL('.', import.meta.url));
-const SPEC = resolve(HERE, '../../../../docs/v3/part-4-field.md');
+const REPO_ROOT = resolve(HERE, '../../../..');
+const SPEC = join(REPO_ROOT, 'docs/v3/part-4-field.md');
 
 function gate(
   id: string,
@@ -29,6 +31,7 @@ interface Held {
     controls: Array<{ ref: string; role: string; name: string }>;
   };
   steps_remaining: number;
+  next: string;
   todo: string;
 }
 
@@ -85,7 +88,7 @@ describe('F what nine more applications showed', () => {
     gate(
       'F1.1',
       'R-F1',
-      'asked to keep going, a session with a case unplayed and budget left is held back once, told what is left, and ends at the second call with the issue it passed',
+      'asked to keep going, a session with a case unplayed and budget left is held back, told what is left and what to do next, three times at most, and then ends with the issue it passed',
       async () => {
         const { session, end } = await tester({ keep_going: true, budget: 20 });
         const first = await end({ issues: [ISSUE] });
@@ -97,19 +100,49 @@ describe('F what nine more applications showed', () => {
           'Sort by',
         ]);
         expect(first.data.steps_remaining).toBe(19);
-        expect(first.data.todo).toContain('sort-price');
+        // One thing to do, named: the case, and what it expects.
+        expect(first.data.next).toContain('sort-price');
+        expect(first.data.next).toContain('the prices go up down the list');
         // Nothing of an ended session is in the answer.
         expect(first.data).not.toHaveProperty('issues_found');
 
-        // It is still a session: it acts, and then ends.
+        // It is still a session: it acts. Asked again, with the case still
+        // unplayed, it is held back again, and a third time.
         await session.ok({ type: 'click', ref: await session.ref('details') });
-        const second = await end();
-        if (second.isError) throw new Error(second.text);
-        expect(second.data).not.toHaveProperty('ended');
-        expect(second.data.step_count).toBe(2);
-        expect(second.data.issues_found.map((i) => i.description)).toEqual([
+        for (const _ of [2, 3]) {
+          const again = await end();
+          if (again.isError) throw new Error(again.text);
+          expect(again.data.ended).toBe(false);
+          expect(again.data.left.cases).toEqual(['sort-price']);
+        }
+        const last = await end();
+        if (last.isError) throw new Error(last.text);
+        expect(last.data).not.toHaveProperty('ended');
+        expect(last.data.step_count).toBe(2);
+        expect(last.data.issues_found.map((i) => i.description)).toEqual([
           ISSUE.description,
         ]);
+      },
+    );
+
+    gate(
+      'F1.4',
+      'R-F1',
+      'asked to keep going, a session that registered no case is held back and told to plan, however few controls are left',
+      async () => {
+        const session = await ctx.openUrl(
+          ctx.gauntlet.url('qa-sort', 'variant=clean'),
+          { keep_going: true, budget: 20 },
+        );
+        await session.ok({ type: 'click', ref: await session.ref('compact') });
+        const held = await ctx.haunt.call<Held>('haunt_end_session', {
+          session_id: session.id,
+        });
+        if (held.isError) throw new Error(held.text);
+        expect(held.data.ended).toBe(false);
+        expect(held.data.left.cases).toEqual([]);
+        expect(held.data.next).toContain('haunt_plan');
+        expect(held.data.todo).toContain('no test case was registered');
       },
     );
 
@@ -150,6 +183,112 @@ describe('F what nine more applications showed', () => {
         if (finished.isError) throw new Error(finished.text);
         expect(finished.data).not.toHaveProperty('ended');
         expect(finished.data.step_count).toBe(1);
+      },
+    );
+  });
+
+  describe('F4 no action without a plan, past the first look', () => {
+    gate(
+      'F4.1',
+      'R-F6',
+      'asked to keep going, a session with no case is refused its actions once a quarter of the budget is used, until it has registered one; not asked to, it is refused nothing',
+      async () => {
+        const session = await ctx.openUrl(
+          ctx.gauntlet.url('qa-sort', 'variant=clean'),
+          { keep_going: true, budget: 8 },
+        );
+        const compact = await session.ref('compact');
+        const click = () =>
+          ctx.haunt.call('haunt_act', {
+            session_id: session.id,
+            actions: [{ type: 'click', ref: compact }],
+          });
+        // A quarter of 8: two actions to look around.
+        expect((await click()).isError).toBe(false);
+        expect((await click()).isError).toBe(false);
+        const refused = await click();
+        expect(refused.isError).toBe(true);
+        expect(refused.text).toContain('haunt_plan');
+        // Nothing ran, and the page can still be read.
+        const read = await session.capture({ format: 'json' });
+        expect(read.elements?.length).toBeGreaterThan(0);
+        const planned = await ctx.haunt.call('haunt_plan', {
+          session_id: session.id,
+          brief: true,
+          cases: [
+            {
+              id: 'compact',
+              kind: 'state',
+              controls: [compact],
+              expect: 'Compact view is pressed once clicked.',
+            },
+          ],
+        });
+        if (planned.isError) throw new Error(planned.text);
+        const after = await click();
+        expect(after.isError).toBe(false);
+        expect(
+          (after.data as { step: number; steps_remaining: number }).step,
+        ).toBe(3);
+
+        const free = await ctx.openUrl(
+          ctx.gauntlet.url('qa-sort', 'variant=clean'),
+          { budget: 8 },
+        );
+        const ref = await free.ref('compact');
+        for (let i = 0; i < 4; i++) {
+          await free.ok({ type: 'click', ref });
+        }
+      },
+    );
+  });
+
+  describe('F2 one tester that plans what it has seen', () => {
+    gate(
+      'F2.1',
+      'R-F4',
+      'no planner in the plugin: one tester per area, which sees the area, plans by the method held word for word, then plays',
+      async () => {
+        const read = (path: string) =>
+          readFileSync(join(REPO_ROOT, path), 'utf-8');
+        expect(existsSync(join(REPO_ROOT, 'agents/haunt-planner.md'))).toBe(
+          false,
+        );
+        const command = read('commands/haunt-test.md');
+        expect(command).not.toContain('haunt-planner');
+        expect(command).toContain('haunt-tester');
+        expect(command).toContain('One tester per area');
+        expect(command).toMatch(/--steps`[^\n]*\(default: 60\)/);
+
+        const agent = read('agents/haunt-tester.md');
+        const tools = (/^tools:\s*(.+)$/m.exec(agent)?.[1] ?? '')
+          .split(',')
+          .map((tool) => tool.trim().replace(/^.*__/, ''));
+        for (const tool of [
+          'haunt_spawn',
+          'haunt_capture_state',
+          'haunt_act',
+          'haunt_plan',
+          'haunt_end_session',
+        ]) {
+          expect(tools, tool).toContain(tool);
+        }
+        expect(agent).toContain(TESTER_BRIEF);
+        expect(agent).toContain(CASE_METHOD);
+        // Its own steps, in the order they are taken.
+        const run = agent.slice(agent.indexOf('## In this run'));
+        const at = [
+          'See the whole area',
+          'Take the inventory and plan',
+          'Play the cases',
+        ].map((step) => run.indexOf(step));
+        expect(
+          at.every((index) => index > -1),
+          JSON.stringify(at),
+        ).toBe(true);
+        expect([...at].sort((a, b) => a - b)).toEqual(at);
+        // And nothing of a plan taken from another session.
+        expect(run).not.toContain('planner');
       },
     );
   });
