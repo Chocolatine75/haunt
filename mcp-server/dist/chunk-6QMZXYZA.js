@@ -34641,6 +34641,40 @@ function controlState(el, of) {
   if (credential) return value ? "(filled)" : "(empty)";
   return value;
 }
+function sweptAround(targets) {
+  const state = window.__haunt;
+  const out = {};
+  if (!state) return out;
+  const FIELDS = 'input:not([type]), input[type="text"], input[type="email"], input[type="search"], input[type="password"], input[type="number"], input[type="tel"], input[type="url"], textarea';
+  for (const target of targets) {
+    if (state.doc !== target.doc) continue;
+    const node = state.nodes.get(target.local)?.deref();
+    if (!(node instanceof Element)) continue;
+    let found = node.form instanceof HTMLFormElement;
+    let at = node;
+    while (at && !found) {
+      found = at.closest('form, search, [role="form"], [role="search"]') !== null;
+      const root = at.getRootNode();
+      at = root instanceof ShadowRoot ? root.host : null;
+    }
+    if (found) {
+      out[target.ref] = "in a form";
+      continue;
+    }
+    const block = node.parentElement;
+    if (block && block !== document.body && block.querySelector(FIELDS)) {
+      out[target.ref] = "beside a field";
+      continue;
+    }
+    const current2 = node.getAttribute("aria-current");
+    if (current2 !== null && current2 !== "false" || node.getAttribute("aria-selected") === "true" || /(^|[\s_-])(active|current|selected)($|[\s_-])/i.test(
+      node.getAttribute("class") ?? ""
+    )) {
+      out[target.ref] = "current";
+    }
+  }
+  return out;
+}
 
 // src/engine/sabotage.ts
 var current = null;
@@ -36293,6 +36327,7 @@ function attachRuntime(context, snapshot) {
     opened: [],
     closed: [],
     downloads: [],
+    choosers: 0,
     inflight: /* @__PURE__ */ new Map(),
     recent: [],
     navigations: /* @__PURE__ */ new WeakMap(),
@@ -36315,6 +36350,9 @@ function attachRuntime(context, snapshot) {
       runtime.downloads.push(download.suggestedFilename());
       download.cancel().catch(() => {
       });
+    });
+    page.on("filechooser", () => {
+      runtime.choosers++;
     });
     page.on("dialog", (dialog) => {
       runtime.dialog = dialog;
@@ -37026,6 +37064,27 @@ var SignalCollector = class {
       message: `Clicking the ${control2.role} "${control2.name}" changed nothing`,
       severity: "major"
     });
+  }
+  // Drops what step `at` raised that step `of` had raised already. For a
+  // page opened again by the engine itself (the sweep puts it back between
+  // two presses): what its load shows it showed the first time, and twenty
+  // openings of a page with one broken image are one broken image.
+  forgetRepeats(of, at) {
+    const bare = (signal) => {
+      const { id, step, count, duration_ms, feedback, expected, ...rest } = signal;
+      return JSON.stringify(rest);
+    };
+    const first = new Set(
+      this.signals.filter((signal) => signal.step === of).map(bare)
+    );
+    for (let i = this.signals.length - 1; i >= 0; i--) {
+      const signal = this.signals[i];
+      if (signal.step !== at || !first.has(bare(signal))) continue;
+      this.signals.splice(i, 1);
+      const meta = this.meta.get(signal.id);
+      if (meta) this.byKey.delete(meta.key);
+      this.meta.delete(signal.id);
+    }
   }
   // What an accessibility audit of the page at `url` found (R-S15, R-S16).
   // A violation the session already knows on that page, the same elements
@@ -43056,6 +43115,20 @@ function scrolled(before, after) {
     (el) => el.scroll && was.has(el.ref) && !same(was.get(el.ref), el.scroll)
   );
 }
+async function scrollsLate(session, read2) {
+  const deadline = Date.now() + 400;
+  for (; ; ) {
+    const now = await withTimeout3(
+      session.page.evaluate(() => ({ x: window.scrollX, y: window.scrollY })),
+      500
+    );
+    if (!now || !read2) return false;
+    if (Math.round(now.x) !== Math.round(read2.x)) return true;
+    if (Math.round(now.y) !== Math.round(read2.y)) return true;
+    if (Date.now() >= deadline) return false;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+}
 var withoutFragment = (url) => url.split("#")[0];
 var CONTROL_ROLES = /* @__PURE__ */ new Set([
   "button",
@@ -43077,6 +43150,7 @@ async function runStep(session, input) {
   const urlBefore = pageBefore.url();
   const navigationsBefore = runtime.navigations.get(pageBefore) ?? 0;
   const downloadsBefore = runtime.downloads.length;
+  const choosersBefore = runtime.choosers;
   const textBefore = session.snapshot.previous?.textHash;
   const readBefore = session.snapshot.previous;
   const focusBefore = await focusOf(session);
@@ -43174,11 +43248,11 @@ async function runStep(session, input) {
     const element = readBefore?.elements.find((el) => el.ref === ref2);
     const target = session.snapshot.targets.get(ref2);
     const focusElsewhere = focusAfter > 0 && focusAfter !== focusBefore && !(target?.frame === page.mainFrame() && target.local === focusAfter);
-    const nothing = !domChanged && !dialog && !download && !runtime.dialog && changes.tabs_opened.length === 0 && changes.tabs_closed.length === 0 && withoutFragment(changes.url_after) === withoutFragment(urlBefore) && !focusElsewhere && !scrolled(readBefore, after);
+    const nothing = !domChanged && !dialog && !download && !runtime.dialog && runtime.choosers === choosersBefore && changes.tabs_opened.length === 0 && changes.tabs_closed.length === 0 && withoutFragment(changes.url_after) === withoutFragment(urlBefore) && !focusElsewhere && !scrolled(readBefore, after);
     if (nothing && element && CONTROL_ROLES.has(element.role) && !collector.causedAnything(stepNumber) && target && !target.frame.isDetached() && !await withTimeout3(
       target.frame.evaluate(reactedSince, startedAt),
       1e3
-    )) {
+    ) && !await scrollsLate(session, after.scroll)) {
       collector.raiseDeadControl(stepNumber, page.url(), {
         ref: ref2,
         role: element.role,
@@ -45692,11 +45766,16 @@ export {
   zodToJsonSchema,
   SCREENSHOTS_DIR,
   SessionManager,
+  sabotaged,
+  sweptAround,
   CASE_KINDS,
   PLANNER_BRIEF_HEADING,
   TESTER_BRIEF_HEADING,
   takeSnapshot,
+  syncInventory,
+  planOf,
   hauntPlan,
+  lastEffects,
   hauntEndSession,
   briefEnd,
   malformed,

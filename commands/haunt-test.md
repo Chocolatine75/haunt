@@ -5,7 +5,7 @@ wrong with it.
 
 ## Usage
 
-/haunt-test <url> [--spec <file>] [--steps N] [--headed] [--verbose]
+/haunt-test <url> [--spec <file>] [--steps N] [--no-sweep] [--headed] [--verbose]
 
 ## Arguments
 
@@ -26,6 +26,9 @@ wrong with it.
 - `--debug-auth` — Print each auth step verbosely (use when auth fails silently)
 - `--hostile` — Also plan attack payloads (script injection, forged
   parameters). Only against an app you own.
+- `--no-sweep` — Do not press, at the end, the buttons no tester pressed
+  (by default the engine presses each once, outside forms, and reports the
+  ones that do nothing or throw)
 - `--yes` — Skip the cost estimate confirmation prompt (for scripted use)
 - `--verbose` — Print intermediate reasoning and observations between tool calls (default: silent)
 
@@ -221,6 +224,16 @@ Never spawn them one after the other.
 
 On a tester's failure: print `skipped /area: <error>` and continue.
 
+**2c. Sweep each area (skip if `--no-sweep` was given).** Once every tester
+has answered, call `haunt_sweep` once per area, all in a single message, with
+`target_url` (the area's full URL), `sessions` (the ids of the tester
+sessions of that area), `headless`, and the cookies and secrets of Phase 0.5
+if there are any. No agent: the engine presses the buttons no tester
+pressed, outside forms, and keeps what breaks as signals. Each call answers
+with the id of a session, already ended: keep it with its area.
+
+On a sweep's failure: continue without it. Say nothing of it.
+
 ### Phase 3 — Report
 
 Do NOT hand-write the report file yourself — `haunt_generate_report` computes
@@ -235,11 +248,12 @@ cookie (name or value) into them.
 
 Call `haunt_generate_report` with:
 - `target_url`
-- `sessions`: one entry per **tester** session, as
+- `sessions`: one entry per **tester** session and one per sweep, as
   `{ "session_id": "<id>", "area": "<its route, e.g. /signup>",
   "overall_impression": "<what the tester said it found>" }`. The server has
   each ended session's issues, signals, cases and inventory: do not copy them.
-  The planners' sessions are not reported: they tested nothing.
+  For a sweep's session the impression is `engine sweep`. The planners'
+  sessions are not reported: they tested nothing.
 - `spec`: the name of the `--spec` file, if one was given
 - `compare_with: <path>`, if `--compare <path>` was given
 

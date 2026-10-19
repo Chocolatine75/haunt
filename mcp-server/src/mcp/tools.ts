@@ -25,6 +25,7 @@ import { hauntGenerateReport } from '../engine/report/generate-report.js';
 import { hauntScout } from '../engine/scout.js';
 import type { SessionManager } from '../engine/session/manager.js';
 import { hauntSpawn } from '../engine/spawn.js';
+import { hauntSweep } from '../engine/sweep.js';
 import { SIGNAL_KINDS } from '../gates/part-2/contract.js';
 import { CASE_KINDS } from '../gates/part-4/contract.js';
 
@@ -302,6 +303,42 @@ export const TOOLS: ToolDefinition[] = [
         .describe('How many routes at most. Default: 4'),
     }),
     run: (manager, input) => hauntScout(manager, input),
+  }),
+  defineTool({
+    name: 'haunt_sweep',
+    description:
+      "Press the buttons of an area that no tester pressed, each on the page as it loads, and report what breaks: a button wired to nothing, a handler that throws, a failed request. One call, no session left open: it ends its own session, whose id goes to haunt_generate_report with the testers'. Presses nothing inside a form and nothing whose name says it deletes, pays, sends or signs out.",
+    input: z.object({
+      target_url: z.string().describe('The area to sweep'),
+      sessions: z
+        .array(z.string())
+        .optional()
+        .describe(
+          'The ids of the sessions that tested this area, ended or not: a button one of them exercised is not pressed again',
+        ),
+      max: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe('How many buttons to press at most. Default: 20'),
+      headless: z.boolean().optional(),
+      cookies: z
+        .array(cookieSchema)
+        .optional()
+        .describe('Session cookies, to sweep as a logged-in user'),
+      secrets: z.array(z.string()).optional(),
+      replay_budget_ms: z
+        .number()
+        .int()
+        .min(0)
+        .optional()
+        .describe(
+          'How long it may spend replaying what it found to verify it. Default: 120000',
+        ),
+      bundle_cap_bytes: z.number().int().positive().optional(),
+    }),
+    run: (manager, input) => hauntSweep(manager, input),
   }),
   defineTool({
     name: 'haunt_get_cookies',

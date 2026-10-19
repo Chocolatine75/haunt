@@ -19,6 +19,7 @@ const EXPECTED_TOOLS = [
   'haunt_act',
   'haunt_plan',
   'haunt_scout',
+  'haunt_sweep',
   'haunt_replay',
 ];
 

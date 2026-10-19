@@ -48,6 +48,8 @@ export const SABOTAGES = [
   'tester_case_not_replayed',
   // Part 5, layout.
   'layout_unread',
+  // The sweep of part 4.
+  'sweep_forms_included',
   // Not a breakage: nothing recorded, to measure what recording costs
   // (E7.4).
   'evidence_off',
