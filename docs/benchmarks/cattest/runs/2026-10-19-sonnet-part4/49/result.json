@@ -1,0 +1,27 @@
+{
+  "app": 49,
+  "model": "sonnet",
+  "haunt": "HEAD@7680ba0",
+  "date": "2026-10-19 18:07",
+  "seconds": 69,
+  "cost_usd": 0.27986540000000015,
+  "turns": 3,
+  "is_error": false,
+  "model_usage": {
+    "claude-sonnet-5-5": {
+      "inputTokens": 50,
+      "outputTokens": 5100,
+      "cacheReadInputTokens": 659984,
+      "cacheCreationInputTokens": 48398,
+      "webSearchRequests": 0,
+      "costUSD": 0.27986540000000015,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 336,
+      "canonicalModel": "claude-sonnet-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "printed": "```\n----------------------------------------\n2 areas tested \u00b7 1 issues\n\n  [!] 1 minor\n\nno critical issues\n\nfix first: Darken the text colors to reach 4.5:1.\n\nreport: .haunt-reports/2026-10-19-localhost-4149.md\n----------------------------------------\n```"
+}

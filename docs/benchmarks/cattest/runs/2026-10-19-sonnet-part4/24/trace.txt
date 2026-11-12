@@ -1,0 +1,77 @@
+== orchestrator
+  > ToolSearch {"query": "select:mcp__plugin_haunt_haunt__haunt_scout,mcp__plugin_haunt_haunt__haunt_sweep,mcp__plugin_haunt_haunt__haunt_generate_report", "max_results": 5}
+    < 
+    < 
+  > Bash {"command": "echo \"haunt v0.2.0  —  QA testing\""}
+  > haunt_scout {"target_url": "http://localhost:4124/"}
+    < haunt v0.2.0  —  QA testing
+    < {"routes":["/"],"title":"Conveza - Video Call"}
+  says haunt v0.2.0  —  QA testing scouting... routes: / testing 1 areas...
+  > Agent {"description": "Test area /", "subagent_type": "haunt:haunt-tester", "prompt": "Area: http://localhost:4124/\nHeadless: true\nCookies: none\nSecrets: none\nHostile cases allowed: no\nBudget: 60 actions"}
+    < Async agent launched successfully. (This tool result is internal metadata — never quote or paste any part of it, including the agentId below, into a user-facing reply.) agentId: abb0cdec7e48f88ce (internal ID - do not mention to user. Use SendMessage with to: 'abb0cdec7e48f88ce', summary: '<5-10 wor
+  says The tester is still running. I'll wait for its notification before sweeping.
+  > haunt_sweep {"target_url": "http://localhost:4124/", "sessions": ["112796d7-f0bd-4a37-a02c-843db7d1493b"], "headless": true}
+    < {"session_id":"1fce3cea-8229-47cb-adcd-21adce350fbf","pressed":[{"role":"button","name":"Minimize to mini window","group":"page","changed":true,"signals":[]}],"left":[],"signals":[]}
+  > haunt_generate_report {"target_url": "http://localhost:4124/", "sessions": [{"session_id": "112796d7-f0bd-4a37-a02c-843db7d1493b", "area": "/", "overall_impression": "Six icon-only call buttons have no accessible name. Stop Sharing is covered by an overlay while screen sharing and opened the Participants panel instead. Controls auto-hide with pointer-events off. Mute, camera, share, participants, end call and rejoin wo
+    < {"report_path":".haunt-reports/2026-10-19-localhost-4124.md","markdown":"---\nhaunt: true\ntarget: http://localhost:4124/\ndate: 2026-10-19\nareas_tested: 2\nissues:\n  total: 1\n  critical: 0\n  major: 1\n  minor: 0\nsignals:\n  total: 0\n  major: 0\n  minor: 0\ntop_fix: \"Add aria-label to each co
+  says ``` ---------------------------------------- 2 areas tested · 1 issues   [!!] 1 major  no critical issues  fix first: Add aria-label to each control button.  report: .haunt-reports/2026-10-19-localhost-4124.md ---------------------------------------- ```
+== haunt:haunt-tester
+  > haunt_spawn {"target_url": "http://localhost:4124/", "budget": 60, "narrow_check": true, "keep_going": true}
+    < {"session_id":"112796d7-f0bd-4a37-a02c-843db7d1493b","signals":[{"kind":"a11y","url":"http://localhost:4124/","step":0,"rule":"button-name","impact":"critical","nodes":6,"refs":["e10","e12","e13","e14","e8","e9"],"help":"Buttons must have discernible text","message":"Buttons must have discernible te
+  > haunt_spawn {"target_url": "http://localhost:4124/", "budget": 60, "narrow_check": true, "keep_going": true}
+  > haunt_capture_state {"session_id": "112796d7-f0bd-4a37-a02c-843db7d1493b", "include_screenshot": true}
+    < {"url":"http://localhost:4124/","title":"Conveza - Video Call","text":"Page: Conveza - Video Call\nURL: http://localhost:4124/\n\n- generic \"Dashboard\" [e1] hidden(display)\n- generic \"Projects\" [e2] hidden(display)\n- generic \"Messages\" [e3] hidden(display)\n- generic \"Settings\" [e4] hidden
+  > haunt_capture_state {"session_id": "112796d7-f0bd-4a37-a02c-843db7d1493b", "include_screenshot": true}
+  says Try the controls: mic, camera, volume, share, minimize.
+  > haunt_act {"session_id": "112796d7-f0bd-4a37-a02c-843db7d1493b", "actions": [{"type": "click", "ref": "e8"}, {"type": "click", "ref": "e9"}, {"type": "click", "ref": "e10"}, {"type": "click", "ref": "e12"}]}
+    < {"results":[{"type":"click","ok":false,"changes":{"url_before":"http://localhost:4124/","url_after":"http://localhost:4124/","navigated":false,"tabs_opened":[],"tabs_closed":[],"focus_moved":false,"dom_changed":false,"none":true},"settled":true,"action_ms":6,"settle_ms":0,"error":{"code":"covered","
+  > haunt_capture_state {"session_id": "112796d7-f0bd-4a37-a02c-843db7d1493b", "include_screenshot": true}
+    < {"url":"http://localhost:4124/","title":"Conveza - Video Call","text":"Page: Conveza - Video Call\nURL: http://localhost:4124/\n\n- generic \"Dashboard\" [e1] hidden(display)\n- generic \"Projects\" [e2] hidden(display)\n- generic \"Messages\" [e3] hidden(display)\n- generic \"Settings\" [e4] hidden
+  > haunt_act {"session_id": "112796d7-f0bd-4a37-a02c-843db7d1493b", "actions": [{"type": "click", "ref": "e8"}, {"type": "click", "ref": "e9"}, {"type": "click", "ref": "e10"}, {"type": "click", "ref": "e12"}]}
+  > haunt_capture_state {"session_id": "112796d7-f0bd-4a37-a02c-843db7d1493b", "include_screenshot": true}
+    < {"results":[{"type":"click","ok":false,"changes":{"url_before":"http://localhost:4124/","url_after":"http://localhost:4124/","navigated":false,"tabs_opened":[],"tabs_closed":[],"focus_moved":false,"dom_changed":false,"none":true},"settled":true,"action_ms":6,"settle_ms":0,"error":{"code":"covered","
+    < {"url":"http://localhost:4124/","title":"Conveza - Video Call","text":"Page: Conveza - Video Call\nURL: http://localhost:4124/\n\n- generic \"Dashboard\" [e1] hidden(display)\n- generic \"Projects\" [e2] hidden(display)\n- generic \"Messages\" [e3] hidden(display)\n- generic \"Settings\" [e4] hidden
+  > haunt_act {"session_id": "112796d7-f0bd-4a37-a02c-843db7d1493b", "actions": [{"type": "hover", "ref": "e7"}, {"type": "click", "ref": "e8"}]}
+    < {"results":[{"type":"hover","ok":true,"changes":{"url_before":"http://localhost:4124/","url_after":"http://localhost:4124/","navigated":false,"tabs_opened":[],"tabs_closed":[],"focus_moved":false,"dom_changed":false,"none":true},"settled":true,"action_ms":45,"settle_ms":16},{"type":"click","ok":true
+  > haunt_act {"session_id": "112796d7-f0bd-4a37-a02c-843db7d1493b", "actions": [{"type": "hover", "ref": "e7"}, {"type": "click", "ref": "e8"}]}
+  says Mic click showed no DOM change. Check visually and try others.
+  > haunt_act {"session_id": "112796d7-f0bd-4a37-a02c-843db7d1493b", "actions": [{"type": "click", "ref": "e9"}, {"type": "click", "ref": "e10"}, {"type": "click", "ref": "e12"}]}
+    < {"results":[{"type":"click","ok":true,"changes":{"url_before":"http://localhost:4124/","url_after":"http://localhost:4124/","navigated":false,"tabs_opened":[],"tabs_closed":[],"focus_moved":true,"dom_changed":true,"none":false},"settled":true,"action_ms":7,"settle_ms":13},{"type":"click","ok":true,"
+  > haunt_capture_state {"session_id": "112796d7-f0bd-4a37-a02c-843db7d1493b", "include_screenshot": true}
+    < {"url":"http://localhost:4124/","title":"Conveza - Video Call","text":"Page: Conveza - Video Call\nURL: http://localhost:4124/\n\n- generic \"Dashboard\" [e1] hidden(display)\n- generic \"Projects\" [e2] hidden(display)\n- generic \"Messages\" [e3] hidden(display)\n- generic \"Settings\" [e4] hidden
+  > haunt_act {"session_id": "112796d7-f0bd-4a37-a02c-843db7d1493b", "actions": [{"type": "click", "ref": "e9"}, {"type": "click", "ref": "e10"}, {"type": "click", "ref": "e12"}]}
+  > haunt_capture_state {"session_id": "112796d7-f0bd-4a37-a02c-843db7d1493b", "include_screenshot": true}
+    < {"results":[{"type":"click","ok":true,"changes":{"url_before":"http://localhost:4124/","url_after":"http://localhost:4124/","navigated":false,"tabs_opened":[],"tabs_closed":[],"focus_moved":true,"dom_changed":true,"none":false},"settled":true,"action_ms":7,"settle_ms":13},{"type":"click","ok":true,"
+    < {"url":"http://localhost:4124/","title":"Conveza - Video Call","text":"Page: Conveza - Video Call\nURL: http://localhost:4124/\n\n- generic \"Dashboard\" [e1] hidden(display)\n- generic \"Projects\" [e2] hidden(display)\n- generic \"Messages\" [e3] hidden(display)\n- generic \"Settings\" [e4] hidden
+  > haunt_act {"session_id": "112796d7-f0bd-4a37-a02c-843db7d1493b", "actions": [{"type": "click", "ref": "e6"}]}
+    < {"results":[{"type":"click","ok":true,"changes":{"url_before":"http://localhost:4124/","url_after":"http://localhost:4124/","navigated":false,"tabs_opened":[],"tabs_closed":[],"focus_moved":true,"dom_changed":true,"none":false},"settled":true,"action_ms":19,"settle_ms":11}],"executed":1,"requested":
+  > haunt_act {"session_id": "112796d7-f0bd-4a37-a02c-843db7d1493b", "actions": [{"type": "click", "ref": "e6"}]}
+  > haunt_capture_state {"session_id": "112796d7-f0bd-4a37-a02c-843db7d1493b", "include_screenshot": true}
+    < {"url":"http://localhost:4124/","title":"Conveza - Video Call","text":"Page: Conveza - Video Call\nURL: http://localhost:4124/\n\n- generic \"Dashboard\" [e1] hidden(display)\n- generic \"Projects\" [e2] hidden(display)\n- generic \"Messages\" [e3] hidden(display)\n- generic \"Settings\" [e4] hidden
+  > haunt_capture_state {"session_id": "112796d7-f0bd-4a37-a02c-843db7d1493b", "include_screenshot": true}
+  > haunt_act {"session_id": "112796d7-f0bd-4a37-a02c-843db7d1493b", "actions": [{"type": "click", "ref": "e15"}, {"type": "click", "ref": "e14"}]}
+    < {"results":[{"type":"click","ok":true,"changes":{"url_before":"http://localhost:4124/","url_after":"http://localhost:4124/","navigated":false,"tabs_opened":[],"tabs_closed":[],"focus_moved":true,"dom_changed":true,"none":false},"settled":true,"action_ms":16,"settle_ms":15},{"type":"click","ok":true,
+  > haunt_capture_state {"session_id": "112796d7-f0bd-4a37-a02c-843db7d1493b", "include_screenshot": true}
+    < {"url":"http://localhost:4124/","title":"Conveza - Video Call","text":"Page: Conveza - Video Call\nURL: http://localhost:4124/\n\n- generic \"Dashboard\" [e1] hidden(display)\n- generic \"Projects\" [e2] hidden(display)\n- generic \"Messages\" [e3] hidden(display)\n- generic \"Settings\" [e4] hidden
+  > haunt_act {"session_id": "112796d7-f0bd-4a37-a02c-843db7d1493b", "actions": [{"type": "click", "ref": "e15"}, {"type": "click", "ref": "e14"}]}
+  > haunt_capture_state {"session_id": "112796d7-f0bd-4a37-a02c-843db7d1493b", "include_screenshot": true}
+    < {"results":[{"type":"click","ok":true,"changes":{"url_before":"http://localhost:4124/","url_after":"http://localhost:4124/","navigated":false,"tabs_opened":[],"tabs_closed":[],"focus_moved":true,"dom_changed":true,"none":false},"settled":true,"action_ms":16,"settle_ms":15},{"type":"click","ok":true,
+    < {"url":"http://localhost:4124/","title":"Conveza - Video Call","text":"Page: Conveza - Video Call\nURL: http://localhost:4124/\n\n- generic \"Dashboard\" [e1] hidden(display)\n- generic \"Projects\" [e2] hidden(display)\n- generic \"Messages\" [e3] hidden(display)\n- generic \"Settings\" [e4] hidden
+  says Good enough; end the session.
+  > haunt_end_session {"session_id": "112796d7-f0bd-4a37-a02c-843db7d1493b", "brief": true, "issues": [{"severity": "major", "category": "accessibility", "description": "Six call control buttons (mic, camera, volume, share, participants, end call) have no accessible name and are icon-only.", "page_url": "http://localhost:4124/", "recommendation": "Add aria-label to each control button.", "signal": "s1"}, {"severity": "
+    < Error: Invalid arguments for haunt_end_session: issues.1.recommendation: Required
+  > haunt_end_session {"session_id": "112796d7-f0bd-4a37-a02c-843db7d1493b", "brief": true, "issues": [{"severity": "major", "category": "accessibility", "description": "Six call control buttons (mic, camera, volume, share, participants, end call) have no accessible name and are icon-only.", "page_url": "http://localhost:4124/", "recommendation": "Add aria-label to each control button.", "signal": "s1"}, {"severity": "
+  > haunt_end_session {"session_id": "112796d7-f0bd-4a37-a02c-843db7d1493b", "brief": true, "issues": [{"severity": "major", "category": "accessibility", "description": "Six call control buttons (mic, camera, volume, share, participants, end call) have no accessible name and are icon-only.", "page_url": "http://localhost:4124/", "recommendation": "Add aria-label to each control button.", "signal": "s1"}, {"severity": "
+    < {"ended":false,"left":{"cases":[],"controls":[{"ref":"e20","role":"button","name":"Rejoin Call"}]},"steps_remaining":51,"next":"Call haunt_plan for the inventory and register a case for each part of what you have seen, saying what each should show. Then play them, each with `expect` and `case` in th
+  > haunt_end_session {"session_id": "112796d7-f0bd-4a37-a02c-843db7d1493b", "brief": true, "issues": [{"severity": "major", "category": "accessibility", "description": "Six call control buttons (mic, camera, volume, share, participants, end call) have no accessible name and are icon-only.", "page_url": "http://localhost:4124/", "recommendation": "Add aria-label to each control button.", "signal": "s1"}, {"severity": "
+  > haunt_plan {"session_id": "112796d7-f0bd-4a37-a02c-843db7d1493b", "brief": true, "cases": [{"id": "rejoin", "kind": "normal", "controls": ["e20"], "expect": "Rejoin Call hides the Call Ended text and returns to the call"}]}
+    < {"cases":[{"id":"rejoin","kind":"normal","controls":["e20"],"expect":"Rejoin Call hides the Call Ended text and returns to the call"}],"coverage":{"controls":{"listed":23,"exercised":8},"cases":{"planned":1,"run":0,"passed":0,"failed":0},"left":{"controls":[{"ref":"e1","role":"generic","name":"Dashb
+  > haunt_plan {"session_id": "112796d7-f0bd-4a37-a02c-843db7d1493b", "brief": true, "cases": [{"id": "rejoin", "kind": "normal", "controls": ["e20"], "expect": "Rejoin Call hides the Call Ended text and returns to the call"}]}
+  > haunt_act {"session_id": "112796d7-f0bd-4a37-a02c-843db7d1493b", "case": "rejoin", "actions": [{"type": "click", "ref": "e20"}], "expect": {"text_absent": "Call Ended"}}
+    < {"results":[{"type":"click","ok":true,"changes":{"url_before":"http://localhost:4124/","url_after":"http://localhost:4124/","navigated":false,"tabs_opened":[],"tabs_closed":[],"focus_moved":false,"dom_changed":true,"none":false},"settled":false,"action_ms":6,"settle_ms":5008,"pending":["interval(100
+  > haunt_act {"session_id": "112796d7-f0bd-4a37-a02c-843db7d1493b", "case": "rejoin", "actions": [{"type": "click", "ref": "e20"}], "expect": {"text_absent": "Call Ended"}}
+  > haunt_end_session {"session_id": "112796d7-f0bd-4a37-a02c-843db7d1493b", "brief": true, "overall_impression": "Core call controls work. The icon buttons have no accessible names, and Stop Sharing is covered during a share."}
+    < {"session_id":"112796d7-f0bd-4a37-a02c-843db7d1493b","step_count":11,"issues_found":[{"description":"Six call control buttons (mic, camera, volume, share, participants, end call) have no accessible name and are icon-only.","severity":"major","status":"confirmed","bundle":".haunt-reports/evidence/112
+  > haunt_end_session {"session_id": "112796d7-f0bd-4a37-a02c-843db7d1493b", "brief": true, "overall_impression": "Core call controls work. The icon buttons have no accessible names, and Stop Sharing is covered during a share."}
+  > SubagentHandback {"message": "session: 112796d7-f0bd-4a37-a02c-843db7d1493b\nfound: Six icon-only call buttons (mic, camera, volume, share, participants, end call) have no accessible name; this is confirmed. While screen sharing, the \"Stop Sharing\" button is covered by an overlay and can't be clicked. Clicking it opened the Participants panel instead. That one couldn't be replayed, so it is listed for a person t
+    < {"success":true,"message":"Report delivered to your caller."}

@@ -1,0 +1,27 @@
+{
+  "app": 7,
+  "model": "sonnet",
+  "haunt": "HEAD@7680ba0",
+  "date": "2026-10-19 18:00",
+  "seconds": 69,
+  "cost_usd": 0.35651000000000005,
+  "turns": 3,
+  "is_error": false,
+  "model_usage": {
+    "claude-sonnet-5-5": {
+      "inputTokens": 44,
+      "outputTokens": 5540,
+      "cacheReadInputTokens": 634410,
+      "cacheCreationInputTokens": 77927,
+      "webSearchRequests": 0,
+      "costUSD": 0.35651000000000005,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 979,
+      "canonicalModel": "claude-sonnet-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "printed": "----------------------------------------\n2 areas tested · 2 issues\n\n [!!] 1 major\n  [!] 1 minor\n\nno critical issues\n\nfix first: Make Titles Only restrict matching to titles.\n\nreport: .haunt-reports/2026-10-19-localhost-4107.md\n----------------------------------------"
+}

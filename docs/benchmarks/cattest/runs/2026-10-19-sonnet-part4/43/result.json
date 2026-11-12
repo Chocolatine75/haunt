@@ -1,0 +1,27 @@
+{
+  "app": 43,
+  "model": "sonnet",
+  "haunt": "HEAD@7680ba0",
+  "date": "2026-10-19 18:10",
+  "seconds": 265,
+  "cost_usd": 0.27650990000000003,
+  "turns": 3,
+  "is_error": false,
+  "model_usage": {
+    "claude-sonnet-5-5": {
+      "inputTokens": 48,
+      "outputTokens": 4733,
+      "cacheReadInputTokens": 634704,
+      "cacheCreationInputTokens": 49203,
+      "webSearchRequests": 0,
+      "costUSD": 0.27650990000000003,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 65,
+      "canonicalModel": "claude-sonnet-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "printed": "----------------------------------------\n2 areas tested \u00b7 1 issues\n\n2 more detected automatically (1 major)\n\n [!!] 1 major\n\nno critical issues\n\nfix first: Darken the button background or text.\n\nreport: .haunt-reports/2026-10-19-localhost-4143.md\n----------------------------------------"
+}

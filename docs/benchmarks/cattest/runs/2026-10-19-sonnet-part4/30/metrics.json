@@ -1,0 +1,401 @@
+{
+  "agents": [
+    {
+      "role": "orchestrator",
+      "tools": {
+        "ToolSearch": {
+          "calls": 1,
+          "chars": 0,
+          "max_chars": 0,
+          "errors": 0
+        },
+        "Bash": {
+          "calls": 1,
+          "chars": 27,
+          "max_chars": 27,
+          "errors": 0
+        },
+        "haunt_scout": {
+          "calls": 1,
+          "chars": 63,
+          "max_chars": 63,
+          "errors": 0
+        },
+        "Agent": {
+          "calls": 1,
+          "chars": 1095,
+          "max_chars": 1095,
+          "errors": 0
+        },
+        "haunt_sweep": {
+          "calls": 1,
+          "chars": 310,
+          "max_chars": 310,
+          "errors": 0
+        },
+        "haunt_generate_report": {
+          "calls": 1,
+          "chars": 7846,
+          "max_chars": 7846,
+          "errors": 0
+        }
+      },
+      "context_tokens": [
+        21861,
+        32810,
+        33099,
+        33718,
+        34340,
+        35199,
+        39035
+      ],
+      "output_tokens": 983,
+      "images": 0,
+      "turns": 7,
+      "max_context_tokens": 39035,
+      "input_tokens_total": 230062,
+      "tool_chars_total": 9341
+    },
+    {
+      "role": "haunt:haunt-tester",
+      "tools": {
+        "haunt_spawn": {
+          "calls": 2,
+          "chars": 379,
+          "max_chars": 379,
+          "errors": 0
+        },
+        "haunt_capture_state": {
+          "calls": 10,
+          "chars": 20903,
+          "max_chars": 4905,
+          "errors": 0
+        },
+        "haunt_plan": {
+          "calls": 4,
+          "chars": 21764,
+          "max_chars": 7416,
+          "errors": 0
+        },
+        "haunt_act": {
+          "calls": 24,
+          "chars": 36513,
+          "max_chars": 6039,
+          "errors": 0
+        },
+        "haunt_end_session": {
+          "calls": 4,
+          "chars": 2932,
+          "max_chars": 2344,
+          "errors": 0
+        },
+        "SubagentHandback": {
+          "calls": 1,
+          "chars": 61,
+          "max_chars": 61,
+          "errors": 0
+        }
+      },
+      "context_tokens": [
+        16443,
+        18163,
+        21871,
+        25088,
+        25934,
+        26778,
+        29403,
+        32324,
+        32778,
+        33639,
+        34700,
+        37911,
+        39830,
+        45692,
+        47167,
+        53358,
+        53787
+      ],
+      "output_tokens": 410,
+      "images": 5,
+      "turns": 17,
+      "max_context_tokens": 53787,
+      "input_tokens_total": 574866,
+      "tool_chars_total": 82552
+    }
+  ],
+  "held_back": 1,
+  "act_refused_without_case": 0,
+  "sessions": {
+    "4b58c1fe-5f70-4053-9081-d89bb08a3a35": {
+      "steps": 20
+    }
+  },
+  "coverage": {
+    "controls": {
+      "listed": 68,
+      "exercised": 18
+    },
+    "cases": {
+      "planned": 6,
+      "run": 6,
+      "passed": 5,
+      "failed": 1
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "C Crimson Moth #1706 love The stranger who smiled at me on the subway this morning made me cry when I got ... \ud83d\udc41\ufe0f 3 r..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "H Hidden Echo #3093 fear I've been applying to jobs in another country without telling my partner. I don'... \u23f1\ufe0f 5:59:..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "F Fading Ivy #5866 regret I got promoted today but I can't tell anyone because my best friend applied for ... \u23f1\ufe0f 17:5..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "H Hollow Sparrow #3617 confession I pretend to be happy at work every single day, but I haven't felt real joy in m......"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "D Distant Thorn #5232 hope I forgave my father today. He doesn't know it yet. Maybe he never will. But I fe... \u23f1\ufe0f 21:..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "D Drifting Thorn #5470 hope I'm learning to paint in secret. I'm terrible at it but it makes me feel alive f... \u23f1\ufe0f 3:..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "M Misty Star #5921 hope I've been sober for 100 days and nobody in my life knows I had a problem. This i... \u23f1\ufe0f 4:05 t..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "T Tender Raven #7598 love I still write letters to my grandmother even though she passed away three years ... \ud83d\udc41\ufe0f 4 r..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "S Scarlet Ash #2700 confession Sometimes I drive to the beach at 3am just to scream into the ocean. It's the on... \ud83d\udc41..."
+        },
+        {
+          "area": "/",
+          "role": "combobox",
+          "name": "Burn Mode:"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Back away"
+        },
+        {
+          "area": "/",
+          "role": "textbox",
+          "name": ""
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "\ud83d\udccb"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Got it"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "M Misty Star #5921 hope I've been sober for 100 days and nobody in my life knows I had a problem. This i... \u23f1\ufe0f 4:02 t..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": ""
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "L Luminous Ghost #1655 confession I still keep my old school diary under my bed. \ud83d\udc41\ufe0f 1 read left tap to read"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "D Drifting Thorn #5470 hope I'm learning to paint in secret. I'm terrible at it but it makes me feel alive f... \u23f1\ufe0f 2:..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "M Misty Star #5921 hope I've been sober for 100 days and nobody in my life knows I had a problem. This i... \u23f1\ufe0f 3:30 t..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Your secret is now on the wall."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Direct Link:"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\u00d7 \ud83d\udd4a\ufe0f Your secret is now on the wall. You are Luminous Ghost #1655 No one can trace this back to you. Whisper ID: 2id..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Whisper ID: 2idklvd1 Direct Link: \ud83d\udccb"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "M Misty Star #5921 hope I've been sober for 100 days and nobody in my life knows I had a problem. This i... \u23f1\ufe0f 3:19 t..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\ud83d\udd73\ufe0f How Tree Hole Works"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\ud83c\udfad Complete Anonymity No login, no tracking. Each post gets a randomly generated identity that cannot be traced back ..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\ud83c\udfad"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Complete Anonymity"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "No login, no tracking. Each post gets a randomly generated identity that cannot be traced back to you. Even posting t..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Every secret has a lifespan. Choose \"burn after reading\" (limited views) or a time-based countdown. Once expired, the..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "S Scarlet Crane #7863 love The stranger who smiled at me on the subway this morning made me cry when I got ... \ud83d\udc41\ufe0f 3 ..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "G Glacial Hawk #4668 hope I've been sober for 100 days and nobody in my life knows I had a problem. This i... \u23f1\ufe0f 4:12..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "S Sleeping Raven #4851 funny I laugh at my own jokes when I'm alone in my apartment. Full belly laughs. I thi... \ud83d\udc41\ufe0f ..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "S Shadowed Crane #9883 fear I've been applying to jobs in another country without telling my partner. I don'... \u23f1\ufe0f 6:..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "S Shadowed Serpent #4422 love I still write letters to my grandmother even though she passed away three years ... \ud83d\udc41\ufe0f..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "P Phantom Shadow #5991 confession Sometimes I drive to the beach at 3am just to scream into the ocean. It's the on......"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "H Hidden Ghost #6449 confession I pretend to be happy at work every single day, but I haven't felt real joy in m... \u23f1..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "L Luminous Ivy #2675 hope I forgave my father today. He doesn't know it yet. Maybe he never will. But I fe... \u23f1\ufe0f 22:0..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "H Hollow Coral #4907 regret I got promoted today but I can't tell anyone because my best friend applied for ... \u23f1\ufe0f 18..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "W Wistful Ember #3363 hope I'm learning to paint in secret. I'm terrible at it but it makes me feel alive f... \u23f1\ufe0f 3:3..."
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "\ud83d\udd07"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "G Glacial Hawk #4668 hope I've been sober for 100 days and nobody in my life knows I had a problem. This i... \u23f1\ufe0f 4:06..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "S Shadowed Crane #9883 fear I've been applying to jobs in another country without telling my partner. I don'... \u23f1\ufe0f 5:..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "L Luminous Ivy #2675 hope I forgave my father today. He doesn't know it yet. Maybe he never will. But I fe... \u23f1\ufe0f 21:5..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "H Hollow Coral #4907 regret I got promoted today but I can't tell anyone because my best friend applied for ... \u23f1\ufe0f 17..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "W Wistful Ember #3363 hope I'm learning to paint in secret. I'm terrible at it but it makes me feel alive f... \u23f1\ufe0f 3:2..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "G Glacial Hawk #4668 hope I've been sober for 100 days and nobody in my life knows I had a problem. This i... \u23f1\ufe0f 4:00..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "L Luminous Ivy #2675 hope I forgave my father today. He doesn't know it yet. Maybe he never will. But I fe... \u23f1\ufe0f 21:4..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "W Wistful Ember #3363 hope I'm learning to paint in secret. I'm terrible at it but it makes me feel alive f... \u23f1\ufe0f 3:1..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "G Glacial Hawk #4668 hope I've been sober for 100 days and nobody in my life knows I had a problem. This i... \u23f1\ufe0f 3:54..."
+        }
+      ],
+      "cases": []
+    }
+  },
+  "transcripts_found": true
+}

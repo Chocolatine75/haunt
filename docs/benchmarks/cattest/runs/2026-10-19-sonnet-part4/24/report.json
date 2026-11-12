@@ -1,0 +1,186 @@
+{
+  "target_url": "http://localhost:4124/",
+  "date": "2026-10-19",
+  "coverage": {
+    "controls": {
+      "listed": 21,
+      "exercised": 6
+    },
+    "cases": {
+      "planned": 1,
+      "run": 1,
+      "passed": 1,
+      "failed": 0
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Dashboard"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Projects"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Messages"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Settings"
+        },
+        {
+          "area": "/",
+          "role": "slider",
+          "name": ""
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "00:00:10"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Expand to full view"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Toggle Microphone"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "End Call"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": ""
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Participants (2) ×"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "A Alex (You) 🎤 📷 J Jordan 🎤 📷"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Alex"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "00:00:00"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "00:00:05"
+        }
+      ],
+      "cases": []
+    }
+  },
+  "issues": [
+    {
+      "severity": "major",
+      "category": "accessibility",
+      "description": "Six call control buttons (mic, camera, volume, share, participants, end call) have no accessible name and are icon-only.",
+      "page_url": "http://localhost:4124/",
+      "recommendation": "Add aria-label to each control button.",
+      "signal": "s1",
+      "verification": {
+        "status": "confirmed",
+        "attempts": 3,
+        "reproduced": 3,
+        "rate": 1,
+        "bundle": ".haunt-reports/evidence/112796d7-f0bd-4a37-a02c-843db7d1493b/issue-1"
+      },
+      "signals": [
+        {
+          "id": "s1",
+          "kind": "a11y",
+          "url": "http://localhost:4124/",
+          "step": 0,
+          "message": "Buttons must have discernible text (6 elements)",
+          "severity": "major",
+          "count": 1,
+          "rule": "button-name",
+          "impact": "critical",
+          "nodes": 6,
+          "refs": [
+            "e10",
+            "e12",
+            "e13",
+            "e14",
+            "e8",
+            "e9"
+          ],
+          "help": "Buttons must have discernible text"
+        }
+      ]
+    }
+  ],
+  "flaky": [],
+  "unverified": [],
+  "unchecked": [
+    {
+      "severity": "minor",
+      "category": "ux",
+      "description": "While screen sharing, the 'Stop Sharing' button is covered by an overlay element and cannot be clicked. A click on it opened the Participants panel instead of stopping the share.",
+      "page_url": "http://localhost:4124/",
+      "recommendation": "Fix the overlay so Stop Sharing is visible and clickable.",
+      "expected": "Stop Sharing is visible and clicking it stops sharing",
+      "actual": "Button covered by an overlay, and the click opened the Participants panel",
+      "verification": {
+        "status": "unchecked",
+        "attempts": 10,
+        "reproduced": 0,
+        "rate": 0,
+        "reason": "not_replayable",
+        "failed_step": 7
+      }
+    }
+  ],
+  "rejected": [],
+  "signals": [
+    {
+      "id": "s1",
+      "kind": "a11y",
+      "url": "http://localhost:4124/",
+      "step": 0,
+      "message": "Buttons must have discernible text (6 elements)",
+      "severity": "major",
+      "count": 1,
+      "rule": "button-name",
+      "impact": "critical",
+      "nodes": 6,
+      "refs": [
+        "e10",
+        "e12",
+        "e13",
+        "e14",
+        "e8",
+        "e9"
+      ],
+      "help": "Buttons must have discernible text"
+    }
+  ],
+  "signal_counts": {
+    "total": 0,
+    "major": 0,
+    "minor": 0
+  }
+}

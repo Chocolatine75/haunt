@@ -1,0 +1,170 @@
+{
+  "agents": [
+    {
+      "role": "orchestrator",
+      "tools": {
+        "ToolSearch": {
+          "calls": 1,
+          "chars": 0,
+          "max_chars": 0,
+          "errors": 0
+        },
+        "Bash": {
+          "calls": 1,
+          "chars": 27,
+          "max_chars": 27,
+          "errors": 0
+        },
+        "haunt_scout": {
+          "calls": 1,
+          "chars": 70,
+          "max_chars": 70,
+          "errors": 0
+        },
+        "Agent": {
+          "calls": 1,
+          "chars": 1095,
+          "max_chars": 1095,
+          "errors": 0
+        },
+        "haunt_sweep": {
+          "calls": 1,
+          "chars": 425,
+          "max_chars": 425,
+          "errors": 0
+        },
+        "haunt_generate_report": {
+          "calls": 1,
+          "chars": 3628,
+          "max_chars": 3628,
+          "errors": 0
+        }
+      },
+      "context_tokens": [
+        21860,
+        32809,
+        33101,
+        33718,
+        34364,
+        35309,
+        37263
+      ],
+      "output_tokens": 1056,
+      "images": 0,
+      "turns": 7,
+      "max_context_tokens": 37263,
+      "input_tokens_total": 228424,
+      "tool_chars_total": 5245
+    },
+    {
+      "role": "haunt:haunt-tester",
+      "tools": {
+        "haunt_spawn": {
+          "calls": 2,
+          "chars": 725,
+          "max_chars": 725,
+          "errors": 0
+        },
+        "haunt_capture_state": {
+          "calls": 4,
+          "chars": 4994,
+          "max_chars": 3414,
+          "errors": 0
+        },
+        "haunt_act": {
+          "calls": 16,
+          "chars": 17120,
+          "max_chars": 3485,
+          "errors": 0
+        },
+        "haunt_plan": {
+          "calls": 4,
+          "chars": 2854,
+          "max_chars": 1518,
+          "errors": 0
+        },
+        "haunt_end_session": {
+          "calls": 6,
+          "chars": 2169,
+          "max_chars": 872,
+          "errors": 0
+        },
+        "SubagentHandback": {
+          "calls": 1,
+          "chars": 61,
+          "max_chars": 61,
+          "errors": 0
+        }
+      },
+      "context_tokens": [
+        16443,
+        18318,
+        21181,
+        23944,
+        24686,
+        25743,
+        27037,
+        28467,
+        29437,
+        31661,
+        32432,
+        33257,
+        35008,
+        35386,
+        36026,
+        36505
+      ],
+      "output_tokens": 572,
+      "images": 2,
+      "turns": 16,
+      "max_context_tokens": 36505,
+      "input_tokens_total": 455531,
+      "tool_chars_total": 27923
+    }
+  ],
+  "held_back": 2,
+  "act_refused_without_case": 0,
+  "sessions": {
+    "c64f9b5c-f0ab-4185-84f4-ff81530c78f5": {
+      "steps": 27
+    }
+  },
+  "coverage": {
+    "controls": {
+      "listed": 17,
+      "exercised": 13
+    },
+    "cases": {
+      "planned": 4,
+      "run": 4,
+      "passed": 2,
+      "failed": 2
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Close modal"
+        },
+        {
+          "area": "/",
+          "role": "textbox",
+          "name": "Phone (Optional)"
+        },
+        {
+          "area": "/",
+          "role": "dialog",
+          "name": "Book Your Consultation"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\u00d7 Book Your Consultation Complete the form below and our expedition team will reach out within 24 hours. Full Name * ..."
+        }
+      ],
+      "cases": []
+    }
+  },
+  "transcripts_found": true
+}

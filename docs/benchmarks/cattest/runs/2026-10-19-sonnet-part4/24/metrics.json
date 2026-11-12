@@ -1,0 +1,223 @@
+{
+  "agents": [
+    {
+      "role": "orchestrator",
+      "tools": {
+        "ToolSearch": {
+          "calls": 1,
+          "chars": 0,
+          "max_chars": 0,
+          "errors": 0
+        },
+        "Bash": {
+          "calls": 1,
+          "chars": 27,
+          "max_chars": 27,
+          "errors": 0
+        },
+        "haunt_scout": {
+          "calls": 1,
+          "chars": 47,
+          "max_chars": 47,
+          "errors": 0
+        },
+        "Agent": {
+          "calls": 1,
+          "chars": 1095,
+          "max_chars": 1095,
+          "errors": 0
+        },
+        "haunt_sweep": {
+          "calls": 1,
+          "chars": 182,
+          "max_chars": 182,
+          "errors": 0
+        },
+        "haunt_generate_report": {
+          "calls": 1,
+          "chars": 3273,
+          "max_chars": 3273,
+          "errors": 0
+        }
+      },
+      "context_tokens": [
+        21861,
+        32810,
+        33088,
+        33712,
+        34322,
+        35132,
+        36955
+      ],
+      "output_tokens": 1033,
+      "images": 0,
+      "turns": 7,
+      "max_context_tokens": 36955,
+      "input_tokens_total": 227880,
+      "tool_chars_total": 4624
+    },
+    {
+      "role": "haunt:haunt-tester",
+      "tools": {
+        "haunt_spawn": {
+          "calls": 2,
+          "chars": 358,
+          "max_chars": 358,
+          "errors": 0
+        },
+        "haunt_capture_state": {
+          "calls": 10,
+          "chars": 11506,
+          "max_chars": 1589,
+          "errors": 0
+        },
+        "haunt_act": {
+          "calls": 12,
+          "chars": 11658,
+          "max_chars": 2043,
+          "errors": 0
+        },
+        "haunt_end_session": {
+          "calls": 6,
+          "chars": 1741,
+          "max_chars": 873,
+          "errors": 1
+        },
+        "haunt_plan": {
+          "calls": 2,
+          "chars": 1049,
+          "max_chars": 1049,
+          "errors": 0
+        },
+        "SubagentHandback": {
+          "calls": 1,
+          "chars": 61,
+          "max_chars": 61,
+          "errors": 0
+        }
+      },
+      "context_tokens": [
+        16443,
+        18154,
+        20209,
+        22889,
+        23476,
+        26515,
+        27229,
+        29548,
+        32910,
+        33454,
+        34250,
+        34987,
+        36027,
+        36617
+      ],
+      "output_tokens": 415,
+      "images": 8,
+      "turns": 14,
+      "max_context_tokens": 36617,
+      "input_tokens_total": 392708,
+      "tool_chars_total": 26373
+    }
+  ],
+  "held_back": 1,
+  "act_refused_without_case": 0,
+  "sessions": {
+    "112796d7-f0bd-4a37-a02c-843db7d1493b": {
+      "steps": 11
+    }
+  },
+  "coverage": {
+    "controls": {
+      "listed": 21,
+      "exercised": 6
+    },
+    "cases": {
+      "planned": 1,
+      "run": 1,
+      "passed": 1,
+      "failed": 0
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Dashboard"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Projects"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Messages"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Settings"
+        },
+        {
+          "area": "/",
+          "role": "slider",
+          "name": ""
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "00:00:10"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Expand to full view"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Toggle Microphone"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "End Call"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": ""
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Participants (2) ×"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "A Alex (You) 🎤 📷 J Jordan 🎤 📷"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Alex"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "00:00:00"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "00:00:05"
+        }
+      ],
+      "cases": []
+    }
+  },
+  "transcripts_found": true
+}

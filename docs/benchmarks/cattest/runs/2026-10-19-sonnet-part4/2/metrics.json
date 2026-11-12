@@ -1,0 +1,327 @@
+{
+  "agents": [
+    {
+      "role": "orchestrator",
+      "tools": {
+        "ToolSearch": {
+          "calls": 1,
+          "chars": 0,
+          "max_chars": 0,
+          "errors": 0
+        },
+        "Bash": {
+          "calls": 1,
+          "chars": 12,
+          "max_chars": 12,
+          "errors": 0
+        },
+        "haunt_scout": {
+          "calls": 1,
+          "chars": 63,
+          "max_chars": 63,
+          "errors": 0
+        },
+        "Agent": {
+          "calls": 1,
+          "chars": 1094,
+          "max_chars": 1094,
+          "errors": 0
+        },
+        "haunt_sweep": {
+          "calls": 1,
+          "chars": 1021,
+          "max_chars": 1021,
+          "errors": 0
+        },
+        "haunt_generate_report": {
+          "calls": 1,
+          "chars": 25109,
+          "max_chars": 25109,
+          "errors": 0
+        }
+      },
+      "context_tokens": [
+        21861,
+        32810,
+        33103,
+        33724,
+        34392,
+        35547,
+        48339
+      ],
+      "output_tokens": 1065,
+      "images": 0,
+      "turns": 7,
+      "max_context_tokens": 48339,
+      "input_tokens_total": 239776,
+      "tool_chars_total": 27299
+    },
+    {
+      "role": "haunt:haunt-tester",
+      "tools": {
+        "haunt_spawn": {
+          "calls": 2,
+          "chars": 66,
+          "max_chars": 66,
+          "errors": 0
+        },
+        "haunt_capture_state": {
+          "calls": 10,
+          "chars": 19206,
+          "max_chars": 3189,
+          "errors": 0
+        },
+        "haunt_act": {
+          "calls": 24,
+          "chars": 35773,
+          "max_chars": 5217,
+          "errors": 0
+        },
+        "haunt_plan": {
+          "calls": 6,
+          "chars": 21994,
+          "max_chars": 3867,
+          "errors": 0
+        },
+        "haunt_end_session": {
+          "calls": 8,
+          "chars": 6085,
+          "max_chars": 1841,
+          "errors": 0
+        },
+        "SubagentHandback": {
+          "calls": 1,
+          "chars": 61,
+          "max_chars": 61,
+          "errors": 0
+        }
+      },
+      "context_tokens": [
+        16443,
+        18031,
+        20978,
+        26570,
+        29583,
+        33059,
+        35075,
+        37282,
+        38382,
+        39801,
+        40560,
+        43486,
+        44853,
+        47540,
+        50439,
+        53453,
+        54145,
+        54634
+      ],
+      "output_tokens": 694,
+      "images": 5,
+      "turns": 18,
+      "max_context_tokens": 54634,
+      "input_tokens_total": 684314,
+      "tool_chars_total": 83185
+    }
+  ],
+  "held_back": 4,
+  "act_refused_without_case": 0,
+  "sessions": {
+    "68933cae-b54f-4769-8066-1b1ab3f7e49a": {
+      "steps": 17
+    }
+  },
+  "coverage": {
+    "controls": {
+      "listed": 53,
+      "exercised": 18
+    },
+    "cases": {
+      "planned": 8,
+      "run": 8,
+      "passed": 7,
+      "failed": 1
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Jump to Lioness at Dawn"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Jump to Elephant Herd Crossing"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Jump to Cheetah in Full Stride"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Jump to Flamingo Reflections"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Jump to Leopard's Vigil"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Jump to Zebra Migration"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Jump to Hippo at Dusk"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Jump to Giraffe Silhouette"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Jump to Buffalo Standoff"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Jump to Rhino Mother and Calf"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Cheetah in Full Stride — Masai Mara, Kenya"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Lioness at Dawn Elephant Herd Crossing Cheetah in Full Stride Flamingo Reflections Leopard's Vigil Zebra Migration Hi..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": ""
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Cheetah in Full Stride Masai Mara, Kenya The fastest land animal reaches top speed in pursuit of a Thomson's gazelle."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Cheetah in Full Stride"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": ""
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Lioness at Dawn — Serengeti National Park, Tanzania"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Flamingo Reflections — Lake Nakuru, Kenya"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Flamingo Reflections"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Leopard's Vigil — Ngorongoro Crater, Tanzania"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Leopard's Vigil"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Zebra Migration — Serengeti National Park, Tanzania"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Zebra Migration"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Hippo at Dusk — Okavango Delta, Botswana"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Hippo at Dusk"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Giraffe Silhouette — Tsavo East, Kenya"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Giraffe Silhouette"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Crowned Crane Dance — Queen Elizabeth National Park, Uganda"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Crowned Crane Dance"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Buffalo Standoff — Kruger National Park, South Africa"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Buffalo Standoff"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Rhino Mother and Calf — Ol Pejeta Conservancy, Kenya"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Rhino Mother and Calf"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Wild Dog Pack at Rest — Selous Game Reserve, Tanzania"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Wild Dog Pack at Rest"
+        }
+      ],
+      "cases": []
+    }
+  },
+  "transcripts_found": true
+}

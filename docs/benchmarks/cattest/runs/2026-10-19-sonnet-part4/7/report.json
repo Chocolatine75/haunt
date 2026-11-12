@@ -1,0 +1,147 @@
+{
+  "target_url": "http://localhost:4107/",
+  "date": "2026-10-19",
+  "coverage": {
+    "controls": {
+      "listed": 17,
+      "exercised": 8
+    },
+    "cases": {
+      "planned": 5,
+      "run": 5,
+      "passed": 2,
+      "failed": 3
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "option",
+          "name": "Chicken Parmesan recipe"
+        },
+        {
+          "area": "/",
+          "role": "option",
+          "name": "chicken breast ingredient"
+        },
+        {
+          "area": "/",
+          "role": "option",
+          "name": "Chicken Tacos al Pastor recipe"
+        },
+        {
+          "area": "/",
+          "role": "option",
+          "name": "chicken thighs ingredient"
+        },
+        {
+          "area": "/",
+          "role": "option",
+          "name": "Green Curry with Chicken recipe"
+        },
+        {
+          "area": "/",
+          "role": "option",
+          "name": "Thai Basil Chicken Stir-Fry recipe"
+        },
+        {
+          "area": "/",
+          "role": "option",
+          "name": "ground chicken ingredient"
+        },
+        {
+          "area": "/",
+          "role": "option",
+          "name": "Butter Chicken recipe"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Chicken Parmesan"
+        }
+      ],
+      "cases": []
+    }
+  },
+  "issues": [
+    {
+      "severity": "major",
+      "category": "ux",
+      "description": "With the Titles Only filter selected and query 'chicken', results still include Coq au Vin, whose title lacks 'chicken' (matched via description); header reads 'Found in: 7 titles, 8 descriptions', so the filter is not applied.",
+      "page_url": "http://localhost:4107/",
+      "recommendation": "Make Titles Only restrict matching to titles.",
+      "observed": {
+        "text_present": "Coq au Vin"
+      },
+      "expected": "Only the 7 recipes with 'chicken' in the title",
+      "actual": "8 recipes shown including Coq au Vin",
+      "verification": {
+        "status": "confirmed",
+        "attempts": 3,
+        "reproduced": 3,
+        "rate": 1,
+        "bundle": ".haunt-reports/evidence/701ad9dc-2739-4245-8cf0-7aa95f284247/issue-1"
+      }
+    },
+    {
+      "severity": "minor",
+      "category": "accessibility",
+      "description": "Color contrast violations on 31 elements",
+      "page_url": "http://localhost:4107/",
+      "recommendation": "Raise contrast to 4.5:1",
+      "signal": "s1",
+      "verification": {
+        "status": "confirmed",
+        "attempts": 3,
+        "reproduced": 3,
+        "rate": 1,
+        "bundle": ".haunt-reports/evidence/701ad9dc-2739-4245-8cf0-7aa95f284247/issue-2"
+      },
+      "signals": [
+        {
+          "id": "s1",
+          "kind": "a11y",
+          "url": "http://localhost:4107/",
+          "step": 0,
+          "message": "Elements must meet minimum color contrast ratio thresholds (31 elements, among 200 checked of 549)",
+          "severity": "major",
+          "count": 1,
+          "rule": "color-contrast",
+          "impact": "serious",
+          "nodes": 31,
+          "refs": [
+            "e3"
+          ],
+          "help": "Elements must meet minimum color contrast ratio thresholds"
+        }
+      ]
+    }
+  ],
+  "flaky": [],
+  "unverified": [],
+  "unchecked": [],
+  "rejected": [],
+  "signals": [
+    {
+      "id": "s1",
+      "kind": "a11y",
+      "url": "http://localhost:4107/",
+      "step": 0,
+      "message": "Elements must meet minimum color contrast ratio thresholds (31 elements, among 200 checked of 549)",
+      "severity": "major",
+      "count": 1,
+      "rule": "color-contrast",
+      "impact": "serious",
+      "nodes": 31,
+      "refs": [
+        "e3"
+      ],
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    }
+  ],
+  "signal_counts": {
+    "total": 0,
+    "major": 0,
+    "minor": 0
+  }
+}

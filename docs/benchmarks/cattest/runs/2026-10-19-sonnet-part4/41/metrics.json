@@ -1,0 +1,179 @@
+{
+  "agents": [
+    {
+      "role": "orchestrator",
+      "tools": {
+        "ToolSearch": {
+          "calls": 1,
+          "chars": 0,
+          "max_chars": 0,
+          "errors": 0
+        },
+        "Bash": {
+          "calls": 2,
+          "chars": 107,
+          "max_chars": 40,
+          "errors": 0
+        },
+        "haunt_scout": {
+          "calls": 1,
+          "chars": 65,
+          "max_chars": 65,
+          "errors": 0
+        },
+        "Agent": {
+          "calls": 1,
+          "chars": 700,
+          "max_chars": 350,
+          "errors": 0
+        },
+        "haunt_sweep": {
+          "calls": 1,
+          "chars": 89,
+          "max_chars": 89,
+          "errors": 0
+        },
+        "haunt_generate_report": {
+          "calls": 1,
+          "chars": 3175,
+          "max_chars": 3175,
+          "errors": 0
+        }
+      },
+      "context_tokens": [
+        21861,
+        32810,
+        33097,
+        34306,
+        34548,
+        36300
+      ],
+      "output_tokens": 1077,
+      "images": 0,
+      "turns": 6,
+      "max_context_tokens": 36300,
+      "input_tokens_total": 192922,
+      "tool_chars_total": 4136
+    },
+    {
+      "role": "haunt:haunt-tester",
+      "tools": {
+        "haunt_spawn": {
+          "calls": 2,
+          "chars": 379,
+          "max_chars": 379,
+          "errors": 0
+        },
+        "haunt_capture_state": {
+          "calls": 4,
+          "chars": 5530,
+          "max_chars": 2778,
+          "errors": 0
+        },
+        "haunt_plan": {
+          "calls": 4,
+          "chars": 3508,
+          "max_chars": 942,
+          "errors": 0
+        },
+        "haunt_act": {
+          "calls": 12,
+          "chars": 7737,
+          "max_chars": 1387,
+          "errors": 0
+        },
+        "haunt_end_session": {
+          "calls": 4,
+          "chars": 1556,
+          "max_chars": 823,
+          "errors": 0
+        },
+        "SubagentHandback": {
+          "calls": 1,
+          "chars": 61,
+          "max_chars": 61,
+          "errors": 0
+        }
+      },
+      "context_tokens": [
+        16443,
+        18165,
+        20854,
+        22312,
+        26002,
+        26619,
+        27673,
+        28215,
+        29567,
+        30067,
+        30564
+      ],
+      "output_tokens": 319,
+      "images": 2,
+      "turns": 11,
+      "max_context_tokens": 30564,
+      "input_tokens_total": 276481,
+      "tool_chars_total": 18771
+    }
+  ],
+  "held_back": 1,
+  "act_refused_without_case": 0,
+  "sessions": {
+    "ed0eda8b-b543-4d5c-b6d4-c7452bb19e16": {
+      "steps": 8
+    }
+  },
+  "coverage": {
+    "controls": {
+      "listed": 11,
+      "exercised": 4
+    },
+    "cases": {
+      "planned": 4,
+      "run": 4,
+      "passed": 3,
+      "failed": 1
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "link",
+          "name": "Origins"
+        },
+        {
+          "area": "/",
+          "role": "link",
+          "name": "The Highlands"
+        },
+        {
+          "area": "/",
+          "role": "link",
+          "name": "The Harvest"
+        },
+        {
+          "area": "/",
+          "role": "link",
+          "name": "The Craft"
+        },
+        {
+          "area": "/",
+          "role": "link",
+          "name": "The Roast"
+        },
+        {
+          "area": "/",
+          "role": "link",
+          "name": "Your Cup"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\u2615 Brewing your experience..."
+        }
+      ],
+      "cases": []
+    }
+  },
+  "transcripts_found": true
+}

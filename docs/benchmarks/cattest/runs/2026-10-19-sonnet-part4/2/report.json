@@ -1,0 +1,225 @@
+{
+  "target_url": "http://localhost:4102/",
+  "date": "2026-10-19",
+  "coverage": {
+    "controls": {
+      "listed": 53,
+      "exercised": 18
+    },
+    "cases": {
+      "planned": 8,
+      "run": 8,
+      "passed": 7,
+      "failed": 1
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Jump to Lioness at Dawn"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Jump to Elephant Herd Crossing"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Jump to Cheetah in Full Stride"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Jump to Flamingo Reflections"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Jump to Leopard's Vigil"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Jump to Zebra Migration"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Jump to Hippo at Dusk"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Jump to Giraffe Silhouette"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Jump to Buffalo Standoff"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Jump to Rhino Mother and Calf"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Cheetah in Full Stride — Masai Mara, Kenya"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Lioness at Dawn Elephant Herd Crossing Cheetah in Full Stride Flamingo Reflections Leopard's Vigil Zebra Migration Hi..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": ""
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Cheetah in Full Stride Masai Mara, Kenya The fastest land animal reaches top speed in pursuit of a Thomson's gazelle."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Cheetah in Full Stride"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": ""
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Lioness at Dawn — Serengeti National Park, Tanzania"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Flamingo Reflections — Lake Nakuru, Kenya"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Flamingo Reflections"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Leopard's Vigil — Ngorongoro Crater, Tanzania"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Leopard's Vigil"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Zebra Migration — Serengeti National Park, Tanzania"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Zebra Migration"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Hippo at Dusk — Okavango Delta, Botswana"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Hippo at Dusk"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Giraffe Silhouette — Tsavo East, Kenya"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Giraffe Silhouette"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Crowned Crane Dance — Queen Elizabeth National Park, Uganda"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Crowned Crane Dance"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Buffalo Standoff — Kruger National Park, South Africa"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Buffalo Standoff"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Rhino Mother and Calf — Ol Pejeta Conservancy, Kenya"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Rhino Mother and Calf"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Wild Dog Pack at Rest — Selous Game Reserve, Tanzania"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Wild Dog Pack at Rest"
+        }
+      ],
+      "cases": []
+    }
+  },
+  "issues": [
+    {
+      "severity": "major",
+      "category": "accessibility",
+      "description": "Lightbox does not trap focus: after opening an image and pressing Tab a few times, focus moves to the gallery cards behind the overlay (Hippo card shows focus ring, page scrolls behind) instead of staying on the lightbox controls.",
+      "page_url": "http://localhost:4102/",
+      "recommendation": "Trap focus in the lightbox (inert background or Tab loop) and set aria-modal/role=dialog.",
+      "case": "esc",
+      "expected": "Focus cycles within lightbox controls",
+      "actual": "Close lightbox button not focused after Tab x4; focus went to cards behind the overlay",
+      "verification": {
+        "status": "confirmed",
+        "attempts": 3,
+        "reproduced": 3,
+        "rate": 1,
+        "bundle": ".haunt-reports/evidence/68933cae-b54f-4769-8066-1b1ab3f7e49a/issue-1"
+      }
+    }
+  ],
+  "flaky": [],
+  "unverified": [],
+  "unchecked": [],
+  "rejected": [],
+  "signals": [],
+  "signal_counts": {
+    "total": 0,
+    "major": 0,
+    "minor": 0
+  }
+}

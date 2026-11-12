@@ -1,0 +1,119 @@
+{
+  "target_url": "http://localhost:4141/",
+  "date": "2026-10-19",
+  "coverage": {
+    "controls": {
+      "listed": 11,
+      "exercised": 4
+    },
+    "cases": {
+      "planned": 4,
+      "run": 4,
+      "passed": 3,
+      "failed": 1
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "link",
+          "name": "Origins"
+        },
+        {
+          "area": "/",
+          "role": "link",
+          "name": "The Highlands"
+        },
+        {
+          "area": "/",
+          "role": "link",
+          "name": "The Harvest"
+        },
+        {
+          "area": "/",
+          "role": "link",
+          "name": "The Craft"
+        },
+        {
+          "area": "/",
+          "role": "link",
+          "name": "The Roast"
+        },
+        {
+          "area": "/",
+          "role": "link",
+          "name": "Your Cup"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "☕ Brewing your experience..."
+        }
+      ],
+      "cases": []
+    }
+  },
+  "issues": [
+    {
+      "severity": "major",
+      "category": "ux",
+      "description": "Pre-Order Now button does nothing when clicked: no confirmation, no navigation, no DOM change",
+      "page_url": "http://localhost:4141/",
+      "recommendation": "Wire the button to an order flow or show feedback",
+      "case": "preorder",
+      "expected": "Visible order confirmation or flow",
+      "actual": "Nothing changes",
+      "verification": {
+        "status": "confirmed",
+        "attempts": 3,
+        "reproduced": 3,
+        "rate": 1,
+        "bundle": ".haunt-reports/evidence/ed0eda8b-b543-4d5c-b6d4-c7452bb19e16/issue-1"
+      }
+    }
+  ],
+  "flaky": [],
+  "unverified": [],
+  "unchecked": [
+    {
+      "severity": "minor",
+      "category": "ux",
+      "description": "Loader text 'Brewing your experience...' remains faintly visible behind the hero after load",
+      "page_url": "http://localhost:4141/",
+      "recommendation": "Hide or remove the loader once loaded",
+      "expected": "Loader gone",
+      "actual": "Ghosted loader text overlaps hero subtitle",
+      "verification": {
+        "status": "unchecked",
+        "attempts": 3,
+        "reproduced": 3,
+        "rate": 1,
+        "bundle": ".haunt-reports/evidence/ed0eda8b-b543-4d5c-b6d4-c7452bb19e16/issue-2"
+      }
+    }
+  ],
+  "rejected": [],
+  "signals": [
+    {
+      "id": "s1",
+      "kind": "a11y",
+      "url": "http://localhost:4141/",
+      "step": 0,
+      "message": "Elements must meet minimum color contrast ratio thresholds (2 elements)",
+      "severity": "major",
+      "count": 1,
+      "rule": "color-contrast",
+      "impact": "serious",
+      "nodes": 2,
+      "refs": [
+        "e3"
+      ],
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    }
+  ],
+  "signal_counts": {
+    "total": 1,
+    "major": 1,
+    "minor": 0
+  }
+}

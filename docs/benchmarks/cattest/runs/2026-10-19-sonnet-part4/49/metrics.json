@@ -1,0 +1,191 @@
+{
+  "agents": [
+    {
+      "role": "orchestrator",
+      "tools": {
+        "Bash": {
+          "calls": 1,
+          "chars": 2,
+          "max_chars": 2,
+          "errors": 0
+        },
+        "ToolSearch": {
+          "calls": 1,
+          "chars": 0,
+          "max_chars": 0,
+          "errors": 0
+        },
+        "haunt_scout": {
+          "calls": 1,
+          "chars": 80,
+          "max_chars": 80,
+          "errors": 0
+        },
+        "Agent": {
+          "calls": 1,
+          "chars": 1095,
+          "max_chars": 1095,
+          "errors": 0
+        },
+        "haunt_sweep": {
+          "calls": 1,
+          "chars": 89,
+          "max_chars": 89,
+          "errors": 0
+        },
+        "haunt_generate_report": {
+          "calls": 1,
+          "chars": 2852,
+          "max_chars": 2852,
+          "errors": 0
+        }
+      },
+      "context_tokens": [
+        26866,
+        26947,
+        32872,
+        33064,
+        33660,
+        34349,
+        35113,
+        36708
+      ],
+      "output_tokens": 1065,
+      "images": 0,
+      "turns": 8,
+      "max_context_tokens": 36708,
+      "input_tokens_total": 259579,
+      "tool_chars_total": 4118
+    },
+    {
+      "role": "haunt:haunt-tester",
+      "tools": {
+        "haunt_spawn": {
+          "calls": 2,
+          "chars": 375,
+          "max_chars": 375,
+          "errors": 0
+        },
+        "haunt_capture_state": {
+          "calls": 4,
+          "chars": 4648,
+          "max_chars": 2982,
+          "errors": 0
+        },
+        "haunt_plan": {
+          "calls": 2,
+          "chars": 3884,
+          "max_chars": 1942,
+          "errors": 0
+        },
+        "haunt_act": {
+          "calls": 18,
+          "chars": 19534,
+          "max_chars": 5243,
+          "errors": 0
+        },
+        "haunt_end_session": {
+          "calls": 8,
+          "chars": 3482,
+          "max_chars": 1153,
+          "errors": 0
+        },
+        "SubagentHandback": {
+          "calls": 1,
+          "chars": 61,
+          "max_chars": 61,
+          "errors": 0
+        }
+      },
+      "context_tokens": [
+        16443,
+        18155,
+        20965,
+        23044,
+        23605,
+        24567,
+        25874,
+        27171,
+        28002,
+        31563,
+        33183,
+        34156,
+        34752,
+        35280,
+        35837,
+        36256
+      ],
+      "output_tokens": 476,
+      "images": 1,
+      "turns": 16,
+      "max_context_tokens": 36256,
+      "input_tokens_total": 448853,
+      "tool_chars_total": 31984
+    }
+  ],
+  "held_back": 3,
+  "act_refused_without_case": 0,
+  "sessions": {
+    "e8d305a6-6715-4445-a517-273846c302c4": {
+      "steps": 23
+    }
+  },
+  "coverage": {
+    "controls": {
+      "listed": 19,
+      "exercised": 11
+    },
+    "cases": {
+      "planned": 4,
+      "run": 4,
+      "passed": 3,
+      "failed": 1
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "link",
+          "name": "How It Works"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "AFTER BEFORE"
+        },
+        {
+          "area": "/",
+          "role": "slider",
+          "name": "Commercial Property comparison slider"
+        },
+        {
+          "area": "/",
+          "role": "slider",
+          "name": "Patio and Garden comparison slider"
+        },
+        {
+          "area": "/",
+          "role": "link",
+          "name": "Home"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Green Scape Pro Gallery How It Works Book Now"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Green Scape Pro"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Scape"
+        }
+      ],
+      "cases": []
+    }
+  },
+  "transcripts_found": true
+}

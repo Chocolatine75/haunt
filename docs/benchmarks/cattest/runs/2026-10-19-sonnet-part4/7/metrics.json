@@ -1,0 +1,193 @@
+{
+  "agents": [
+    {
+      "role": "orchestrator",
+      "tools": {
+        "ToolSearch": {
+          "calls": 1,
+          "chars": 0,
+          "max_chars": 0,
+          "errors": 0
+        },
+        "Bash": {
+          "calls": 1,
+          "chars": 27,
+          "max_chars": 27,
+          "errors": 0
+        },
+        "haunt_scout": {
+          "calls": 1,
+          "chars": 53,
+          "max_chars": 53,
+          "errors": 0
+        },
+        "Agent": {
+          "calls": 1,
+          "chars": 1094,
+          "max_chars": 1094,
+          "errors": 0
+        },
+        "haunt_sweep": {
+          "calls": 1,
+          "chars": 197,
+          "max_chars": 197,
+          "errors": 0
+        },
+        "haunt_generate_report": {
+          "calls": 1,
+          "chars": 3794,
+          "max_chars": 3794,
+          "errors": 0
+        }
+      },
+      "context_tokens": [
+        21861,
+        32810,
+        33114,
+        33713,
+        34448,
+        35262,
+        37369
+      ],
+      "output_tokens": 1059,
+      "images": 0,
+      "turns": 7,
+      "max_context_tokens": 37369,
+      "input_tokens_total": 228577,
+      "tool_chars_total": 5165
+    },
+    {
+      "role": "haunt:haunt-tester",
+      "tools": {
+        "haunt_spawn": {
+          "calls": 2,
+          "chars": 407,
+          "max_chars": 407,
+          "errors": 0
+        },
+        "haunt_capture_state": {
+          "calls": 8,
+          "chars": 36294,
+          "max_chars": 13066,
+          "errors": 0
+        },
+        "haunt_plan": {
+          "calls": 2,
+          "chars": 2266,
+          "max_chars": 1133,
+          "errors": 0
+        },
+        "haunt_act": {
+          "calls": 16,
+          "chars": 19388,
+          "max_chars": 3898,
+          "errors": 0
+        },
+        "haunt_end_session": {
+          "calls": 2,
+          "chars": 907,
+          "max_chars": 907,
+          "errors": 0
+        },
+        "SubagentHandback": {
+          "calls": 1,
+          "chars": 61,
+          "max_chars": 61,
+          "errors": 0
+        }
+      },
+      "context_tokens": [
+        16443,
+        18171,
+        25928,
+        28953,
+        33206,
+        34178,
+        35574,
+        36473,
+        37683,
+        38872,
+        39951,
+        40598,
+        48354,
+        49420
+      ],
+      "output_tokens": 301,
+      "images": 4,
+      "turns": 14,
+      "max_context_tokens": 49420,
+      "input_tokens_total": 483804,
+      "tool_chars_total": 59323
+    }
+  ],
+  "held_back": 0,
+  "act_refused_without_case": 0,
+  "sessions": {
+    "701ad9dc-2739-4245-8cf0-7aa95f284247": {
+      "steps": 18
+    }
+  },
+  "coverage": {
+    "controls": {
+      "listed": 17,
+      "exercised": 8
+    },
+    "cases": {
+      "planned": 5,
+      "run": 5,
+      "passed": 2,
+      "failed": 3
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "option",
+          "name": "Chicken Parmesan recipe"
+        },
+        {
+          "area": "/",
+          "role": "option",
+          "name": "chicken breast ingredient"
+        },
+        {
+          "area": "/",
+          "role": "option",
+          "name": "Chicken Tacos al Pastor recipe"
+        },
+        {
+          "area": "/",
+          "role": "option",
+          "name": "chicken thighs ingredient"
+        },
+        {
+          "area": "/",
+          "role": "option",
+          "name": "Green Curry with Chicken recipe"
+        },
+        {
+          "area": "/",
+          "role": "option",
+          "name": "Thai Basil Chicken Stir-Fry recipe"
+        },
+        {
+          "area": "/",
+          "role": "option",
+          "name": "ground chicken ingredient"
+        },
+        {
+          "area": "/",
+          "role": "option",
+          "name": "Butter Chicken recipe"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Chicken Parmesan"
+        }
+      ],
+      "cases": []
+    }
+  },
+  "transcripts_found": true
+}

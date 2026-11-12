@@ -1,0 +1,27 @@
+{
+  "app": 4,
+  "model": "sonnet",
+  "haunt": "HEAD@7680ba0",
+  "date": "2026-10-19 18:02",
+  "seconds": 228,
+  "cost_usd": 0.523837,
+  "turns": 3,
+  "is_error": false,
+  "model_usage": {
+    "claude-sonnet-5-5": {
+      "inputTokens": 54,
+      "outputTokens": 6494,
+      "cacheReadInputTokens": 1131395,
+      "cacheCreationInputTokens": 118941,
+      "webSearchRequests": 0,
+      "costUSD": 0.523837,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 859,
+      "canonicalModel": "claude-sonnet-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "printed": "----------------------------------------\n2 areas tested · 1 issues\n\n3 more detected automatically (2 major)\n\n [!!] 1 major\n\nno critical issues\n\nfix first: Implement or fix the Quick View handler.\n\nreport: .haunt-reports/2026-10-19-localhost-4104.md\n----------------------------------------"
+}
