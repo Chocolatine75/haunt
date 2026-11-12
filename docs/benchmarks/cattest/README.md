@@ -31,3 +31,40 @@ nothing. Opus spends a session's usage fast: one application at a time.
 
 One run per application is not a score: on 6 and 7 October two runs of the
 same nine applications found 5 of 23 bugs each, not the same five.
+
+## When a change is better
+
+A measure is **three runs** of the twelve applications with the same haunt
+commit, model and flags, each under its own label (`<label>-r1`, `-r2`,
+`-r3`). Each run is read twice, by hand until scoring is automatic:
+
+- `score.md`: which annotated bugs the report names, confirmed or by hand.
+- `entries.md`: every entry of the report, marked annotated, real, false,
+  doubtful, environment or duplicate (see the reference's for the meaning).
+
+From these, per measure:
+
+| Number | What it is |
+|---|---|
+| found | annotated bugs found, mean of the three runs |
+| stable | annotated bugs found in at least two of the three runs |
+| confirmed | of `found`, those confirmed rather than by hand |
+| false | false entries, mean of the three runs |
+| noise | environment and duplicate entries, mean of the three runs |
+| cost | dollars for the twelve, mean of the three runs |
+
+A change is kept when, against the measure it changes:
+
+1. `found` rises by at least 2, or `stable` by at least 1, **and**
+2. `false` does not rise by more than 1, **and**
+3. `cost` does not rise by more than a quarter.
+
+A change that finds the same and lowers `false`, `noise` or `cost` is kept
+too: it is the same tester, cheaper or easier to trust. Anything else is
+not called better, whatever a single run showed. The margins are what one
+version's runs differ by (5 to 7 bugs across the runs of 6, 7 and
+19 October); they are set again from the spread of the three reference
+runs once those exist.
+
+With 27 annotated bugs only large effects show. More applications
+(issue #74) make smaller ones visible.

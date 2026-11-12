@@ -19,7 +19,7 @@ into `v2` (one tester per area, the sweep, the hold-back), Sonnet, no `--spec`.
 | 43 | 1 | 0 | |
 | 46 | 2 | 1 | Padlock and check mark shown together: by hand |
 | 49 | 4 | 0 | |
-| **Total** | **27** | **7** | 3 confirmed, 4 by hand |
+| **Total** | **27** | **6** | 3 confirmed, 3 by hand |
 
 The same as the runs of 6 and 7 October (5 of 23 on the nine, 2 of 4 on the
 pilot), with not quite the same bugs: 22#4, 30#1 and 49#1 were found then
