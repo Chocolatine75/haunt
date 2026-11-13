@@ -1,0 +1,194 @@
+{
+  "agents": [
+    {
+      "role": "orchestrator",
+      "tools": {
+        "ToolSearch": {
+          "calls": 1,
+          "chars": 0,
+          "max_chars": 0,
+          "errors": 0
+        },
+        "Bash": {
+          "calls": 1,
+          "chars": 27,
+          "max_chars": 27,
+          "errors": 0
+        },
+        "haunt_scout": {
+          "calls": 1,
+          "chars": 80,
+          "max_chars": 80,
+          "errors": 0
+        },
+        "Agent": {
+          "calls": 1,
+          "chars": 1098,
+          "max_chars": 1098,
+          "errors": 0
+        },
+        "haunt_sweep": {
+          "calls": 1,
+          "chars": 89,
+          "max_chars": 89,
+          "errors": 0
+        },
+        "haunt_generate_report": {
+          "calls": 1,
+          "chars": 3307,
+          "max_chars": 3307,
+          "errors": 0
+        }
+      },
+      "context_tokens": [
+        24861,
+        30698,
+        30968,
+        31570,
+        32295,
+        33080,
+        34970
+      ],
+      "output_tokens": 1033,
+      "images": 0,
+      "turns": 7,
+      "max_context_tokens": 34970,
+      "input_tokens_total": 218442,
+      "tool_chars_total": 4601
+    },
+    {
+      "role": "haunt:haunt-tester",
+      "tools": {
+        "haunt_spawn": {
+          "calls": 2,
+          "chars": 375,
+          "max_chars": 375,
+          "errors": 0
+        },
+        "haunt_capture_state": {
+          "calls": 2,
+          "chars": 2985,
+          "max_chars": 2985,
+          "errors": 0
+        },
+        "haunt_plan": {
+          "calls": 4,
+          "chars": 7090,
+          "max_chars": 1798,
+          "errors": 0
+        },
+        "haunt_act": {
+          "calls": 14,
+          "chars": 11606,
+          "max_chars": 2370,
+          "errors": 0
+        },
+        "haunt_end_session": {
+          "calls": 8,
+          "chars": 3781,
+          "max_chars": 1126,
+          "errors": 0
+        },
+        "SubagentHandback": {
+          "calls": 1,
+          "chars": 61,
+          "max_chars": 61,
+          "errors": 0
+        }
+      },
+      "context_tokens": [
+        16359,
+        16681,
+        19486,
+        21392,
+        22466,
+        23727,
+        25003,
+        25560,
+        26282,
+        27875,
+        28477,
+        29109,
+        29672,
+        30123,
+        30363
+      ],
+      "output_tokens": 3581,
+      "images": 1,
+      "turns": 15,
+      "max_context_tokens": 30363,
+      "input_tokens_total": 372575,
+      "tool_chars_total": 25898
+    }
+  ],
+  "held_back": 3,
+  "act_refused_without_case": 0,
+  "sessions": {
+    "0b4be974-fb5c-47f1-a92e-d8675720b3a6": {
+      "steps": 14
+    }
+  },
+  "coverage": {
+    "controls": {
+      "listed": 19,
+      "exercised": 10
+    },
+    "cases": {
+      "planned": 5,
+      "run": 5,
+      "passed": 3,
+      "failed": 2
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "link",
+          "name": "How It Works"
+        },
+        {
+          "area": "/",
+          "role": "link",
+          "name": "Book Now"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "AFTER BEFORE"
+        },
+        {
+          "area": "/",
+          "role": "slider",
+          "name": "Commercial Property comparison slider"
+        },
+        {
+          "area": "/",
+          "role": "slider",
+          "name": "Patio and Garden comparison slider"
+        },
+        {
+          "area": "/",
+          "role": "link",
+          "name": "Home"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Green Scape Pro Gallery How It Works Book Now"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Green Scape Pro"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Scape"
+        }
+      ],
+      "cases": []
+    }
+  },
+  "transcripts_found": true
+}

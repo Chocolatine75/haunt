@@ -1,0 +1,151 @@
+{
+  "target_url": "http://localhost:4146/",
+  "date": "2026-11-12",
+  "coverage": {
+    "controls": {
+      "listed": 27,
+      "exercised": 12
+    },
+    "cases": {
+      "planned": 2,
+      "run": 2,
+      "passed": 1,
+      "failed": 1
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "link",
+          "name": "Privacy Policy"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "📋 Copy Code"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "× 🎡 Spin the Wheel! Click SPIN and watch where fate takes you! 🎰 SPIN"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "𝕏 Tweet"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "f Share"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "💬 WhatsApp"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": ""
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "🎉 Congratulations! You won: 10% Off! BEAN-JN5D-1RCN 📋 Copy Code 🎟 Share for a Bonus Entry! Share to enter our gran..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "× 🎲 Roll the Dice! Roll doubles to win! Higher pairs = bigger prizes! ⚀ ⚀ 🎲 ROLL!"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "× 🎫 Scratch to Reveal! Use your mouse or finger to scratch the golden card! 🎉 10% Off Scratch at least 50% to revea..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "× 🏆 Your Prizes 🏆 10% Off BEAN-JN5D-1RCN Won from: Spin Wheel"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "× Terms & Conditions 1. This promotion is run by BeanBrew Coffee Co. for entertainment and marketing purposes. 2. No ..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "10. Void where prohibited by law. Must be 18+ to participate."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "8. BeanBrew reserves the right to cancel or modify the promotion at any time."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Terms & Conditions"
+        }
+      ],
+      "cases": []
+    }
+  },
+  "issues": [],
+  "flaky": [
+    {
+      "severity": "minor",
+      "category": "ux",
+      "description": "Copy Link share button throws an unhandled promise rejection when clipboard write fails, with no feedback to the user",
+      "page_url": "http://localhost:4146/",
+      "recommendation": "Catch clipboard errors and show a fallback message",
+      "signal": "s1",
+      "verification": {
+        "status": "flaky",
+        "attempts": 10,
+        "reproduced": 7,
+        "rate": 0.7,
+        "bundle": ".haunt-reports/evidence/ed95ccba-651a-4d7e-99c6-74535aaff9d3/issue-1"
+      }
+    }
+  ],
+  "unverified": [],
+  "unchecked": [
+    {
+      "severity": "minor",
+      "category": "accessibility",
+      "description": "Escape does not close the scratch card modal; game cards are non-button divs; lock icon still overlaps the icon on unlocked game cards",
+      "page_url": "http://localhost:4146/",
+      "recommendation": "Handle Escape, use buttons for cards, hide lock when unlocked",
+      "expected": "Escape closes the modal; cards keyboard-operable; no lock overlay once unlocked",
+      "actual": "Escape did nothing; cards are generic divs; lock icon still shown",
+      "verification": {
+        "status": "unchecked",
+        "attempts": 9,
+        "reproduced": 5,
+        "rate": 0.5555555555555556,
+        "bundle": ".haunt-reports/evidence/ed95ccba-651a-4d7e-99c6-74535aaff9d3/issue-2"
+      }
+    }
+  ],
+  "rejected": [],
+  "signals": [
+    {
+      "id": "s1",
+      "kind": "unhandled_rejection",
+      "url": "http://localhost:4146/",
+      "step": 8,
+      "message": "Failed to execute 'writeText' on 'Clipboard': Write permission denied.",
+      "severity": "major",
+      "count": 1,
+      "stack": "NotAllowedError: Failed to execute 'writeText' on 'Clipboard': Write permission denied."
+    }
+  ],
+  "signal_counts": {
+    "total": 0,
+    "major": 0,
+    "minor": 0
+  }
+}

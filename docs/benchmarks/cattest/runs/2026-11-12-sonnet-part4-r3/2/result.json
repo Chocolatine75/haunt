@@ -1,0 +1,29 @@
+{
+  "app": 2,
+  "model": "sonnet",
+  "haunt": "HEAD@7680ba0",
+  "date": "2026-11-12 21:19",
+  "seconds": 483,
+  "cost_usd": 0.47792529999999994,
+  "turns": 7,
+  "is_error": false,
+  "model_usage": {
+    "claude-sonnet-5-5": {
+      "inputTokens": 58,
+      "outputTokens": 8111,
+      "cacheReadInputTokens": 1048533,
+      "cacheCreationInputTokens": 89457,
+      "webSearchRequests": 0,
+      "costUSD": 0.47792529999999994,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 1268,
+      "cacheCreationEphemeral5mInputTokens": 43988,
+      "cacheCreationEphemeral1hInputTokens": 45469,
+      "canonicalModel": "claude-sonnet-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "printed": "```\n----------------------------------------\n2 areas tested \u00b7 1 issues\n\n15 more detected automatically (15 major)\n\n [!!] 1 major\n\nno critical issues\n\nfix first: Trap focus in the lightbox, make the thumbnails real buttons, and make the background inert.\n\nreport: .haunt-reports/2026-11-12-localhost-4102.md\n----------------------------------------\n```"
+}

@@ -1,0 +1,260 @@
+{
+  "target_url": "http://localhost:4108/",
+  "date": "2026-11-12",
+  "coverage": {
+    "controls": {
+      "listed": 27,
+      "exercised": 6
+    },
+    "cases": {
+      "planned": 3,
+      "run": 3,
+      "passed": 3,
+      "failed": 0
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Close sidebar"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": ""
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "🍺 pFriem Family Brewers Hood River, OR"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "🍺 Deschutes Brewery Bend, OR"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "🍺 Rogue Ales Newport, OR"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "🍺 Elysian Brewing Seattle, WA"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "🍺 10 Barrel Brewing Bend, OR"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "🍺 Ninkasi Brewing Eugene, OR"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "🍺 Skookum Brewery Arlington, WA"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "🍺 Pelican Brewing Pacific City, OR"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "🍺 Aslan Brewing Bellingham, WA"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Toggle brewery list"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "🍺 🍺 🍺 🍺 🍺 🍺 🍺 🍺 🍺 🍺 🍺 🍺 Leaflet © OpenStreetMap contributors"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "🍺"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Zoom in"
+        },
+        {
+          "area": "/",
+          "role": "link",
+          "name": "Leaflet"
+        },
+        {
+          "area": "/",
+          "role": "link",
+          "name": "OpenStreetMap"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "🍺"
+        },
+        {
+          "area": "/",
+          "role": "link",
+          "name": "📍 Get Directions"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "☰"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Loading map tiles..."
+        }
+      ],
+      "cases": []
+    }
+  },
+  "issues": [
+    {
+      "severity": "major",
+      "category": "accessibility",
+      "description": "The scrollable brewery list sidebar cannot be reached by keyboard (axe: scrollable-region-focusable).",
+      "page_url": "http://localhost:4108/",
+      "recommendation": "Add tabindex=0 and a role/label to the scroll container.",
+      "signal": "s1",
+      "verification": {
+        "status": "confirmed",
+        "attempts": 3,
+        "reproduced": 3,
+        "rate": 1,
+        "bundle": ".haunt-reports/evidence/8b334318-acbb-4f92-944a-d12b2b20a539/issue-1"
+      },
+      "signals": [
+        {
+          "id": "s1",
+          "kind": "a11y",
+          "url": "http://localhost:4108/",
+          "step": 0,
+          "message": "Scrollable region must have keyboard access (1 element)",
+          "severity": "major",
+          "count": 1,
+          "rule": "scrollable-region-focusable",
+          "impact": "serious",
+          "nodes": 1,
+          "refs": [
+            "e2"
+          ],
+          "help": "Scrollable region must have keyboard access"
+        }
+      ]
+    }
+  ],
+  "flaky": [],
+  "unverified": [],
+  "unchecked": [
+    {
+      "severity": "major",
+      "category": "accessibility",
+      "description": "Brewery list items are plain generic elements (no button role, no tabindex), so keyboard users cannot select a brewery from the list.",
+      "page_url": "http://localhost:4108/",
+      "recommendation": "Render items as buttons or add role=button and tabindex=0 with key handlers.",
+      "expected": "List items are focusable buttons/links that open the brewery popup via Enter",
+      "actual": "Items are generic divs with no role or tabindex, only usable with a pointer",
+      "verification": {
+        "status": "unchecked",
+        "attempts": 3,
+        "reproduced": 3,
+        "rate": 1,
+        "bundle": ".haunt-reports/evidence/8b334318-acbb-4f92-944a-d12b2b20a539/issue-2"
+      }
+    },
+    {
+      "severity": "minor",
+      "category": "ux",
+      "description": "Popup title 'Double Mountain Brewery' runs right up against the close X button.",
+      "page_url": "http://localhost:4108/",
+      "recommendation": "Add right padding to the popup title.",
+      "expected": "Title has clear spacing from the close button",
+      "actual": "Title text nearly touches the X",
+      "verification": {
+        "status": "unchecked",
+        "attempts": 3,
+        "reproduced": 3,
+        "rate": 1,
+        "bundle": ".haunt-reports/evidence/8b334318-acbb-4f92-944a-d12b2b20a539/issue-3"
+      }
+    }
+  ],
+  "rejected": [],
+  "signals": [
+    {
+      "id": "s1",
+      "kind": "a11y",
+      "url": "http://localhost:4108/",
+      "step": 0,
+      "message": "Scrollable region must have keyboard access (1 element)",
+      "severity": "major",
+      "count": 1,
+      "rule": "scrollable-region-focusable",
+      "impact": "serious",
+      "nodes": 1,
+      "refs": [
+        "e2"
+      ],
+      "help": "Scrollable region must have keyboard access"
+    },
+    {
+      "id": "s2",
+      "kind": "layout",
+      "url": "http://localhost:4108/",
+      "step": 5,
+      "message": "The button \"🍺\" is covered by the generic \"🍺 🍺 🍺 🍺 🍺 🍺 🍺 🍺 🍺 🍺 🍺 🍺 Leaflet © OpenStreetMap contributors\": a click on it lands on what covers it",
+      "severity": "major",
+      "count": 1,
+      "rule": "covered",
+      "ref": "e20",
+      "role": "button",
+      "name": "🍺"
+    },
+    {
+      "id": "s3",
+      "kind": "layout",
+      "url": "http://localhost:4108/",
+      "step": 12,
+      "message": "The button \"Zoom in\" is covered by the button \"Toggle brewery list\": a click on it lands on what covers it",
+      "severity": "major",
+      "count": 1,
+      "rule": "covered",
+      "ref": "e31",
+      "role": "button",
+      "name": "Zoom in"
+    },
+    {
+      "id": "s4",
+      "kind": "layout",
+      "url": "http://localhost:4108/",
+      "step": 12,
+      "message": "The button \"Toggle brewery list\" and the button \"Zoom in\" overlap",
+      "severity": "minor",
+      "count": 1,
+      "rule": "overlap",
+      "ref": "e16",
+      "role": "button",
+      "name": "Toggle brewery list"
+    }
+  ],
+  "signal_counts": {
+    "total": 3,
+    "major": 2,
+    "minor": 1
+  }
+}

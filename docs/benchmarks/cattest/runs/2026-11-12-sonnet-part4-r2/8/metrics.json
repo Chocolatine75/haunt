@@ -1,0 +1,244 @@
+{
+  "agents": [
+    {
+      "role": "orchestrator",
+      "tools": {
+        "ToolSearch": {
+          "calls": 1,
+          "chars": 0,
+          "max_chars": 0,
+          "errors": 0
+        },
+        "Bash": {
+          "calls": 1,
+          "chars": 5,
+          "max_chars": 5,
+          "errors": 0
+        },
+        "haunt_scout": {
+          "calls": 1,
+          "chars": 60,
+          "max_chars": 60,
+          "errors": 0
+        },
+        "Agent": {
+          "calls": 1,
+          "chars": 1097,
+          "max_chars": 1097,
+          "errors": 0
+        },
+        "haunt_sweep": {
+          "calls": 1,
+          "chars": 89,
+          "max_chars": 89,
+          "errors": 0
+        },
+        "haunt_generate_report": {
+          "calls": 1,
+          "chars": 4937,
+          "max_chars": 4937,
+          "errors": 0
+        }
+      },
+      "context_tokens": [
+        23068,
+        34289,
+        41482,
+        41699,
+        42279,
+        43031,
+        43828,
+        46589
+      ],
+      "output_tokens": 1168,
+      "images": 0,
+      "turns": 8,
+      "max_context_tokens": 46589,
+      "input_tokens_total": 316265,
+      "tool_chars_total": 6188
+    },
+    {
+      "role": "haunt:haunt-tester",
+      "tools": {
+        "haunt_spawn": {
+          "calls": 2,
+          "chars": 361,
+          "max_chars": 361,
+          "errors": 0
+        },
+        "haunt_capture_state": {
+          "calls": 6,
+          "chars": 7825,
+          "max_chars": 2982,
+          "errors": 0
+        },
+        "haunt_act": {
+          "calls": 12,
+          "chars": 18907,
+          "max_chars": 5054,
+          "errors": 0
+        },
+        "haunt_end_session": {
+          "calls": 8,
+          "chars": 5922,
+          "max_chars": 1854,
+          "errors": 0
+        },
+        "haunt_plan": {
+          "calls": 2,
+          "chars": 2533,
+          "max_chars": 2533,
+          "errors": 0
+        },
+        "SubagentHandback": {
+          "calls": 1,
+          "chars": 61,
+          "max_chars": 61,
+          "errors": 0
+        }
+      },
+      "context_tokens": [
+        16359,
+        19683,
+        22609,
+        27931,
+        30897,
+        33672,
+        35956,
+        37479,
+        39140,
+        40821,
+        41891,
+        44044,
+        44863,
+        45417
+      ],
+      "output_tokens": 3522,
+      "images": 3,
+      "turns": 14,
+      "max_context_tokens": 45417,
+      "input_tokens_total": 480762,
+      "tool_chars_total": 35609
+    }
+  ],
+  "held_back": 3,
+  "act_refused_without_case": 0,
+  "sessions": {
+    "1246f260-b8ee-438e-9a80-f5254d857710": {
+      "steps": 11
+    }
+  },
+  "coverage": {
+    "controls": {
+      "listed": 27,
+      "exercised": 8
+    },
+    "cases": {
+      "planned": 3,
+      "run": 3,
+      "passed": 3,
+      "failed": 0
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Close sidebar"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": ""
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\ud83c\udf7a pFriem Family Brewers Hood River, OR"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\ud83c\udf7a Deschutes Brewery Bend, OR"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\ud83c\udf7a Rogue Ales Newport, OR"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\ud83c\udf7a Elysian Brewing Seattle, WA"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\ud83c\udf7a 10 Barrel Brewing Bend, OR"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\ud83c\udf7a Ninkasi Brewing Eugene, OR"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\ud83c\udf7a Skookum Brewery Arlington, WA"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\ud83c\udf7a Aslan Brewing Bellingham, WA"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Toggle brewery list"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\ud83c\udf7a \ud83c\udf7a \ud83c\udf7a \ud83c\udf7a \ud83c\udf7a \ud83c\udf7a \ud83c\udf7a \ud83c\udf7a \ud83c\udf7a \ud83c\udf7a \ud83c\udf7a \ud83c\udf7a Leaflet \u00a9 OpenStreetMap contributors"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "\ud83c\udf7a"
+        },
+        {
+          "area": "/",
+          "role": "link",
+          "name": "Leaflet"
+        },
+        {
+          "area": "/",
+          "role": "link",
+          "name": "OpenStreetMap"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\ud83c\udf7a"
+        },
+        {
+          "area": "/",
+          "role": "link",
+          "name": "\ud83d\udccd Get Directions"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\u2630"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Loading map tiles..."
+        }
+      ],
+      "cases": []
+    }
+  },
+  "transcripts_found": true
+}

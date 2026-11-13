@@ -1,0 +1,29 @@
+{
+  "app": 8,
+  "model": "sonnet",
+  "haunt": "HEAD@7680ba0",
+  "date": "2026-11-12 20:32",
+  "seconds": 191,
+  "cost_usd": 0.34408599999999984,
+  "turns": 3,
+  "is_error": false,
+  "model_usage": {
+    "claude-sonnet-5-5": {
+      "inputTokens": 46,
+      "outputTokens": 4690,
+      "cacheReadInputTokens": 729845,
+      "cacheCreationInputTokens": 67136,
+      "webSearchRequests": 0,
+      "costUSD": 0.34408599999999984,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 553,
+      "cacheCreationEphemeral5mInputTokens": 29623,
+      "cacheCreationEphemeral1hInputTokens": 37513,
+      "canonicalModel": "claude-sonnet-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "printed": "```\n----------------------------------------\n2 areas tested \u00b7 1 issues\n\n4 more detected automatically (3 major)\n\n [!!] 1 major\n\nno critical issues\n\nfix first: Make items buttons/links with tabindex and make the scroll region focusable\n\nreport: .haunt-reports/2026-11-12-localhost-4108.md\n----------------------------------------\n```"
+}

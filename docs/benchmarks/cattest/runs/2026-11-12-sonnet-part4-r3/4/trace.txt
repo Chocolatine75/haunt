@@ -1,0 +1,100 @@
+== orchestrator
+  > ToolSearch {"query": "select:mcp__plugin_haunt_haunt__haunt_scout,mcp__plugin_haunt_haunt__haunt_sweep,mcp__plugin_haunt_haunt__haunt_generate_report", "max_results": 5}
+    < 
+    < 
+  > Bash {"command": "echo", "description": "noop"}
+    < (Bash completed with no output)
+  > Bash {"command": "echo \"haunt v0.2.0  —  QA testing\"", "description": "Print header"}
+  > haunt_scout {"target_url": "http://localhost:4104/"}
+    < haunt v0.2.0  —  QA testing
+    < {"routes":["/"],"title":"FlavorFlow — Recipe Discovery"}
+  > Bash {"command": "echo \"routes: /\"; echo \"testing 1 areas...\"", "description": "Print routes"}
+  > Agent {"description": "Test area /", "subagent_type": "haunt:haunt-tester", "prompt": "Area: http://localhost:4104/\nHeadless: true\nCookies: none\nSecrets: none\nHostile cases allowed: no\nBudget: 60 actions"}
+    < Async agent launched successfully. (This tool result is internal metadata — never quote or paste any part of it, including the agentId below, into a user-facing reply.) agentId: ad5d79adc9f4805eb (internal ID - do not mention to user. Use SendMessage with to: 'ad5d79adc9f4805eb', summary: '<5-10 wor
+    < routes: / testing 1 areas...
+  says The tester is still running. I'll wait for its notification before sweeping and reporting.
+  > haunt_sweep {"target_url": "http://localhost:4104/", "sessions": ["f2979df6-e417-44a7-be29-930ff82b5d91"], "headless": true}
+    < {"session_id":"450b1835-fe66-41af-bf12-47ebbe7c0cc4","pressed":[],"left":[],"signals":[]}
+  > haunt_generate_report {"target_url": "http://localhost:4104/", "sessions": [{"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "area": "/", "overall_impression": "Quick View on a recipe card appears to do nothing; Korean Fried Chicken and Beef Bulgogi are filed under Japanese cuisine. Search, sort, filters, clear controls and empty state worked."}, {"session_id": "450b1835-fe66-41af-bf12-47ebbe7c0cc4", "area": "/",
+    < {"report_path":".haunt-reports/2026-11-12-localhost-4104.md","markdown":"---\nhaunt: true\ntarget: http://localhost:4104/\ndate: 2026-11-12\nareas_tested: 2\nissues:\n  total: 0\n  critical: 0\n  major: 0\n  minor: 0\nsignals:\n  total: 3\n  major: 2\n  minor: 1\ntop_fix: \"\"\n---\n\n# Haunt Report
+  says ``` ---------------------------------------- 2 areas tested · 0 issues  3 more detected automatically (2 major)   no critical issues  report: .haunt-reports/2026-11-12-localhost-4104.md ---------------------------------------- ```
+== haunt:haunt-tester
+  > haunt_spawn {"target_url": "http://localhost:4104/", "budget": 60, "narrow_check": true, "keep_going": true}
+    < {"session_id":"f2979df6-e417-44a7-be29-930ff82b5d91","signals":[]}
+  > haunt_spawn {"target_url": "http://localhost:4104/", "budget": 60, "narrow_check": true, "keep_going": true}
+  > haunt_capture_state {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "include_screenshot": true}
+    < {"url":"http://localhost:4104/","title":"FlavorFlow — Recipe Discovery","text":"Page: FlavorFlow — Recipe Discovery\nURL: http://localhost:4104/\nScroll: 0 px above · 1,700 px below\n\n🍳\nFlavorFlow\nDiscover your next favorite recipe\n🔍\n- textbox \"Search recipes\" [e1] placeholder=\"Search recipe
+  > haunt_capture_state {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "include_screenshot": true}
+  > haunt_act {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "actions": [{"type": "click", "ref": "e2"}]}
+    < {"results":[{"type":"click","ok":true,"changes":{"url_before":"http://localhost:4104/","url_after":"http://localhost:4104/","navigated":false,"tabs_opened":[],"tabs_closed":[],"focus_moved":true,"dom_changed":true,"none":false},"settled":true,"action_ms":14,"settle_ms":34}],"executed":1,"requested":
+  > haunt_capture_state {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "actionable_only": true}
+    < {"url":"http://localhost:4104/","title":"FlavorFlow — Recipe Discovery","text":"Page: FlavorFlow — Recipe Discovery\nURL: http://localhost:4104/\nScroll: 0 px above · 1,700 px below\n\n- textbox \"Search recipes\" [e1] placeholder=\"Search recipes...\"\n- button \"🌍 Cuisine\" [e2] collapsed\n- gener
+  > haunt_act {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "actions": [{"type": "click", "ref": "e2"}]}
+  > haunt_capture_state {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "actionable_only": true}
+    < {"results":[{"type":"click","ok":true,"changes":{"url_before":"http://localhost:4104/","url_after":"http://localhost:4104/","navigated":false,"tabs_opened":[],"tabs_closed":[],"focus_moved":true,"dom_changed":true,"none":false},"settled":true,"action_ms":14,"settle_ms":34}],"executed":1,"requested":
+    < {"url":"http://localhost:4104/","title":"FlavorFlow — Recipe Discovery","text":"Page: FlavorFlow — Recipe Discovery\nURL: http://localhost:4104/\nScroll: 0 px above · 1,700 px below\n\n- textbox \"Search recipes\" [e1] placeholder=\"Search recipes...\"\n- button \"🌍 Cuisine\" [e2] collapsed\n- gener
+  says Plan cases and play: Japanese filter, then Dietary Vegan, sort, search.
+  > haunt_plan {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "brief": true, "cases": [{"id": "cuisine-jp", "kind": "normal", "controls": ["e5"], "expect": "Japanese filter shows only Japanese recipes"}, {"id": "search", "kind": "normal", "controls": ["e1"], "expect": "Searching chicken shows only recipes mentioning chicken"}, {"id": "sort", "kind": "state", "controls": ["e27"], "expect": "Sorting by rat
+    < {"cases":[{"id":"cuisine-jp","kind":"normal","controls":["e5"],"expect":"Japanese filter shows only Japanese recipes"},{"id":"search","kind":"normal","controls":["e1"],"expect":"Searching chicken shows only recipes mentioning chicken"},{"id":"sort","kind":"state","controls":["e27"],"expect":"Sorting
+  > haunt_act {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "case": "cuisine-jp", "actions": [{"type": "click", "ref": "e5"}], "expect": {"text_absent": "Mexican"}}
+    < {"results":[{"type":"click","ok":true,"changes":{"url_before":"http://localhost:4104/","url_after":"http://localhost:4104/","navigated":false,"tabs_opened":[],"tabs_closed":[],"focus_moved":true,"dom_changed":true,"none":false},"settled":true,"action_ms":8,"settle_ms":795}],"executed":1,"requested":
+  > haunt_plan {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "brief": true, "cases": [{"id": "cuisine-jp", "kind": "normal", "controls": ["e5"], "expect": "Japanese filter shows only Japanese recipes"}, {"id": "search", "kind": "normal", "controls": ["e1"], "expect": "Searching chicken shows only recipes mentioning chicken"}, {"id": "sort", "kind": "state", "controls": ["e27"], "expect": "Sorting by rat
+  > haunt_act {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "case": "cuisine-jp", "actions": [{"type": "click", "ref": "e5"}], "expect": {"text_absent": "Mexican"}}
+    < {"cases":[{"id":"cuisine-jp","kind":"normal","controls":["e5"],"expect":"Japanese filter shows only Japanese recipes"},{"id":"search","kind":"normal","controls":["e1"],"expect":"Searching chicken shows only recipes mentioning chicken"},{"id":"sort","kind":"state","controls":["e27"],"expect":"Sorting
+    < {"results":[{"type":"click","ok":true,"changes":{"url_before":"http://localhost:4104/","url_after":"http://localhost:4104/","navigated":false,"tabs_opened":[],"tabs_closed":[],"focus_moved":true,"dom_changed":true,"none":false},"settled":true,"action_ms":8,"settle_ms":795}],"executed":1,"requested":
+  > haunt_act {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "actions": [{"type": "click", "ref": "e61"}, {"type": "click", "ref": "e63"}]}
+    < {"results":[{"type":"click","ok":true,"changes":{"url_before":"http://localhost:4104/","url_after":"http://localhost:4104/","navigated":false,"tabs_opened":[],"tabs_closed":[],"focus_moved":false,"dom_changed":true,"none":false},"settled":true,"action_ms":6,"settle_ms":1090},{"type":"click","ok":fal
+  > haunt_act {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "actions": [{"type": "click", "ref": "e61"}, {"type": "click", "ref": "e63"}]}
+  > haunt_act {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "actions": [{"type": "click", "ref": "e83"}]}
+    < {"results":[{"type":"click","ok":true,"changes":{"url_before":"http://localhost:4104/","url_after":"http://localhost:4104/","navigated":false,"tabs_opened":[],"tabs_closed":[],"focus_moved":true,"dom_changed":false,"none":true},"settled":true,"action_ms":6,"settle_ms":35}],"executed":1,"requested":1
+  > haunt_act {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "actions": [{"type": "click", "ref": "e83"}]}
+  > haunt_capture_state {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "include_screenshot": true, "actionable_only": true, "signals": true}
+    < {"url":"http://localhost:4104/","title":"FlavorFlow — Recipe Discovery","text":"Page: FlavorFlow — Recipe Discovery\nURL: http://localhost:4104/\nScroll: 0 px above · 1,700 px below\n\n- textbox \"Search recipes\" [e1] placeholder=\"Search recipes...\"\n- button \"🌍 Cuisine\" [e2] collapsed\n- gener
+  > haunt_capture_state {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "include_screenshot": true, "actionable_only": true, "signals": true}
+  > haunt_act {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "case": "search", "actions": [{"type": "fill", "ref": "e1", "text": "chicken"}, {"type": "wait_for", "ms": 800}], "expect": {"text_absent": "Quiche Lorraine"}}
+    < {"results":[{"type":"fill","ok":true,"changes":{"url_before":"http://localhost:4104/","url_after":"http://localhost:4104/","navigated":false,"tabs_opened":[],"tabs_closed":[],"focus_moved":true,"dom_changed":true,"none":false},"settled":true,"action_ms":10,"settle_ms":1148},{"type":"wait_for","ok":t
+  > haunt_act {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "case": "search", "actions": [{"type": "fill", "ref": "e1", "text": "chicken"}, {"type": "wait_for", "ms": 800}], "expect": {"text_absent": "Quiche Lorraine"}}
+  > haunt_capture_state {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "include_screenshot": true, "actionable_only": true, "within": "e27"}
+    < {"url":"http://localhost:4104/","title":"FlavorFlow — Recipe Discovery","text":"Page: FlavorFlow — Recipe Discovery\nURL: http://localhost:4104/\nScroll: 0 px above · 1,508 px below\n\n- combobox \"Sort recipes\" [e27] value=\"Trending\"","scroll":{"x":0,"y":0,"max_x":0,"max_y":1508},"tabs":[{"index
+  > haunt_capture_state {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "include_screenshot": true, "actionable_only": true, "within": "e27"}
+  > haunt_act {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "actions": [{"type": "click", "ref": "e113"}, {"type": "select", "ref": "e27", "values": ["Highest Rated"]}]}
+    < {"results":[{"type":"click","ok":true,"changes":{"url_before":"http://localhost:4104/","url_after":"http://localhost:4104/","navigated":false,"tabs_opened":[],"tabs_closed":[],"focus_moved":true,"dom_changed":true,"none":false},"settled":true,"action_ms":6,"settle_ms":1088},{"type":"select","ok":tru
+  > haunt_act {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "actions": [{"type": "click", "ref": "e113"}, {"type": "select", "ref": "e27", "values": ["Highest Rated"]}]}
+  > haunt_capture_state {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "include_screenshot": true, "actionable_only": true, "within": "e27"}
+    < {"url":"http://localhost:4104/","title":"FlavorFlow — Recipe Discovery","text":"Page: FlavorFlow — Recipe Discovery\nURL: http://localhost:4104/\nScroll: 0 px above · 1,770 px below\n\n- combobox \"Sort recipes\" [e27] value=\"Highest Rated\"","scroll":{"x":0,"y":0,"max_x":0,"max_y":1770},"tabs":[{"
+  > haunt_capture_state {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "include_screenshot": true, "actionable_only": true, "within": "e27"}
+  > haunt_act {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "actions": [{"type": "click", "ref": "e11"}, {"type": "click", "ref": "e13"}]}
+    < {"results":[{"type":"click","ok":true,"changes":{"url_before":"http://localhost:4104/","url_after":"http://localhost:4104/","navigated":false,"tabs_opened":[],"tabs_closed":[],"focus_moved":true,"dom_changed":true,"none":false},"settled":true,"action_ms":6,"settle_ms":31},{"type":"click","ok":true,"
+  > haunt_act {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "actions": [{"type": "click", "ref": "e11"}, {"type": "click", "ref": "e13"}]}
+  > haunt_act {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "actions": [{"type": "click", "ref": "e22"}, {"type": "click", "ref": "e23"}], "expect": {"text_absent": "⏱ 35 min"}}
+    < {"results":[{"type":"click","ok":true,"changes":{"url_before":"http://localhost:4104/","url_after":"http://localhost:4104/","navigated":false,"tabs_opened":[],"tabs_closed":[],"focus_moved":true,"dom_changed":true,"none":false},"settled":true,"action_ms":5,"settle_ms":33},{"type":"click","ok":true,"
+  > haunt_act {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "actions": [{"type": "click", "ref": "e22"}, {"type": "click", "ref": "e23"}], "expect": {"text_absent": "⏱ 35 min"}}
+  > haunt_act {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "actions": [{"type": "click", "ref": "e229"}, {"type": "fill", "ref": "e1", "text": "burger"}, {"type": "wait_for", "ms": 800}]}
+    < {"results":[{"type":"click","ok":true,"changes":{"url_before":"http://localhost:4104/","url_after":"http://localhost:4104/","navigated":false,"tabs_opened":[],"tabs_closed":[],"focus_moved":true,"dom_changed":true,"none":false},"settled":true,"action_ms":5,"settle_ms":44},{"type":"fill","ok":true,"c
+  > haunt_act {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "actions": [{"type": "click", "ref": "e229"}, {"type": "fill", "ref": "e1", "text": "burger"}, {"type": "wait_for", "ms": 800}]}
+  says Good. Ending.
+  > haunt_end_session {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "brief": true, "issues": [{"severity": "major", "category": "ux", "description": "Quick View button on a recipe card does nothing when clicked (no dialog, no navigation, no change).", "page_url": "http://localhost:4104/", "expected": "Clicking Quick View opens a recipe preview", "actual": "No change at all after click", "recommendation": "Impl
+    < {"ended":false,"left":{"cases":["sort"],"controls":[{"ref":"e18","role":"button","name":"📊 Difficulty"},{"ref":"e28","role":"button","name":"Back to top"},{"ref":"e236","role":"generic","name":"×"}]},"steps_remaining":44,"next":"Play case \"sort\" now: Sorting by rating high shows descending ratings
+  > haunt_end_session {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "brief": true, "issues": [{"severity": "major", "category": "ux", "description": "Quick View button on a recipe card does nothing when clicked (no dialog, no navigation, no change).", "page_url": "http://localhost:4104/", "expected": "Clicking Quick View opens a recipe preview", "actual": "No change at all after click", "recommendation": "Impl
+  > haunt_act {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "case": "sort", "actions": [{"type": "click", "ref": "e239"}, {"type": "select", "ref": "e27", "values": ["Highest Rated"]}, {"type": "click", "ref": "e18"}, {"type": "click", "ref": "e21"}], "expect": {"text_present": "Showing"}}
+    < {"results":[{"type":"click","ok":true,"changes":{"url_before":"http://localhost:4104/","url_after":"http://localhost:4104/","navigated":false,"tabs_opened":[],"tabs_closed":[],"focus_moved":true,"dom_changed":true,"none":false},"settled":true,"action_ms":6,"settle_ms":1095},{"type":"select","ok":tru
+  > haunt_act {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "case": "sort", "actions": [{"type": "click", "ref": "e239"}, {"type": "select", "ref": "e27", "values": ["Highest Rated"]}, {"type": "click", "ref": "e18"}, {"type": "click", "ref": "e21"}], "expect": {"text_present": "Showing"}}
+  says Works. Back to top then end.
+  > haunt_act {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "actions": [{"type": "scroll", "direction": "down", "amount": 1500}, {"type": "click", "ref": "e28"}]}
+    < {"results":[{"type":"scroll","ok":true,"changes":{"url_before":"http://localhost:4104/","url_after":"http://localhost:4104/","navigated":false,"tabs_opened":[],"tabs_closed":[],"focus_moved":false,"dom_changed":true,"none":false},"settled":true,"action_ms":7,"settle_ms":133},{"type":"click","ok":tru
+  > haunt_act {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "actions": [{"type": "scroll", "direction": "down", "amount": 1500}, {"type": "click", "ref": "e28"}]}
+  > haunt_end_session {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "brief": true}
+    < {"ended":false,"left":{"cases":[],"controls":[{"ref":"e300","role":"generic","name":"×"},{"ref":"e302","role":"generic","name":"🍽 🥄 11 ingredients ⏱ 55 min Hard Quick View Italian Truffle Mushroom Risotto Creamy Arborio rice with wild mushroom..."},{"ref":"e306","role":"generic","name":"🍽 🥄 5 ingred
+  > haunt_end_session {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "brief": true}
+  > haunt_act {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "actions": [{"type": "click", "ref": "e300"}], "expect": {"text_absent": "Difficulty: Hard"}}
+    < {"results":[{"type":"click","ok":true,"changes":{"url_before":"http://localhost:4104/","url_after":"http://localhost:4104/","navigated":false,"tabs_opened":[],"tabs_closed":[],"focus_moved":true,"dom_changed":true,"none":false},"settled":true,"action_ms":21,"settle_ms":1089}],"executed":1,"requested
+  > haunt_act {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "actions": [{"type": "click", "ref": "e300"}], "expect": {"text_absent": "Difficulty: Hard"}}
+  > haunt_end_session {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "brief": true}
+    < {"ended":false,"left":{"cases":[],"controls":[{"ref":"e328","role":"generic","name":"🍽 🥄 11 ingredients ⏱ 55 min Hard Quick View Italian Truffle Mushroom Risotto Creamy Arborio rice with wild mushroom..."},{"ref":"e330","role":"generic","name":"🍽 🥄 15 ingredients ⏱ 160 min Hard Quick View Japanese T
+  > haunt_end_session {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "brief": true}
+  > haunt_end_session {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "brief": true}
+    < {"session_id":"f2979df6-e417-44a7-be29-930ff82b5d91","step_count":24,"issues_found":[{"description":"Quick View button on a recipe card does nothing when clicked (no dialog, no navigation, no change).","severity":"major","status":"unchecked","bundle":".haunt-reports/evidence/f2979df6-e417-44a7-be29-
+  > haunt_end_session {"session_id": "f2979df6-e417-44a7-be29-930ff82b5d91", "brief": true}
+  says session: f2979df6-e417-44a7-be29-930ff82b5d91 found: Quick View on a recipe card does nothing when clicked, which is a major issue (unchecked, listed for a person to verify). Korean Fried Chicken and Beef Bulgogi are filed under Japanese cuisine, which is a minor content error. After a "chicken" sea
+  > SubagentHandback {"message": "session: f2979df6-e417-44a7-be29-930ff82b5d91\nfound: Quick View on a recipe card does nothing when clicked, which is a major issue (unchecked, listed for a person to verify). Korean Fried Chicken and Beef Bulgogi are filed under Japanese cuisine, which is a minor content error. After a \"chicken\" search, the Cobb Salad card covered the Korean Fried Chicken card and its Quick View bu
+    < {"success":true,"message":"Report delivered to your caller."}

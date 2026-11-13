@@ -1,0 +1,176 @@
+{
+  "agents": [
+    {
+      "role": "orchestrator",
+      "tools": {
+        "ToolSearch": {
+          "calls": 1,
+          "chars": 0,
+          "max_chars": 0,
+          "errors": 0
+        },
+        "Bash": {
+          "calls": 2,
+          "chars": 58,
+          "max_chars": 31,
+          "errors": 0
+        },
+        "haunt_scout": {
+          "calls": 1,
+          "chars": 70,
+          "max_chars": 70,
+          "errors": 0
+        },
+        "Agent": {
+          "calls": 1,
+          "chars": 1098,
+          "max_chars": 1098,
+          "errors": 0
+        },
+        "haunt_sweep": {
+          "calls": 1,
+          "chars": 4503,
+          "max_chars": 4503,
+          "errors": 0
+        },
+        "haunt_generate_report": {
+          "calls": 1,
+          "chars": 4516,
+          "max_chars": 4516,
+          "errors": 0
+        }
+      },
+      "context_tokens": [
+        23068,
+        35338,
+        41445,
+        41564,
+        41651,
+        42277,
+        43059,
+        45835,
+        48275
+      ],
+      "output_tokens": 1082,
+      "images": 0,
+      "turns": 9,
+      "max_context_tokens": 48275,
+      "input_tokens_total": 362512,
+      "tool_chars_total": 10245
+    },
+    {
+      "role": "haunt:haunt-tester",
+      "tools": {
+        "haunt_spawn": {
+          "calls": 2,
+          "chars": 701,
+          "max_chars": 701,
+          "errors": 0
+        },
+        "haunt_capture_state": {
+          "calls": 4,
+          "chars": 6866,
+          "max_chars": 3449,
+          "errors": 0
+        },
+        "haunt_act": {
+          "calls": 12,
+          "chars": 15488,
+          "max_chars": 4304,
+          "errors": 0
+        },
+        "haunt_plan": {
+          "calls": 2,
+          "chars": 1517,
+          "max_chars": 1517,
+          "errors": 0
+        },
+        "haunt_end_session": {
+          "calls": 2,
+          "chars": 795,
+          "max_chars": 795,
+          "errors": 0
+        },
+        "SubagentHandback": {
+          "calls": 1,
+          "chars": 61,
+          "max_chars": 61,
+          "errors": 0
+        }
+      },
+      "context_tokens": [
+        16359,
+        19837,
+        22674,
+        25799,
+        27313,
+        30187,
+        31966,
+        33007,
+        33540,
+        34310
+      ],
+      "output_tokens": 2506,
+      "images": 2,
+      "turns": 10,
+      "max_context_tokens": 34310,
+      "input_tokens_total": 274992,
+      "tool_chars_total": 25428
+    }
+  ],
+  "held_back": 0,
+  "act_refused_without_case": 0,
+  "sessions": {
+    "76366622-dc30-4f14-8806-9e56d46235a1": {
+      "steps": 11
+    }
+  },
+  "coverage": {
+    "controls": {
+      "listed": 17,
+      "exercised": 11
+    },
+    "cases": {
+      "planned": 3,
+      "run": 3,
+      "passed": 2,
+      "failed": 1
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Go to Hero section"
+        },
+        {
+          "area": "/",
+          "role": "link",
+          "name": "Begin Your Journey"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Close modal"
+        },
+        {
+          "area": "/",
+          "role": "textbox",
+          "name": "Phone (Optional)"
+        },
+        {
+          "area": "/",
+          "role": "dialog",
+          "name": "Book Your Consultation"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\u00d7 Book Your Consultation Complete the form below and our expedition team will reach out within 24 hours. Full Name * ..."
+        }
+      ],
+      "cases": []
+    }
+  },
+  "transcripts_found": true
+}

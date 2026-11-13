@@ -1,0 +1,216 @@
+{
+  "agents": [
+    {
+      "role": "orchestrator",
+      "tools": {
+        "ToolSearch": {
+          "calls": 1,
+          "chars": 0,
+          "max_chars": 0,
+          "errors": 0
+        },
+        "Bash": {
+          "calls": 2,
+          "chars": 43,
+          "max_chars": 31,
+          "errors": 0
+        },
+        "haunt_scout": {
+          "calls": 1,
+          "chars": 47,
+          "max_chars": 47,
+          "errors": 0
+        },
+        "Agent": {
+          "calls": 1,
+          "chars": 700,
+          "max_chars": 350,
+          "errors": 0
+        },
+        "haunt_sweep": {
+          "calls": 1,
+          "chars": 89,
+          "max_chars": 89,
+          "errors": 0
+        },
+        "haunt_generate_report": {
+          "calls": 1,
+          "chars": 2827,
+          "max_chars": 2827,
+          "errors": 0
+        }
+      },
+      "context_tokens": [
+        23068,
+        34970,
+        41481,
+        41575,
+        41723,
+        42952,
+        43157,
+        44728
+      ],
+      "output_tokens": 1072,
+      "images": 0,
+      "turns": 8,
+      "max_context_tokens": 44728,
+      "input_tokens_total": 313654,
+      "tool_chars_total": 3706
+    },
+    {
+      "role": "haunt:haunt-tester",
+      "tools": {
+        "haunt_spawn": {
+          "calls": 2,
+          "chars": 358,
+          "max_chars": 358,
+          "errors": 0
+        },
+        "haunt_capture_state": {
+          "calls": 24,
+          "chars": 30728,
+          "max_chars": 1671,
+          "errors": 0
+        },
+        "haunt_act": {
+          "calls": 26,
+          "chars": 34241,
+          "max_chars": 2892,
+          "errors": 0
+        },
+        "haunt_plan": {
+          "calls": 2,
+          "chars": 1220,
+          "max_chars": 1220,
+          "errors": 0
+        },
+        "haunt_end_session": {
+          "calls": 6,
+          "chars": 1301,
+          "max_chars": 652,
+          "errors": 1
+        },
+        "SubagentHandback": {
+          "calls": 1,
+          "chars": 61,
+          "max_chars": 61,
+          "errors": 0
+        }
+      },
+      "context_tokens": [
+        16359,
+        19688,
+        21716,
+        24390,
+        25001,
+        27029,
+        29724,
+        32673,
+        35716,
+        38717,
+        42199,
+        45393,
+        46326,
+        50089,
+        52994,
+        56495,
+        57029,
+        57613,
+        58979,
+        59425,
+        59751
+      ],
+      "output_tokens": 6281,
+      "images": 21,
+      "turns": 21,
+      "max_context_tokens": 59751,
+      "input_tokens_total": 857306,
+      "tool_chars_total": 67909
+    }
+  ],
+  "held_back": 1,
+  "act_refused_without_case": 0,
+  "sessions": {
+    "2704f494-e38f-497f-b2a3-1e44ad62d868": {
+      "steps": 24
+    }
+  },
+  "coverage": {
+    "controls": {
+      "listed": 20,
+      "exercised": 8
+    },
+    "cases": {
+      "planned": 3,
+      "run": 3,
+      "passed": 1,
+      "failed": 2
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Dashboard"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Messages"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Settings"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Stop Sharing"
+        },
+        {
+          "area": "/",
+          "role": "slider",
+          "name": ""
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "00:00:33"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "End Call"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": ""
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Participants (2) \u00d7"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "A Alex (You) \ud83c\udfa4 \ud83d\udcf7 J Jordan \ud83c\udfa4 \ud83d\udcf7"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Alex"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "00:00:03"
+        }
+      ],
+      "cases": []
+    }
+  },
+  "transcripts_found": true
+}

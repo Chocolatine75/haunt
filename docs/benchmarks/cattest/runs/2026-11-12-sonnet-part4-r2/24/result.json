@@ -1,0 +1,29 @@
+{
+  "app": 24,
+  "model": "sonnet",
+  "haunt": "HEAD@7680ba0",
+  "date": "2026-11-12 20:55",
+  "seconds": 1264,
+  "cost_usd": 0.42517130000000003,
+  "turns": 1,
+  "is_error": false,
+  "model_usage": {
+    "claude-sonnet-5-5": {
+      "inputTokens": 64,
+      "outputTokens": 7356,
+      "cacheReadInputTokens": 1053493,
+      "cacheCreationInputTokens": 76079,
+      "webSearchRequests": 0,
+      "costUSD": 0.42517130000000003,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 624,
+      "cacheCreationEphemeral5mInputTokens": 38788,
+      "cacheCreationEphemeral1hInputTokens": 37291,
+      "canonicalModel": "claude-sonnet-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "printed": "The haunt-test run is already complete. The tester, the sweep and the report all finished, and the report is at `.haunt-reports/2026-11-12-localhost-4124.md`.\n\n- **Confirmed issue (major):** the six call control buttons (mic, camera, volume, share, participants, end call) have no accessible name. It reproduced in 3 of 3 replays. The fix is to add an `aria-label` to each icon button.\n- **To check by hand (minor):** while screen sharing, the self-view tile overlaps the minimize button. Stop Sharing was reported as covered by another element. The engine couldn't verify this, so it isn't counted.\n- **Coverage:** 8 of 19 controls were exercised, and all 5 test cases passed. The sweep pressed nothing.\n\nI scheduled a fallback wakeup earlier, and it may still fire. There is nothing left for it to do."
+}

@@ -1,0 +1,172 @@
+{
+  "target_url": "http://localhost:4146/",
+  "date": "2026-11-13",
+  "coverage": {
+    "controls": {
+      "listed": 23,
+      "exercised": 13
+    },
+    "cases": {
+      "planned": 2,
+      "run": 2,
+      "passed": 1,
+      "failed": 1
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "link",
+          "name": "Terms & Conditions"
+        },
+        {
+          "area": "/",
+          "role": "link",
+          "name": "Privacy Policy"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "× 🎡 Spin the Wheel! Click SPIN and watch where fate takes you! 🎰 SPIN"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "𝕏 Tweet"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "💬 WhatsApp"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "🔗 Copy Link"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": ""
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "🎉 Congratulations! You won: 10% Off! BEAN-43SK-UHGM 📋 Copy Code 🎟 Share for a Bonus Entry! Share to enter our gran..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "× 🏆 Your Prizes 🏆 20% Off BEAN-X1MU-UOXL Won from: Spin Wheel 🏆 10% Off BEAN-43SK-UHGM Won from: Dice Roll"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Use your mouse or finger to scratch the golden card!"
+        }
+      ],
+      "cases": []
+    }
+  },
+  "issues": [
+    {
+      "severity": "major",
+      "category": "ux",
+      "description": "Copy Code throws an unhandled clipboard rejection and gives the user no feedback",
+      "page_url": "http://localhost:4146/",
+      "recommendation": "Catch clipboard errors and show a message",
+      "signal": "s1",
+      "verification": {
+        "status": "confirmed",
+        "attempts": 3,
+        "reproduced": 3,
+        "rate": 1,
+        "bundle": ".haunt-reports/evidence/fd239df0-4e7a-4fd5-b94e-4ae48488e48d/issue-2"
+      },
+      "signals": [
+        {
+          "id": "s1",
+          "kind": "unhandled_rejection",
+          "url": "http://localhost:4146/",
+          "step": 8,
+          "message": "Failed to execute 'writeText' on 'Clipboard': Write permission denied.",
+          "severity": "major",
+          "count": 1,
+          "stack": "NotAllowedError: Failed to execute 'writeText' on 'Clipboard': Write permission denied."
+        }
+      ]
+    }
+  ],
+  "flaky": [],
+  "unverified": [],
+  "unchecked": [
+    {
+      "severity": "minor",
+      "category": "accessibility",
+      "description": "Escape does not close the scratch card modal",
+      "page_url": "http://localhost:4146/",
+      "recommendation": "Close modals on Escape",
+      "observed": {
+        "element": {
+          "ref": "e7",
+          "state": "hidden"
+        },
+        "step": 21
+      },
+      "verification": {
+        "status": "unchecked",
+        "attempts": 10,
+        "reproduced": 0,
+        "rate": 0,
+        "reason": "not_replayable",
+        "failed_step": 15
+      }
+    },
+    {
+      "severity": "minor",
+      "category": "ux",
+      "description": "Lock icons still overlay the game cards after games are unlocked",
+      "page_url": "http://localhost:4146/",
+      "recommendation": "Remove lock icons on unlock",
+      "expected": "Lock icons removed after email unlock",
+      "actual": "Padlock icons still shown on all cards after unlocking",
+      "verification": {
+        "status": "unchecked",
+        "attempts": 3,
+        "reproduced": 0,
+        "rate": 0
+      }
+    }
+  ],
+  "rejected": [],
+  "signals": [
+    {
+      "id": "s1",
+      "kind": "unhandled_rejection",
+      "url": "http://localhost:4146/",
+      "step": 8,
+      "message": "Failed to execute 'writeText' on 'Clipboard': Write permission denied.",
+      "severity": "major",
+      "count": 1,
+      "stack": "NotAllowedError: Failed to execute 'writeText' on 'Clipboard': Write permission denied."
+    },
+    {
+      "id": "s2",
+      "kind": "layout",
+      "url": "http://localhost:4146/",
+      "step": 18,
+      "message": "The button \"🏆 Your Prizes\" is covered by the generic \"× 🏆 Your Prizes 🏆 20% Off BEAN-X1MU-UOXL Won from: Spin Wheel 🏆 10% Off BEAN-43SK-UHGM Won from: Dice Roll\": a click on it lands on what covers it",
+      "severity": "major",
+      "count": 1,
+      "rule": "covered",
+      "ref": "e12",
+      "role": "button",
+      "name": "🏆 Your Prizes"
+    }
+  ],
+  "signal_counts": {
+    "total": 1,
+    "major": 1,
+    "minor": 0
+  }
+}

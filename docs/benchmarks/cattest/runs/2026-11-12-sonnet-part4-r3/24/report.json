@@ -1,0 +1,153 @@
+{
+  "target_url": "http://localhost:4124/",
+  "date": "2026-11-12",
+  "coverage": {
+    "controls": {
+      "listed": 20,
+      "exercised": 8
+    },
+    "cases": {
+      "planned": 3,
+      "run": 3,
+      "passed": 1,
+      "failed": 2
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Dashboard"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Messages"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Settings"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Stop Sharing"
+        },
+        {
+          "area": "/",
+          "role": "slider",
+          "name": ""
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "00:00:33"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "End Call"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": ""
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Participants (2) ×"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "A Alex (You) 🎤 📷 J Jordan 🎤 📷"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Alex"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "00:00:03"
+        }
+      ],
+      "cases": []
+    }
+  },
+  "issues": [
+    {
+      "severity": "major",
+      "category": "accessibility",
+      "description": "The six call control buttons (mic, camera, volume, share screen, participants, end call) have no accessible name, only icons.",
+      "page_url": "http://localhost:4124/",
+      "recommendation": "Add aria-label to each icon button.",
+      "signal": "s1",
+      "verification": {
+        "status": "confirmed",
+        "attempts": 3,
+        "reproduced": 3,
+        "rate": 1,
+        "bundle": ".haunt-reports/evidence/2704f494-e38f-497f-b2a3-1e44ad62d868/issue-1"
+      },
+      "signals": [
+        {
+          "id": "s1",
+          "kind": "a11y",
+          "url": "http://localhost:4124/",
+          "step": 0,
+          "message": "Buttons must have discernible text (6 elements)",
+          "severity": "major",
+          "count": 1,
+          "rule": "button-name",
+          "impact": "critical",
+          "nodes": 6,
+          "refs": [
+            "e10",
+            "e12",
+            "e13",
+            "e14",
+            "e8",
+            "e9"
+          ],
+          "help": "Buttons must have discernible text"
+        }
+      ]
+    }
+  ],
+  "flaky": [],
+  "unverified": [],
+  "unchecked": [],
+  "rejected": [],
+  "signals": [
+    {
+      "id": "s1",
+      "kind": "a11y",
+      "url": "http://localhost:4124/",
+      "step": 0,
+      "message": "Buttons must have discernible text (6 elements)",
+      "severity": "major",
+      "count": 1,
+      "rule": "button-name",
+      "impact": "critical",
+      "nodes": 6,
+      "refs": [
+        "e10",
+        "e12",
+        "e13",
+        "e14",
+        "e8",
+        "e9"
+      ],
+      "help": "Buttons must have discernible text"
+    }
+  ],
+  "signal_counts": {
+    "total": 0,
+    "major": 0,
+    "minor": 0
+  }
+}

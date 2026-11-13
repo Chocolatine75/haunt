@@ -1,0 +1,29 @@
+{
+  "app": 46,
+  "model": "sonnet",
+  "haunt": "HEAD@7680ba0",
+  "date": "2026-11-13 14:22",
+  "seconds": 305,
+  "cost_usd": 0.3132110000000001,
+  "turns": 3,
+  "is_error": false,
+  "model_usage": {
+    "claude-sonnet-5-5": {
+      "inputTokens": 64,
+      "outputTokens": 6353,
+      "cacheReadInputTokens": 877480,
+      "cacheCreationInputTokens": 50526,
+      "webSearchRequests": 0,
+      "costUSD": 0.3132110000000001,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 368,
+      "cacheCreationEphemeral5mInputTokens": 26866,
+      "cacheCreationEphemeral1hInputTokens": 23660,
+      "canonicalModel": "claude-sonnet-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "printed": "```\n----------------------------------------\n2 areas tested \u00b7 1 issues\n\n1 more detected automatically (1 major)\n\n [!!] 1 major\n\nno critical issues\n\nfix first: Catch clipboard errors and show a message\n\nreport: .haunt-reports/2026-11-13-localhost-4146.md\n----------------------------------------\n```"
+}

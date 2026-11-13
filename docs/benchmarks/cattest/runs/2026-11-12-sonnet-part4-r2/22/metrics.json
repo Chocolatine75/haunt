@@ -1,0 +1,295 @@
+{
+  "agents": [
+    {
+      "role": "orchestrator",
+      "tools": {
+        "ToolSearch": {
+          "calls": 2,
+          "chars": 0,
+          "max_chars": 0,
+          "errors": 0
+        },
+        "Bash": {
+          "calls": 2,
+          "chars": 49,
+          "max_chars": 31,
+          "errors": 0
+        },
+        "haunt_scout": {
+          "calls": 1,
+          "chars": 59,
+          "max_chars": 59,
+          "errors": 0
+        },
+        "Agent": {
+          "calls": 1,
+          "chars": 1098,
+          "max_chars": 1098,
+          "errors": 0
+        },
+        "haunt_sweep": {
+          "calls": 1,
+          "chars": 89,
+          "max_chars": 89,
+          "errors": 0
+        },
+        "haunt_generate_report": {
+          "calls": 1,
+          "chars": 5658,
+          "max_chars": 5658,
+          "errors": 0
+        }
+      },
+      "context_tokens": [
+        23068,
+        35338,
+        41468,
+        42720,
+        42820,
+        42961,
+        43564,
+        44331,
+        45112,
+        47893
+      ],
+      "output_tokens": 1174,
+      "images": 0,
+      "turns": 10,
+      "max_context_tokens": 47893,
+      "input_tokens_total": 409275,
+      "tool_chars_total": 6953
+    },
+    {
+      "role": "haunt:haunt-tester",
+      "tools": {
+        "haunt_spawn": {
+          "calls": 2,
+          "chars": 66,
+          "max_chars": 66,
+          "errors": 0
+        },
+        "haunt_capture_state": {
+          "calls": 12,
+          "chars": 26227,
+          "max_chars": 4614,
+          "errors": 0
+        },
+        "haunt_plan": {
+          "calls": 2,
+          "chars": 7236,
+          "max_chars": 3618,
+          "errors": 0
+        },
+        "haunt_act": {
+          "calls": 16,
+          "chars": 20415,
+          "max_chars": 4999,
+          "errors": 0
+        },
+        "haunt_end_session": {
+          "calls": 10,
+          "chars": 10554,
+          "max_chars": 3263,
+          "errors": 1
+        },
+        "SubagentHandback": {
+          "calls": 1,
+          "chars": 61,
+          "max_chars": 61,
+          "errors": 0
+        }
+      },
+      "context_tokens": [
+        16359,
+        19563,
+        23072,
+        25519,
+        26003,
+        29941,
+        31947,
+        34914,
+        35577,
+        39626,
+        41985,
+        45587,
+        46160,
+        47999,
+        48738,
+        50199,
+        51655,
+        52070
+      ],
+      "output_tokens": 4769,
+      "images": 7,
+      "turns": 18,
+      "max_context_tokens": 52070,
+      "input_tokens_total": 666914,
+      "tool_chars_total": 64559
+    }
+  ],
+  "held_back": 3,
+  "act_refused_without_case": 0,
+  "sessions": {
+    "e402a411-6696-4b2c-b605-aa63a8a57481": {
+      "steps": 18
+    }
+  },
+  "coverage": {
+    "controls": {
+      "listed": 35,
+      "exercised": 7
+    },
+    "cases": {
+      "planned": 3,
+      "run": 3,
+      "passed": 3,
+      "failed": 0
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "SB Skyler Brown @skylerbrown26 2m Just deployed my first Rust microservice to production. The memory safety guarantee..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "HJ Harper Johnson @harperjohnson71 5m Hot take: TypeScript's type system is Turing complete and that's both amazing a..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "AS Alex Singh @alexsingh41 8m Day 45 of building my SaaS. Finally got payment integration working. Stripe's docs are ..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "RW Riley Williams @rileywilliams13 12m Anyone else think the AI code assistants are getting scary good? Just had one ..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "SP Sage Park @sagepark71 18m The amount of JavaScript frameworks released this week is too damn high 10 46 338"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "JT Jordan Tanaka @jordantanaka34 25m Just realized my entire production database has been running without backups for..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "LS Leo Scott @leoscott91 33m Interviewer: 'What's your biggest weakness?' Me: 'I mass-produce side projects that neve..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "FK Finley Kim @finleykim35 45m TIL you can use CSS :has() selector in production now. Game changer for styling parent..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "AO Alex Okafor @alexokafor49 58m Unpopular opinion: Monoliths are fine for 90% of startups. Stop over-engineering wit..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "MS Max Singh @maxsingh55 1h My VS Code has more extensions than my app has users #IndieHacker #DevLife 7 70 216"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Y You @currentuser now Shipping Chirp tests today"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "AS Alex Scott @alexscott41 1m The 10x engineer myth needs to die. The real 10x is someone who makes their whole team ..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "SN Sage Nakamura @sagenakamura65 4m Observability > Monitoring. If you can't trace a request through your entire syst..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "AM Avery Meyer @averymeyer98 3m Functional programming isn't just about immutability - it's about making illegal stat..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "MK Max Kumar @maxkumar6 4m The gap between junior and senior isn't code quality - it's knowing what NOT to build. 2 5 36"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "SG Sam Garcia @samgarcia21 3m I use tabs. My coworker uses spaces. We've agreed to let the formatter handle it. Peace..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Chirp"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Show new posts"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "RC Rowan Chen @rowanchen40 2m Just deployed my first Rust microservice to production. The memory safety guarantees ar..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "SG Skyler Garcia @skylergarcia24 5m Hot take: TypeScript's type system is Turing complete and that's both amazing and..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "JR Jane Rivera @janerivera61 8m Day 45 of building my SaaS. Finally got payment integration working. Stripe's docs ar..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "EO Eli Okafor @eliokafor70 12m Anyone else think the AI code assistants are getting scary good? Just had one fix a bu..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "JC Jane Chen @janechen83 18m The amount of JavaScript frameworks released this week is too damn high 5 114 293"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "ZR Zoe Rivera @zoerivera51 25m Just realized my entire production database has been running without backups for 6 mon..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "MP Max Patel @maxpatel82 33m Interviewer: 'What's your biggest weakness?' Me: 'I mass-produce side projects that neve..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "ZP Zoe Park @zoepark39 45m TIL you can use CSS :has() selector in production now. Game changer for styling parent ele..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "RM Riley Meyer @rileymeyer88 58m Unpopular opinion: Monoliths are fine for 90% of startups. Stop over-engineering wit..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "QT Quinn Tanaka @quinntanaka26 1h My VS Code has more extensions than my app has users #IndieHacker #DevLife 24 138"
+        }
+      ],
+      "cases": []
+    }
+  },
+  "transcripts_found": true
+}

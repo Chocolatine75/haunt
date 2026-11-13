@@ -1,0 +1,437 @@
+{
+  "agents": [
+    {
+      "role": "orchestrator",
+      "tools": {
+        "ToolSearch": {
+          "calls": 2,
+          "chars": 0,
+          "max_chars": 0,
+          "errors": 0
+        },
+        "Bash": {
+          "calls": 1,
+          "chars": 5,
+          "max_chars": 5,
+          "errors": 0
+        },
+        "haunt_scout": {
+          "calls": 1,
+          "chars": 144,
+          "max_chars": 72,
+          "errors": 0
+        },
+        "Agent": {
+          "calls": 1,
+          "chars": 1098,
+          "max_chars": 1098,
+          "errors": 0
+        },
+        "haunt_sweep": {
+          "calls": 1,
+          "chars": 89,
+          "max_chars": 89,
+          "errors": 0
+        },
+        "haunt_generate_report": {
+          "calls": 1,
+          "chars": 6466,
+          "max_chars": 6466,
+          "errors": 0
+        }
+      },
+      "context_tokens": [
+        23068,
+        34289,
+        41460,
+        42991,
+        43565,
+        44365,
+        45140,
+        48533
+      ],
+      "output_tokens": 1183,
+      "images": 0,
+      "turns": 8,
+      "max_context_tokens": 48533,
+      "input_tokens_total": 323411,
+      "tool_chars_total": 7802
+    },
+    {
+      "role": "haunt:haunt-tester",
+      "tools": {
+        "haunt_spawn": {
+          "calls": 2,
+          "chars": 378,
+          "max_chars": 378,
+          "errors": 0
+        },
+        "haunt_capture_state": {
+          "calls": 6,
+          "chars": 8390,
+          "max_chars": 3728,
+          "errors": 0
+        },
+        "haunt_act": {
+          "calls": 36,
+          "chars": 70100,
+          "max_chars": 13770,
+          "errors": 4
+        },
+        "haunt_plan": {
+          "calls": 8,
+          "chars": 32143,
+          "max_chars": 9261,
+          "errors": 0
+        },
+        "haunt_end_session": {
+          "calls": 8,
+          "chars": 5846,
+          "max_chars": 1654,
+          "errors": 0
+        },
+        "SubagentHandback": {
+          "calls": 1,
+          "chars": 61,
+          "max_chars": 61,
+          "errors": 0
+        }
+      },
+      "context_tokens": [
+        16359,
+        19692,
+        21553,
+        28722,
+        30414,
+        33890,
+        36246,
+        37661,
+        41245,
+        43433,
+        44043,
+        47883,
+        48701,
+        50711,
+        54913,
+        56435,
+        57275,
+        61841,
+        63922,
+        65505,
+        66208,
+        67245,
+        72267,
+        74204,
+        74985,
+        76554,
+        77394
+      ],
+      "output_tokens": 7659,
+      "images": 3,
+      "turns": 27,
+      "max_context_tokens": 77394,
+      "input_tokens_total": 1369301,
+      "tool_chars_total": 116918
+    }
+  ],
+  "held_back": 3,
+  "act_refused_without_case": 4,
+  "sessions": {
+    "c44bad47-561c-4836-bf42-bec942ce0020": {
+      "steps": 34
+    }
+  },
+  "coverage": {
+    "controls": {
+      "listed": 79,
+      "exercised": 24
+    },
+    "cases": {
+      "planned": 9,
+      "run": 9,
+      "passed": 8,
+      "failed": 1
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Cancel"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "AI Agents"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "AI Agents"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Quantum Computing"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Spatial Computing (AR/VR)"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "Spatial Computing (AR/VR)"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Blockchain/Web3"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "Blockchain/Web3"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Biotech/Neurotech"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "Biotech/Neurotech"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Edge Computing"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "Edge Computing"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "\u25bc Discussion & Q&A 3"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "\u25b2 12"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "\ud83d\udcac Reply (2)"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "\u25b2 8"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "\u25b2 5"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "\u25b2 7"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "\ud83d\udcac Reply (1)"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "\u25b2 4"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Rust"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Go"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "TypeScript"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Python"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Zig"
+        },
+        {
+          "area": "/",
+          "role": "checkbox",
+          "name": "Zig"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Swift"
+        },
+        {
+          "area": "/",
+          "role": "checkbox",
+          "name": "Swift"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Kotlin"
+        },
+        {
+          "area": "/",
+          "role": "checkbox",
+          "name": "Kotlin"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Elixir"
+        },
+        {
+          "area": "/",
+          "role": "checkbox",
+          "name": "Elixir"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "\u25bc Discussion & Q&A 2"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "\u25b2 9"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "\u25b2 6"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "\u25b2 3"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "GitHub Copilot"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "GitHub Copilot"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Claude"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "Claude"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "ChatGPT"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Cursor"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "Cursor"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Codeium"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "Codeium"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "None \u2014 I prefer unassisted coding"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "None \u2014 I prefer unassisted coding"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "\u25b2 11"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "D Dana \u2699\ufe0f"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\ud83d\uddf3\ufe0f Someone just voted on \"What's your preferred AI coding assistan...\""
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "\u25b2 2"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "TechPulse Weekly Tech Debates & Discussions \ud83c\udf19 A Alex \u2699\ufe0f"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "TechPulse"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\ud83d\uddf3\ufe0f Someone just voted on \"What will be the most impactful technolo...\""
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "\u2600\ufe0f"
+        }
+      ],
+      "cases": []
+    }
+  },
+  "transcripts_found": true
+}

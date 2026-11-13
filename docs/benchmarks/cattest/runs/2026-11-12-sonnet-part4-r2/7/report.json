@@ -1,0 +1,126 @@
+{
+  "target_url": "http://localhost:4107/",
+  "date": "2026-11-12",
+  "coverage": {
+    "controls": {
+      "listed": 17,
+      "exercised": 8
+    },
+    "cases": {
+      "planned": 6,
+      "run": 6,
+      "passed": 4,
+      "failed": 2
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "option",
+          "name": "Chicken Parmesan recipe"
+        },
+        {
+          "area": "/",
+          "role": "option",
+          "name": "chicken breast ingredient"
+        },
+        {
+          "area": "/",
+          "role": "option",
+          "name": "Chicken Tacos al Pastor recipe"
+        },
+        {
+          "area": "/",
+          "role": "option",
+          "name": "chicken thighs ingredient"
+        },
+        {
+          "area": "/",
+          "role": "option",
+          "name": "Green Curry with Chicken recipe"
+        },
+        {
+          "area": "/",
+          "role": "option",
+          "name": "Thai Basil Chicken Stir-Fry recipe"
+        },
+        {
+          "area": "/",
+          "role": "option",
+          "name": "ground chicken ingredient"
+        },
+        {
+          "area": "/",
+          "role": "option",
+          "name": "Butter Chicken recipe"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Chicken Parmesan"
+        }
+      ],
+      "cases": []
+    }
+  },
+  "issues": [
+    {
+      "severity": "major",
+      "category": "ux",
+      "description": "Titles Only mode still matches descriptions (footer says 'Found in: 7 titles, 8 descriptions') and shows Coq au Vin, whose title lacks 'chicken'",
+      "page_url": "http://localhost:4107/",
+      "recommendation": "Only match titles in Titles Only mode",
+      "case": "titles2",
+      "verification": {
+        "status": "confirmed",
+        "attempts": 3,
+        "reproduced": 3,
+        "rate": 1,
+        "bundle": ".haunt-reports/evidence/ead154e0-45b4-414a-ac6a-e783d5d470ee/issue-2"
+      }
+    }
+  ],
+  "flaky": [],
+  "unverified": [],
+  "unchecked": [],
+  "rejected": [
+    {
+      "severity": "major",
+      "category": "ux",
+      "description": "Titles Only filter is on, but results include recipes whose title lacks the term (Coq au Vin matched via description/ingredient); 'Found in: 7 titles, 8 descriptions' shows count 8",
+      "page_url": "http://localhost:4107/",
+      "recommendation": "Restrict matching to titles when Titles Only is active",
+      "case": "titles",
+      "verification": {
+        "status": "rejected",
+        "attempts": 10,
+        "reproduced": 0,
+        "rate": 0,
+        "reason": "not_reproduced"
+      }
+    }
+  ],
+  "signals": [
+    {
+      "id": "s1",
+      "kind": "a11y",
+      "url": "http://localhost:4107/",
+      "step": 0,
+      "message": "Elements must meet minimum color contrast ratio thresholds (31 elements, among 200 checked of 549)",
+      "severity": "major",
+      "count": 1,
+      "rule": "color-contrast",
+      "impact": "serious",
+      "nodes": 31,
+      "refs": [
+        "e3"
+      ],
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    }
+  ],
+  "signal_counts": {
+    "total": 1,
+    "major": 1,
+    "minor": 0
+  }
+}

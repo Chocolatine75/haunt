@@ -1,0 +1,59 @@
+== orchestrator
+  > ToolSearch {"query": "select:mcp__plugin_haunt_haunt__haunt_scout,mcp__plugin_haunt_haunt__haunt_sweep,mcp__plugin_haunt_haunt__haunt_generate_report", "max_results": 5}
+    < 
+    < 
+  > Bash {"command": "echo"}
+    < (Bash completed with no output)
+  > haunt_scout {"target_url": "http://localhost:4143/"}
+    < {"routes":["/"],"title":"AuroraVoyager — 2025 Antarctica Expeditions"}
+  > Bash {"command": "echo \"haunt v0.2.0  —  QA testing\""}
+    < haunt v0.2.0  —  QA testing
+  says haunt v0.2.0  —  QA testing  scouting... routes: /  testing 1 areas...
+  > Agent {"description": "Test area /", "subagent_type": "haunt:haunt-tester", "prompt": "Area: http://localhost:4143/\nHeadless: true\nCookies: none\nSecrets: none\nHostile cases allowed: no\nBudget: 60 actions"}
+    < Async agent launched successfully. (This tool result is internal metadata — never quote or paste any part of it, including the agentId below, into a user-facing reply.) agentId: a6162d57dc4ee1415 (internal ID - do not mention to user. Use SendMessage with to: 'a6162d57dc4ee1415', summary: '<5-10 wor
+  says The tester is still running on `/`. I'll carry on once it reports back.
+  > haunt_sweep {"target_url": "http://localhost:4143/", "sessions": ["76366622-dc30-4f14-8806-9e56d46235a1"], "headless": true}
+    < {"session_id":"561c9baf-fb1c-45b6-befc-97372e1e695d","pressed":[{"role":"button","name":"Go to Experience section","group":"navigation: Section navigation","changed":false,"signals":[]},{"role":"button","name":"Go to Ship section","group":"navigation: Section navigation","changed":false,"signals":[]
+  > haunt_generate_report {"target_url": "http://localhost:4143/", "sessions": [{"session_id": "76366622-dc30-4f14-8806-9e56d46235a1", "area": "/", "overall_impression": "Hero button fails colour contrast; background videos 404 or never answer. Booking modal works (validation, thank-you, Escape closes)."}, {"session_id": "561c9baf-fb1c-45b6-befc-97372e1e695d", "area": "/", "overall_impression": "engine sweep"}]}
+    < {"report_path":".haunt-reports/2026-11-12-localhost-4143.md","markdown":"---\nhaunt: true\ntarget: http://localhost:4143/\ndate: 2026-11-12\nareas_tested: 2\nissues:\n  total: 2\n  critical: 0\n  major: 1\n  minor: 1\nsignals:\n  total: 6\n  major: 6\n  minor: 0\ntop_fix: \"Increase text/background 
+  says ---------------------------------------- 2 areas tested · 2 issues  6 more detected automatically (6 major)   [!!] 1 major   [!] 1 minor  no critical issues  fix first: Increase text/background contrast.  report: .haunt-reports/2026-11-12-localhost-4143.md ----------------------------------------
+== haunt:haunt-tester
+  > haunt_spawn {"target_url": "http://localhost:4143/", "budget": 60, "narrow_check": true, "keep_going": true}
+    < {"session_id":"76366622-dc30-4f14-8806-9e56d46235a1","signals":[{"url":"http://localhost:4143/","step":0,"method":"GET","request_url":"https://videos.pexels.com/video-files/857251/857251-hd_1920_1080_25fps.mp4","kind":"http_error","status":404,"resource_type":"media","message":"GET /video-files/8572
+  > haunt_spawn {"target_url": "http://localhost:4143/", "budget": 60, "narrow_check": true, "keep_going": true}
+  > haunt_capture_state {"session_id": "76366622-dc30-4f14-8806-9e56d46235a1", "include_screenshot": true}
+    < {"url":"http://localhost:4143/","title":"AuroraVoyager — 2025 Antarctica Expeditions","text":"Page: AuroraVoyager — 2025 Antarctica Expeditions\nURL: http://localhost:4143/\nScroll: 0 px above · 2,880 px below\n\n- button \"Go to Hero section\" [e1]\n- button \"Go to Experience section\" [e2]\n- but
+  > haunt_capture_state {"session_id": "76366622-dc30-4f14-8806-9e56d46235a1", "include_screenshot": true}
+  says Open the modal.
+  > haunt_act {"session_id": "76366622-dc30-4f14-8806-9e56d46235a1", "actions": [{"type": "click", "ref": "e8"}]}
+  > haunt_plan {"session_id": "76366622-dc30-4f14-8806-9e56d46235a1", "brief": true, "cases": [{"id": "empty-submit", "kind": "edge", "controls": ["e15"], "expect": "Submitting empty form shows validation and the modal stays"}, {"id": "esc", "kind": "keyboard", "controls": ["e10"], "expect": "Escape closes modal"}, {"id": "valid", "kind": "normal", "controls": ["e11", "e12", "e14", "e15"], "expect": "Valid submi
+    < {"results":[{"type":"click","ok":true,"changes":{"url_before":"http://localhost:4143/","url_after":"http://localhost:4143/","navigated":false,"tabs_opened":[],"tabs_closed":[],"focus_moved":true,"dom_changed":true,"none":false},"settled":false,"action_ms":76,"settle_ms":5027,"pending":["https://vide
+    < {"cases":[{"id":"empty-submit","kind":"edge","controls":["e15"],"expect":"Submitting empty form shows validation and the modal stays"},{"id":"esc","kind":"keyboard","controls":["e10"],"expect":"Escape closes modal"},{"id":"valid","kind":"normal","controls":["e11","e12","e14","e15"],"expect":"Valid s
+  > haunt_act {"session_id": "76366622-dc30-4f14-8806-9e56d46235a1", "actions": [{"type": "click", "ref": "e8"}]}
+  > haunt_plan {"session_id": "76366622-dc30-4f14-8806-9e56d46235a1", "brief": true, "cases": [{"id": "empty-submit", "kind": "edge", "controls": ["e15"], "expect": "Submitting empty form shows validation and the modal stays"}, {"id": "esc", "kind": "keyboard", "controls": ["e10"], "expect": "Escape closes modal"}, {"id": "valid", "kind": "normal", "controls": ["e11", "e12", "e14", "e15"], "expect": "Valid submi
+  > haunt_act {"session_id": "76366622-dc30-4f14-8806-9e56d46235a1", "actions": [{"type": "click", "ref": "e15"}], "case": "empty-submit", "expect": {"element": {"ref": "e16", "state": "visible"}}}
+    < {"results":[{"type":"click","ok":true,"changes":{"url_before":"http://localhost:4143/","url_after":"http://localhost:4143/","navigated":false,"tabs_opened":[],"tabs_closed":[],"focus_moved":true,"dom_changed":true,"none":false},"settled":true,"action_ms":88,"settle_ms":57}],"executed":1,"requested":
+  > haunt_act {"session_id": "76366622-dc30-4f14-8806-9e56d46235a1", "actions": [{"type": "press", "keys": "Escape"}], "case": "esc", "expect": {"element": {"ref": "e16", "state": "hidden"}}}
+    < {"results":[{"type":"press","ok":true,"changes":{"url_before":"http://localhost:4143/","url_after":"http://localhost:4143/","navigated":false,"tabs_opened":[],"tabs_closed":[],"focus_moved":true,"dom_changed":true,"none":false},"settled":true,"action_ms":61,"settle_ms":48}],"executed":1,"requested":
+  > haunt_act {"session_id": "76366622-dc30-4f14-8806-9e56d46235a1", "actions": [{"type": "click", "ref": "e15"}], "case": "empty-submit", "expect": {"element": {"ref": "e16", "state": "visible"}}}
+  > haunt_act {"session_id": "76366622-dc30-4f14-8806-9e56d46235a1", "actions": [{"type": "press", "keys": "Escape"}], "case": "esc", "expect": {"element": {"ref": "e16", "state": "hidden"}}}
+    < {"results":[{"type":"click","ok":true,"changes":{"url_before":"http://localhost:4143/","url_after":"http://localhost:4143/","navigated":false,"tabs_opened":[],"tabs_closed":[],"focus_moved":true,"dom_changed":true,"none":false},"settled":true,"action_ms":88,"settle_ms":57}],"executed":1,"requested":
+    < {"results":[{"type":"press","ok":true,"changes":{"url_before":"http://localhost:4143/","url_after":"http://localhost:4143/","navigated":false,"tabs_opened":[],"tabs_closed":[],"focus_moved":true,"dom_changed":true,"none":false},"settled":true,"action_ms":61,"settle_ms":48}],"executed":1,"requested":
+  > haunt_capture_state {"session_id": "76366622-dc30-4f14-8806-9e56d46235a1", "include_screenshot": true}
+    < {"url":"http://localhost:4143/","title":"AuroraVoyager — 2025 Antarctica Expeditions","text":"Page: AuroraVoyager — 2025 Antarctica Expeditions\nURL: http://localhost:4143/\nScroll: 2,756 px above · 124 px below\n\n- button \"Go to Hero section\" [e1]\n- button \"Go to Experience section\" [e2]\n- b
+  > haunt_capture_state {"session_id": "76366622-dc30-4f14-8806-9e56d46235a1", "include_screenshot": true}
+  > haunt_act {"session_id": "76366622-dc30-4f14-8806-9e56d46235a1", "actions": [{"type": "click", "ref": "e8"}, {"type": "fill", "ref": "e11", "text": "Anna Larsen"}, {"type": "fill", "ref": "e12", "text": "anna@example.com"}, {"type": "select", "ref": "e14", "values": ["January"]}, {"type": "click", "ref": "e15"}]}
+    < {"results":[{"type":"click","ok":true,"changes":{"url_before":"http://localhost:4143/","url_after":"http://localhost:4143/","navigated":false,"tabs_opened":[],"tabs_closed":[],"focus_moved":true,"dom_changed":true,"none":false},"settled":true,"action_ms":61,"settle_ms":423},{"type":"fill","ok":true,
+  > haunt_act {"session_id": "76366622-dc30-4f14-8806-9e56d46235a1", "actions": [{"type": "click", "ref": "e8"}, {"type": "fill", "ref": "e11", "text": "Anna Larsen"}, {"type": "fill", "ref": "e12", "text": "anna@example.com"}, {"type": "select", "ref": "e14", "values": ["January"]}, {"type": "click", "ref": "e15"}]}
+  > haunt_act {"session_id": "76366622-dc30-4f14-8806-9e56d46235a1", "actions": [{"type": "select", "ref": "e14", "values": ["January 2026"]}, {"type": "click", "ref": "e15"}], "case": "valid", "expect": {"text_present": "Thank"}}
+    < {"results":[{"type":"select","ok":true,"changes":{"url_before":"http://localhost:4143/","url_after":"http://localhost:4143/","navigated":false,"tabs_opened":[],"tabs_closed":[],"focus_moved":false,"dom_changed":true,"none":false},"settled":true,"action_ms":23,"settle_ms":43},{"type":"click","ok":tru
+  > haunt_act {"session_id": "76366622-dc30-4f14-8806-9e56d46235a1", "actions": [{"type": "select", "ref": "e14", "values": ["January 2026"]}, {"type": "click", "ref": "e15"}], "case": "valid", "expect": {"text_present": "Thank"}}
+  says Good. Quickly check Download button.
+  > haunt_act {"session_id": "76366622-dc30-4f14-8806-9e56d46235a1", "actions": [{"type": "click", "ref": "e9"}]}
+    < {"results":[{"type":"click","ok":false,"changes":{"url_before":"http://localhost:4143/","url_after":"http://localhost:4143/","navigated":false,"tabs_opened":[],"tabs_closed":[],"focus_moved":false,"dom_changed":false,"none":true},"settled":true,"action_ms":1748,"settle_ms":0,"error":{"code":"covered
+  > haunt_act {"session_id": "76366622-dc30-4f14-8806-9e56d46235a1", "actions": [{"type": "click", "ref": "e9"}]}
+  > haunt_end_session {"session_id": "76366622-dc30-4f14-8806-9e56d46235a1", "brief": true, "issues": [{"severity": "major", "category": "accessibility", "description": "Color contrast failure on the hero CTA 'Begin Your Journey'", "page_url": "http://localhost:4143/", "signal": "s2", "recommendation": "Increase text/background contrast."}, {"severity": "minor", "category": "ux", "description": "Background videos from 
+    < {"session_id":"76366622-dc30-4f14-8806-9e56d46235a1","step_count":11,"issues_found":[{"description":"Color contrast failure on the hero CTA 'Begin Your Journey'","severity":"major","status":"confirmed","bundle":".haunt-reports/evidence/76366622-dc30-4f14-8806-9e56d46235a1/issue-1"},{"description":"B
+  > haunt_end_session {"session_id": "76366622-dc30-4f14-8806-9e56d46235a1", "brief": true, "issues": [{"severity": "major", "category": "accessibility", "description": "Color contrast failure on the hero CTA 'Begin Your Journey'", "page_url": "http://localhost:4143/", "signal": "s2", "recommendation": "Increase text/background contrast."}, {"severity": "minor", "category": "ux", "description": "Background videos from 
+  > SubagentHandback {"message": "session: 76366622-dc30-4f14-8806-9e56d46235a1\nfound: Two issues confirmed. The hero \"Begin Your Journey\" button fails the colour-contrast check. The background videos on pexels.com either return 404 or never answer. The booking modal behaved correctly: empty submit is blocked with validation, a valid submit shows \"Thank You!\", and Escape closes it. The one failed case (\"esc\") w
+    < {"success":true,"message":"Report delivered to your caller."}

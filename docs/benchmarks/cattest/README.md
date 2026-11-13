@@ -62,9 +62,31 @@ A change is kept when, against the measure it changes:
 A change that finds the same and lowers `false`, `noise` or `cost` is kept
 too: it is the same tester, cheaper or easier to trust. Anything else is
 not called better, whatever a single run showed. The margins are what one
-version's runs differ by (5 to 7 bugs across the runs of 6, 7 and
-19 October); they are set again from the spread of the three reference
-runs once those exist.
+version's runs differ by: the three reference runs found 6, 7 and 8.
+
+## The reference
+
+Part 4 as merged into `v2` (haunt 7680ba0), Sonnet, no `--spec`: runs
+`2026-10-19-sonnet-part4` (r1), `2026-11-12-sonnet-part4-r2` and `-r3`.
+
+| Number | r1 | r2 | r3 | Measure |
+|---|---|---|---|---|
+| found | 6 | 7 | 8 | **7.0** |
+| stable | | | | **8** |
+| confirmed | 3 | 4 | 6 | **4.3** |
+| false | 7 | 5 | 5 | **5.7** |
+| noise | 33 | 162 | 138 | **111** |
+| cost | $4.29 | $4.84 | $4.57 | **$4.57** |
+
+Nine annotated bugs were found at least once: 7#1, 8#1, 30#2 and 46#1 in
+all three runs, 2#1, 22#4, 24#2 and 49#1 in two, 27#2 in one. Eighteen
+never were, among them every bug of apps 4, 41 and 43. Haunt finds a third
+of the annotated bugs, and each run catches about three quarters of what
+it can catch.
+
+Noise swings with third-party hosts: in r2 and r3, 123 of app 2's entries
+are its gallery images from a host that hung. It says nothing about haunt
+from one run to the next until those are grouped (#109).
 
 With 27 annotated bugs only large effects show. More applications
 (issue #74) make smaller ones visible.

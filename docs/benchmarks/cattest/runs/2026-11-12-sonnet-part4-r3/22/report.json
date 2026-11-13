@@ -1,0 +1,224 @@
+{
+  "target_url": "http://localhost:4122/",
+  "date": "2026-11-12",
+  "coverage": {
+    "controls": {
+      "listed": 33,
+      "exercised": 7
+    },
+    "cases": {
+      "planned": 8,
+      "run": 8,
+      "passed": 6,
+      "failed": 2
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "AB Alex Brown @alexbrown8 2m Just deployed my first Rust microservice to production. The memory safety guarantees are..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "SG Sam Garcia @samgarcia61 5m Hot take: TypeScript's type system is Turing complete and that's both amazing and terri..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "JL Jordan Larson @jordanlarson14 8m Day 45 of building my SaaS. Finally got payment integration working. Stripe's doc..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "BC Blake Chen @blakechen70 12m Anyone else think the AI code assistants are getting scary good? Just had one fix a bu..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "HM Harper Meyer @harpermeyer59 18m The amount of JavaScript frameworks released this week is too damn high 62 23 102"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "MK Mia Kumar @miakumar63 25m Just realized my entire production database has been running without backups for 6 month..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "JC Jordan Chen @jordanchen33 33m Interviewer: 'What's your biggest weakness?' Me: 'I mass-produce side projects that ..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "JK Jane Kumar @janekumar40 45m TIL you can use CSS :has() selector in production now. Game changer for styling parent..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "HS Harper Singh @harpersingh57 58m Unpopular opinion: Monoliths are fine for 90% of startups. Stop over-engineering w..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "JK Jane Kumar @janekumar32 1h My VS Code has more extensions than my app has users #IndieHacker #DevLife 46 408"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Y You @currentuser now Hello Chirp"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "AT Avery Tanaka @averytanaka94 3m The best career advice I ever got: 'Be the person who writes the documentation.' It..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "JS Jordan Scott @jordanscott97 4m Python 3.12 performance improvements are no joke. Seeing 15-20% speedups on our ML ..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "EM Eli Meyer @elimeyer8 3m Had a production incident at 3 AM. Root cause: someone hardcoded a date that assumed Febru..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Chirp"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Show new posts"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "RL Riley Lee @rileylee73 2m Just deployed my first Rust microservice to production. The memory safety guarantees are ..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "MZ Morgan Zhang @morganzhang55 5m Hot take: TypeScript's type system is Turing complete and that's both amazing and t..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "AL Avery Lee @averylee87 8m Day 45 of building my SaaS. Finally got payment integration working. Stripe's docs are ch..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "RL Rowan Lee @rowanlee23 12m Anyone else think the AI code assistants are getting scary good? Just had one fix a bug ..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "RW Rowan Williams @rowanwilliams94 18m The amount of JavaScript frameworks released this week is too damn high 40 36 23"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "MO Max Okafor @maxokafor23 25m Just realized my entire production database has been running without backups for 6 mon..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "LL Leo Larson @leolarson31 33m Interviewer: 'What's your biggest weakness?' Me: 'I mass-produce side projects that ne..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "SO Skyler Okafor @skylerokafor8 45m TIL you can use CSS :has() selector in production now. Game changer for styling p..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "FJ Finley Johnson @finleyjohnson30 58m Unpopular opinion: Monoliths are fine for 90% of startups. Stop over-engineeri..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "RG Reese Garcia @reesegarcia58 1h My VS Code has more extensions than my app has users #IndieHacker #DevLife 4 1 241"
+        }
+      ],
+      "cases": []
+    }
+  },
+  "issues": [],
+  "flaky": [],
+  "unverified": [],
+  "unchecked": [
+    {
+      "severity": "minor",
+      "category": "ux",
+      "description": "Post button is enabled when the composer contains only spaces",
+      "page_url": "http://localhost:4122/",
+      "recommendation": "Trim input before enabling Post and before submitting",
+      "case": "spaces",
+      "verification": {
+        "status": "unchecked",
+        "attempts": 10,
+        "reproduced": 0,
+        "rate": 0,
+        "reason": "not_replayable",
+        "failed_step": 3
+      }
+    },
+    {
+      "severity": "minor",
+      "category": "ux",
+      "description": "Reply button gives no feedback: no dialog, no count change, nothing happens",
+      "page_url": "http://localhost:4122/",
+      "recommendation": "Implement reply or disable the control",
+      "case": "reply",
+      "verification": {
+        "status": "unchecked",
+        "attempts": 10,
+        "reproduced": 0,
+        "rate": 0,
+        "reason": "not_replayable",
+        "failed_step": 3
+      }
+    },
+    {
+      "severity": "minor",
+      "category": "ux",
+      "description": "Post button looks enabled with whitespace-only text but clicking does nothing (dead control)",
+      "page_url": "http://localhost:4122/",
+      "recommendation": "Keep Post disabled for whitespace-only input",
+      "signal": "s1",
+      "verification": {
+        "status": "unchecked",
+        "attempts": 10,
+        "reproduced": 0,
+        "rate": 0,
+        "reason": "not_replayable",
+        "failed_step": 3
+      }
+    }
+  ],
+  "rejected": [],
+  "signals": [
+    {
+      "id": "s1",
+      "kind": "dead_control",
+      "url": "http://localhost:4122/",
+      "step": 12,
+      "message": "Clicking the button \"Post\" changed nothing",
+      "severity": "major",
+      "count": 1,
+      "ref": "e3",
+      "role": "button",
+      "name": "Post"
+    }
+  ],
+  "signal_counts": {
+    "total": 0,
+    "major": 0,
+    "minor": 0
+  }
+}

@@ -1,0 +1,202 @@
+{
+  "agents": [
+    {
+      "role": "orchestrator",
+      "tools": {
+        "ToolSearch": {
+          "calls": 1,
+          "chars": 0,
+          "max_chars": 0,
+          "errors": 0
+        },
+        "Bash": {
+          "calls": 1,
+          "chars": 31,
+          "max_chars": 31,
+          "errors": 0
+        },
+        "haunt_scout": {
+          "calls": 1,
+          "chars": 53,
+          "max_chars": 53,
+          "errors": 0
+        },
+        "Agent": {
+          "calls": 1,
+          "chars": 1097,
+          "max_chars": 1097,
+          "errors": 0
+        },
+        "haunt_sweep": {
+          "calls": 1,
+          "chars": 89,
+          "max_chars": 89,
+          "errors": 0
+        },
+        "haunt_generate_report": {
+          "calls": 1,
+          "chars": 3832,
+          "max_chars": 3832,
+          "errors": 0
+        }
+      },
+      "context_tokens": [
+        23068,
+        33141,
+        41454,
+        41585,
+        42148,
+        42928,
+        43712,
+        45808
+      ],
+      "output_tokens": 1114,
+      "images": 0,
+      "turns": 8,
+      "max_context_tokens": 45808,
+      "input_tokens_total": 313844,
+      "tool_chars_total": 5102
+    },
+    {
+      "role": "haunt:haunt-tester",
+      "tools": {
+        "haunt_spawn": {
+          "calls": 2,
+          "chars": 407,
+          "max_chars": 407,
+          "errors": 0
+        },
+        "haunt_capture_state": {
+          "calls": 12,
+          "chars": 33905,
+          "max_chars": 13069,
+          "errors": 0
+        },
+        "haunt_plan": {
+          "calls": 2,
+          "chars": 2424,
+          "max_chars": 1212,
+          "errors": 0
+        },
+        "haunt_act": {
+          "calls": 24,
+          "chars": 29367,
+          "max_chars": 3861,
+          "errors": 0
+        },
+        "haunt_end_session": {
+          "calls": 6,
+          "chars": 2164,
+          "max_chars": 816,
+          "errors": 0
+        },
+        "SubagentHandback": {
+          "calls": 1,
+          "chars": 61,
+          "max_chars": 61,
+          "errors": 0
+        }
+      },
+      "context_tokens": [
+        16359,
+        19708,
+        27445,
+        30419,
+        32588,
+        33453,
+        35157,
+        35748,
+        36361,
+        37425,
+        38369,
+        38826,
+        39371,
+        42039,
+        43617,
+        44242,
+        52002,
+        52702,
+        55417,
+        55847,
+        56682,
+        57226
+      ],
+      "output_tokens": 5460,
+      "images": 4,
+      "turns": 22,
+      "max_context_tokens": 57226,
+      "input_tokens_total": 881003,
+      "tool_chars_total": 68328
+    }
+  ],
+  "held_back": 2,
+  "act_refused_without_case": 0,
+  "sessions": {
+    "7f002c06-c5ec-4b6a-9da8-d25daeaa6154": {
+      "steps": 23
+    }
+  },
+  "coverage": {
+    "controls": {
+      "listed": 17,
+      "exercised": 8
+    },
+    "cases": {
+      "planned": 6,
+      "run": 6,
+      "passed": 4,
+      "failed": 2
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "option",
+          "name": "Chicken Parmesan recipe"
+        },
+        {
+          "area": "/",
+          "role": "option",
+          "name": "chicken breast ingredient"
+        },
+        {
+          "area": "/",
+          "role": "option",
+          "name": "Chicken Tacos al Pastor recipe"
+        },
+        {
+          "area": "/",
+          "role": "option",
+          "name": "chicken thighs ingredient"
+        },
+        {
+          "area": "/",
+          "role": "option",
+          "name": "Green Curry with Chicken recipe"
+        },
+        {
+          "area": "/",
+          "role": "option",
+          "name": "Thai Basil Chicken Stir-Fry recipe"
+        },
+        {
+          "area": "/",
+          "role": "option",
+          "name": "ground chicken ingredient"
+        },
+        {
+          "area": "/",
+          "role": "option",
+          "name": "Butter Chicken recipe"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Chicken Parmesan"
+        }
+      ],
+      "cases": []
+    }
+  },
+  "transcripts_found": true
+}

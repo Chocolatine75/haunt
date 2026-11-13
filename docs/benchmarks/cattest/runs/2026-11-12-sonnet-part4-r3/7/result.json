@@ -1,0 +1,29 @@
+{
+  "app": 7,
+  "model": "sonnet",
+  "haunt": "HEAD@7680ba0",
+  "date": "2026-11-12 21:25",
+  "seconds": 97,
+  "cost_usd": 0.42803410000000003,
+  "turns": 3,
+  "is_error": false,
+  "model_usage": {
+    "claude-sonnet-5-5": {
+      "inputTokens": 62,
+      "outputTokens": 6574,
+      "cacheReadInputTokens": 1116621,
+      "cacheCreationInputTokens": 78164,
+      "webSearchRequests": 0,
+      "costUSD": 0.42803410000000003,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 741,
+      "cacheCreationEphemeral5mInputTokens": 41432,
+      "cacheCreationEphemeral1hInputTokens": 36732,
+      "canonicalModel": "claude-sonnet-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "printed": "```\n----------------------------------------\n2 areas tested \u00b7 2 issues\n\n [!!] 1 major\n  [!] 1 minor\n\nno critical issues\n\nfix first: Make the scope filters restrict matching and show a pressed state\n\nreport: .haunt-reports/2026-11-12-localhost-4107.md\n----------------------------------------\n```"
+}
