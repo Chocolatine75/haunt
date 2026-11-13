@@ -1,0 +1,29 @@
+{
+  "app": 30,
+  "model": "sonnet",
+  "haunt": "HEAD@7680ba0",
+  "date": "2026-11-12 20:59",
+  "seconds": 133,
+  "cost_usd": 0.4897689,
+  "turns": 3,
+  "is_error": false,
+  "model_usage": {
+    "claude-sonnet-5-5": {
+      "inputTokens": 58,
+      "outputTokens": 7416,
+      "cacheReadInputTokens": 1121909,
+      "cacheCreationInputTokens": 96953,
+      "webSearchRequests": 0,
+      "costUSD": 0.4897689,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 936,
+      "cacheCreationEphemeral5mInputTokens": 56340,
+      "cacheCreationEphemeral1hInputTokens": 40613,
+      "canonicalModel": "claude-sonnet-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "printed": "```\n----------------------------------------\n2 areas tested \u00b7 1 issues\n\n  [!] 1 minor\n\nno critical issues\n\nfix first: Increase contrast of muted text.\n\nreport: .haunt-reports/2026-11-12-localhost-4130.md\n----------------------------------------\n```"
+}

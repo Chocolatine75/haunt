@@ -1,0 +1,222 @@
+{
+  "target_url": "http://localhost:4143/",
+  "date": "2026-11-13",
+  "coverage": {
+    "controls": {
+      "listed": 17,
+      "exercised": 12
+    },
+    "cases": {
+      "planned": 2,
+      "run": 2,
+      "passed": 2,
+      "failed": 0
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "link",
+          "name": "Begin Your Journey"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Close modal"
+        },
+        {
+          "area": "/",
+          "role": "textbox",
+          "name": "Phone (Optional)"
+        },
+        {
+          "area": "/",
+          "role": "dialog",
+          "name": "Book Your Consultation"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "× Book Your Consultation Complete the form below and our expedition team will reach out within 24 hours. Full Name * ..."
+        }
+      ],
+      "cases": []
+    }
+  },
+  "issues": [
+    {
+      "severity": "minor",
+      "category": "accessibility",
+      "description": "Begin Your Journey link has insufficient color contrast.",
+      "page_url": "http://localhost:4143/",
+      "recommendation": "Raise contrast to 4.5:1.",
+      "signal": "s2",
+      "verification": {
+        "status": "confirmed",
+        "attempts": 3,
+        "reproduced": 3,
+        "rate": 1,
+        "bundle": ".haunt-reports/evidence/a19a989a-6da1-4990-b484-e6b81af5262b/issue-2"
+      },
+      "signals": [
+        {
+          "id": "s2",
+          "kind": "a11y",
+          "url": "http://localhost:4143/",
+          "step": 0,
+          "message": "Elements must meet minimum color contrast ratio thresholds (1 element)",
+          "severity": "major",
+          "count": 1,
+          "rule": "color-contrast",
+          "impact": "serious",
+          "nodes": 1,
+          "refs": [
+            "e7"
+          ],
+          "help": "Elements must meet minimum color contrast ratio thresholds"
+        }
+      ]
+    },
+    {
+      "severity": "minor",
+      "category": "content",
+      "description": "Hero background video from pexels returns 404.",
+      "page_url": "http://localhost:4143/",
+      "recommendation": "Replace the video URL and add a poster fallback.",
+      "signal": "s1",
+      "verification": {
+        "status": "confirmed",
+        "attempts": 3,
+        "reproduced": 3,
+        "rate": 1,
+        "bundle": ".haunt-reports/evidence/a19a989a-6da1-4990-b484-e6b81af5262b/issue-3"
+      },
+      "signals": [
+        {
+          "id": "s1",
+          "kind": "http_error",
+          "url": "http://localhost:4143/",
+          "step": 0,
+          "message": "GET /video-files/857251/857251-hd_1920_1080_25fps.mp4 answered 404",
+          "severity": "minor",
+          "count": 1,
+          "method": "GET",
+          "request_url": "https://videos.pexels.com/video-files/857251/857251-hd_1920_1080_25fps.mp4",
+          "status": 404,
+          "resource_type": "media"
+        },
+        {
+          "id": "s3",
+          "kind": "http_error",
+          "url": "http://localhost:4143/",
+          "step": 1,
+          "message": "GET /video-files/857251/857251-hd_1920_1080_25fps.mp4 answered 404",
+          "severity": "minor",
+          "count": 1,
+          "method": "GET",
+          "request_url": "https://videos.pexels.com/video-files/857251/857251-hd_1920_1080_25fps.mp4",
+          "status": 404,
+          "resource_type": "media",
+          "feedback": true
+        },
+        {
+          "id": "s1",
+          "kind": "http_error",
+          "url": "http://localhost:4143/",
+          "step": 0,
+          "message": "GET /video-files/857251/857251-hd_1920_1080_25fps.mp4 answered 404",
+          "severity": "minor",
+          "count": 1,
+          "method": "GET",
+          "request_url": "https://videos.pexels.com/video-files/857251/857251-hd_1920_1080_25fps.mp4",
+          "status": 404,
+          "resource_type": "media"
+        }
+      ]
+    }
+  ],
+  "flaky": [],
+  "unverified": [],
+  "unchecked": [
+    {
+      "severity": "major",
+      "category": "ux",
+      "description": "Download Expedition Guide button does nothing when clicked: no download, dialog, or message.",
+      "page_url": "http://localhost:4143/",
+      "recommendation": "Wire it to a download or lead form, or give feedback.",
+      "expected": "A download starts or a form or message appears",
+      "actual": "No change at all after click",
+      "verification": {
+        "status": "unchecked",
+        "attempts": 3,
+        "reproduced": 3,
+        "rate": 1,
+        "bundle": ".haunt-reports/evidence/a19a989a-6da1-4990-b484-e6b81af5262b/issue-1"
+      }
+    }
+  ],
+  "rejected": [],
+  "signals": [
+    {
+      "id": "s1",
+      "kind": "http_error",
+      "url": "http://localhost:4143/",
+      "step": 0,
+      "message": "GET /video-files/857251/857251-hd_1920_1080_25fps.mp4 answered 404",
+      "severity": "minor",
+      "count": 1,
+      "method": "GET",
+      "request_url": "https://videos.pexels.com/video-files/857251/857251-hd_1920_1080_25fps.mp4",
+      "status": 404,
+      "resource_type": "media"
+    },
+    {
+      "id": "s2",
+      "kind": "a11y",
+      "url": "http://localhost:4143/",
+      "step": 0,
+      "message": "Elements must meet minimum color contrast ratio thresholds (1 element)",
+      "severity": "major",
+      "count": 1,
+      "rule": "color-contrast",
+      "impact": "serious",
+      "nodes": 1,
+      "refs": [
+        "e7"
+      ],
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "id": "s3",
+      "kind": "http_error",
+      "url": "http://localhost:4143/",
+      "step": 1,
+      "message": "GET /video-files/857251/857251-hd_1920_1080_25fps.mp4 answered 404",
+      "severity": "minor",
+      "count": 1,
+      "method": "GET",
+      "request_url": "https://videos.pexels.com/video-files/857251/857251-hd_1920_1080_25fps.mp4",
+      "status": 404,
+      "resource_type": "media",
+      "feedback": true
+    },
+    {
+      "id": "s1",
+      "kind": "http_error",
+      "url": "http://localhost:4143/",
+      "step": 0,
+      "message": "GET /video-files/857251/857251-hd_1920_1080_25fps.mp4 answered 404",
+      "severity": "minor",
+      "count": 1,
+      "method": "GET",
+      "request_url": "https://videos.pexels.com/video-files/857251/857251-hd_1920_1080_25fps.mp4",
+      "status": 404,
+      "resource_type": "media"
+    }
+  ],
+  "signal_counts": {
+    "total": 0,
+    "major": 0,
+    "minor": 0
+  }
+}

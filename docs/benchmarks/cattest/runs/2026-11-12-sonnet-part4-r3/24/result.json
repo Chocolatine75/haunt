@@ -1,0 +1,29 @@
+{
+  "app": 24,
+  "model": "sonnet",
+  "haunt": "HEAD@7680ba0",
+  "date": "2026-11-12 21:32",
+  "seconds": 93,
+  "cost_usd": 0.43527859999999996,
+  "turns": 8,
+  "is_error": false,
+  "model_usage": {
+    "claude-sonnet-5-5": {
+      "inputTokens": 62,
+      "outputTokens": 7353,
+      "cacheReadInputTokens": 1091291,
+      "cacheCreationInputTokens": 79607,
+      "webSearchRequests": 0,
+      "costUSD": 0.43527859999999996,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 747,
+      "cacheCreationEphemeral5mInputTokens": 43955,
+      "cacheCreationEphemeral1hInputTokens": 35652,
+      "canonicalModel": "claude-sonnet-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "printed": "----------------------------------------\n2 areas tested \u00b7 1 issues\n\n [!!] 1 major\n\nno critical issues\n\nfix first: Add aria-label to each icon button.\n\nreport: .haunt-reports/2026-11-12-localhost-4124.md\n----------------------------------------"
+}

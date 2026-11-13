@@ -1,0 +1,29 @@
+{
+  "app": 27,
+  "model": "sonnet",
+  "haunt": "HEAD@7680ba0",
+  "date": "2026-11-12 20:57",
+  "seconds": 129,
+  "cost_usd": 0.5974549000000002,
+  "turns": 3,
+  "is_error": false,
+  "model_usage": {
+    "claude-sonnet-5-5": {
+      "inputTokens": 74,
+      "outputTokens": 8842,
+      "cacheReadInputTokens": 1575789,
+      "cacheCreationInputTokens": 116849,
+      "webSearchRequests": 0,
+      "costUSD": 0.5974549000000002,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 1253,
+      "cacheCreationEphemeral5mInputTokens": 77392,
+      "cacheCreationEphemeral1hInputTokens": 39457,
+      "canonicalModel": "claude-sonnet-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "printed": "```\n----------------------------------------\n2 areas tested \u00b7 3 issues\n\n1 more detected automatically (1 major)\n\n  [!] 3 minor\n\nno critical issues\n\nfix first: Show a validation message, or disable the button until there is input.\n\nreport: .haunt-reports/2026-11-12-localhost-4127.md\n----------------------------------------\n```"
+}

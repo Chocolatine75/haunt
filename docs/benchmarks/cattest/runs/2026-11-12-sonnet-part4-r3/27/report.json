@@ -1,0 +1,391 @@
+{
+  "target_url": "http://localhost:4127/",
+  "date": "2026-11-12",
+  "coverage": {
+    "controls": {
+      "listed": 72,
+      "exercised": 18
+    },
+    "cases": {
+      "planned": 4,
+      "run": 4,
+      "passed": 1,
+      "failed": 3
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Cancel"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "AI Agents"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Quantum Computing"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "Quantum Computing"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Spatial Computing (AR/VR)"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "Spatial Computing (AR/VR)"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Blockchain/Web3"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "Blockchain/Web3"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Biotech/Neurotech"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "Biotech/Neurotech"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Edge Computing"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "Edge Computing"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Most Upvoted"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "▲ 12"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "💬 Reply (2)"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "▲ 8"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "▲ 5"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "▲ 7"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "💬 Reply (1)"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "▲ 4"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "💬 Reply (0)"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Rust"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Go"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "TypeScript"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Python"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Zig"
+        },
+        {
+          "area": "/",
+          "role": "checkbox",
+          "name": "Zig"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Swift"
+        },
+        {
+          "area": "/",
+          "role": "checkbox",
+          "name": "Swift"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Kotlin"
+        },
+        {
+          "area": "/",
+          "role": "checkbox",
+          "name": "Kotlin"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Elixir"
+        },
+        {
+          "area": "/",
+          "role": "checkbox",
+          "name": "Elixir"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "▼ Discussion & Q&A 2"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "▲ 9"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "▲ 6"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "▲ 3"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "GitHub Copilot"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "GitHub Copilot"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Claude"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "Claude"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "ChatGPT"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "ChatGPT"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Cursor"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "Cursor"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Codeium"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "Codeium"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "None — I prefer unassisted coding"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "None — I prefer unassisted coding"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "▲ 0"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "TechPulse Weekly Tech Debates & Discussions 🌙 SL Sam Lee ⚙️"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Change Display Name Cancel Update"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "TechPulse"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "☀️"
+        }
+      ],
+      "cases": []
+    }
+  },
+  "issues": [
+    {
+      "severity": "major",
+      "category": "ux",
+      "description": "Multi-choice poll says 'pick up to 3' but a 4th option can be checked; counter stays 3/3",
+      "page_url": "http://localhost:4127/",
+      "recommendation": "Block or disable a 4th selection",
+      "case": "multi",
+      "verification": {
+        "status": "confirmed",
+        "attempts": 3,
+        "reproduced": 3,
+        "rate": 1,
+        "bundle": ".haunt-reports/evidence/bfe0449d-363a-4e53-9e2e-cee02d032f3a/issue-1"
+      }
+    },
+    {
+      "severity": "minor",
+      "category": "ux",
+      "description": "Updating display name with blank input does nothing and gives no error message",
+      "page_url": "http://localhost:4127/",
+      "recommendation": "Show validation message",
+      "signal": "s2",
+      "verification": {
+        "status": "confirmed",
+        "attempts": 3,
+        "reproduced": 3,
+        "rate": 1,
+        "bundle": ".haunt-reports/evidence/bfe0449d-363a-4e53-9e2e-cee02d032f3a/issue-2"
+      },
+      "signals": [
+        {
+          "id": "s2",
+          "kind": "dead_control",
+          "url": "http://localhost:4127/",
+          "step": 17,
+          "message": "Clicking the button \"Update\" changed nothing",
+          "severity": "major",
+          "count": 1,
+          "ref": "e5",
+          "role": "button",
+          "name": "Update"
+        }
+      ]
+    },
+    {
+      "severity": "minor",
+      "category": "ux",
+      "description": "Share button gives no visible feedback when clicked",
+      "page_url": "http://localhost:4127/",
+      "recommendation": "Show a copied confirmation",
+      "case": "share",
+      "verification": {
+        "status": "confirmed",
+        "attempts": 3,
+        "reproduced": 3,
+        "rate": 1,
+        "bundle": ".haunt-reports/evidence/bfe0449d-363a-4e53-9e2e-cee02d032f3a/issue-3"
+      }
+    }
+  ],
+  "flaky": [],
+  "unverified": [],
+  "unchecked": [],
+  "rejected": [],
+  "signals": [
+    {
+      "id": "s1",
+      "kind": "a11y",
+      "url": "http://localhost:4127/",
+      "step": 0,
+      "message": "Elements must meet minimum color contrast ratio thresholds (1 element)",
+      "severity": "major",
+      "count": 1,
+      "rule": "color-contrast",
+      "impact": "serious",
+      "nodes": 1,
+      "refs": [
+        "e2"
+      ],
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "id": "s2",
+      "kind": "dead_control",
+      "url": "http://localhost:4127/",
+      "step": 17,
+      "message": "Clicking the button \"Update\" changed nothing",
+      "severity": "major",
+      "count": 1,
+      "ref": "e5",
+      "role": "button",
+      "name": "Update"
+    }
+  ],
+  "signal_counts": {
+    "total": 1,
+    "major": 1,
+    "minor": 0
+  }
+}

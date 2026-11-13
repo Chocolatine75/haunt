@@ -1,0 +1,165 @@
+{
+  "target_url": "http://localhost:4124/",
+  "date": "2026-11-12",
+  "coverage": {
+    "controls": {
+      "listed": 19,
+      "exercised": 8
+    },
+    "cases": {
+      "planned": 5,
+      "run": 5,
+      "passed": 5,
+      "failed": 0
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Dashboard"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Projects"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Messages"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Settings"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Stop Sharing"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "00:00:15"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Expand to full view"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": ""
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Participants (2) ×"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "A Alex (You) 🎤 📷 J Jordan 🎤 📷"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "00:00:03"
+        }
+      ],
+      "cases": []
+    }
+  },
+  "issues": [
+    {
+      "severity": "major",
+      "category": "accessibility",
+      "description": "Six call control buttons (mic, camera, volume, share, participants, end call) have no accessible name; only a visual tooltip on hover.",
+      "page_url": "http://localhost:4124/",
+      "recommendation": "Add aria-label to each icon button.",
+      "signal": "s1",
+      "verification": {
+        "status": "confirmed",
+        "attempts": 3,
+        "reproduced": 3,
+        "rate": 1,
+        "bundle": ".haunt-reports/evidence/1897a52a-0318-42c3-924a-c18eb7652958/issue-1"
+      },
+      "signals": [
+        {
+          "id": "s1",
+          "kind": "a11y",
+          "url": "http://localhost:4124/",
+          "step": 0,
+          "message": "Buttons must have discernible text (6 elements)",
+          "severity": "major",
+          "count": 1,
+          "rule": "button-name",
+          "impact": "critical",
+          "nodes": 6,
+          "refs": [
+            "e10",
+            "e12",
+            "e13",
+            "e14",
+            "e8",
+            "e9"
+          ],
+          "help": "Buttons must have discernible text"
+        }
+      ]
+    }
+  ],
+  "flaky": [],
+  "unverified": [],
+  "unchecked": [
+    {
+      "severity": "minor",
+      "category": "ux",
+      "description": "While screen sharing, Jordan's self-view tile overlaps the minimize button at top right; the Stop Sharing button is covered by an overlay element and cannot be clicked.",
+      "page_url": "http://localhost:4124/",
+      "recommendation": "Reposition the self tile and ensure Stop Sharing is on top.",
+      "expected": "Minimize and Stop Sharing remain visible and clickable while sharing",
+      "actual": "Tile covers minimize button; Stop Sharing reported covered by another element",
+      "verification": {
+        "status": "unchecked",
+        "attempts": 3,
+        "reproduced": 3,
+        "rate": 1,
+        "bundle": ".haunt-reports/evidence/1897a52a-0318-42c3-924a-c18eb7652958/issue-2"
+      }
+    }
+  ],
+  "rejected": [],
+  "signals": [
+    {
+      "id": "s1",
+      "kind": "a11y",
+      "url": "http://localhost:4124/",
+      "step": 0,
+      "message": "Buttons must have discernible text (6 elements)",
+      "severity": "major",
+      "count": 1,
+      "rule": "button-name",
+      "impact": "critical",
+      "nodes": 6,
+      "refs": [
+        "e10",
+        "e12",
+        "e13",
+        "e14",
+        "e8",
+        "e9"
+      ],
+      "help": "Buttons must have discernible text"
+    }
+  ],
+  "signal_counts": {
+    "total": 0,
+    "major": 0,
+    "minor": 0
+  }
+}

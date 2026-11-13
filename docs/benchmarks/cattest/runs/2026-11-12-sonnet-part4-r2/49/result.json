@@ -1,0 +1,29 @@
+{
+  "app": 49,
+  "model": "sonnet",
+  "haunt": "HEAD@7680ba0",
+  "date": "2026-11-12 21:11",
+  "seconds": 64,
+  "cost_usd": 0.29294749999999997,
+  "turns": 8,
+  "is_error": false,
+  "model_usage": {
+    "claude-sonnet-5-5": {
+      "inputTokens": 44,
+      "outputTokens": 4431,
+      "cacheReadInputTokens": 612760,
+      "cacheCreationInputTokens": 53265,
+      "webSearchRequests": 0,
+      "costUSD": 0.29294749999999997,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 162,
+      "cacheCreationEphemeral5mInputTokens": 17191,
+      "cacheCreationEphemeral1hInputTokens": 36074,
+      "canonicalModel": "claude-sonnet-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "printed": "```\n----------------------------------------\n2 areas tested \u00b7 1 issues\n\n1 more detected automatically (1 major)\n\n [!!] 1 major\n\nno critical issues\n\nfix first: Use a small keyboard step (1-5) and keep aria value in sync with the handle position.\n\nreport: .haunt-reports/2026-11-12-localhost-4149.md\n----------------------------------------\n```"
+}

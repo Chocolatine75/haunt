@@ -1,0 +1,128 @@
+{
+  "target_url": "http://localhost:4141/",
+  "date": "2026-11-12",
+  "coverage": {
+    "controls": {
+      "listed": 11,
+      "exercised": 5
+    },
+    "cases": {
+      "planned": 2,
+      "run": 2,
+      "passed": 1,
+      "failed": 1
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "link",
+          "name": "The Highlands"
+        },
+        {
+          "area": "/",
+          "role": "link",
+          "name": "The Harvest"
+        },
+        {
+          "area": "/",
+          "role": "link",
+          "name": "The Craft"
+        },
+        {
+          "area": "/",
+          "role": "link",
+          "name": "The Roast"
+        },
+        {
+          "area": "/",
+          "role": "link",
+          "name": "Your Cup"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "☕ Brewing your experience..."
+        }
+      ],
+      "cases": []
+    }
+  },
+  "issues": [
+    {
+      "severity": "major",
+      "category": "ux",
+      "description": "Pre-Order Now button does nothing when clicked: no feedback, no navigation, no cart/dialog.",
+      "page_url": "http://localhost:4141/",
+      "recommendation": "Wire the button to a pre-order flow or show confirmation.",
+      "case": "preorder",
+      "verification": {
+        "status": "confirmed",
+        "attempts": 3,
+        "reproduced": 3,
+        "rate": 1,
+        "bundle": ".haunt-reports/evidence/49c6ddb6-b252-4e70-81f9-88e09a2593e9/issue-1"
+      }
+    },
+    {
+      "severity": "minor",
+      "category": "accessibility",
+      "description": "Color contrast failures (axe color-contrast, 2 elements) on the landing page.",
+      "page_url": "http://localhost:4141/",
+      "recommendation": "Raise text contrast to 4.5:1.",
+      "signal": "s1",
+      "verification": {
+        "status": "confirmed",
+        "attempts": 3,
+        "reproduced": 3,
+        "rate": 1,
+        "bundle": ".haunt-reports/evidence/49c6ddb6-b252-4e70-81f9-88e09a2593e9/issue-2"
+      },
+      "signals": [
+        {
+          "id": "s1",
+          "kind": "a11y",
+          "url": "http://localhost:4141/",
+          "step": 0,
+          "message": "Elements must meet minimum color contrast ratio thresholds (2 elements)",
+          "severity": "major",
+          "count": 1,
+          "rule": "color-contrast",
+          "impact": "serious",
+          "nodes": 2,
+          "refs": [
+            "e3"
+          ],
+          "help": "Elements must meet minimum color contrast ratio thresholds"
+        }
+      ]
+    }
+  ],
+  "flaky": [],
+  "unverified": [],
+  "unchecked": [],
+  "rejected": [],
+  "signals": [
+    {
+      "id": "s1",
+      "kind": "a11y",
+      "url": "http://localhost:4141/",
+      "step": 0,
+      "message": "Elements must meet minimum color contrast ratio thresholds (2 elements)",
+      "severity": "major",
+      "count": 1,
+      "rule": "color-contrast",
+      "impact": "serious",
+      "nodes": 2,
+      "refs": [
+        "e3"
+      ],
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    }
+  ],
+  "signal_counts": {
+    "total": 0,
+    "major": 0,
+    "minor": 0
+  }
+}

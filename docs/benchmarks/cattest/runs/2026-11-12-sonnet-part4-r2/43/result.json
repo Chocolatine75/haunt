@@ -1,0 +1,29 @@
+{
+  "app": 43,
+  "model": "sonnet",
+  "haunt": "HEAD@7680ba0",
+  "date": "2026-11-12 21:07",
+  "seconds": 390,
+  "cost_usd": 0.2970209,
+  "turns": 3,
+  "is_error": false,
+  "model_usage": {
+    "claude-sonnet-5-5": {
+      "inputTokens": 40,
+      "outputTokens": 3588,
+      "cacheReadInputTokens": 579749,
+      "cacheCreationInputTokens": 57715,
+      "webSearchRequests": 0,
+      "costUSD": 0.2970209,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 121,
+      "cacheCreationEphemeral5mInputTokens": 18516,
+      "cacheCreationEphemeral1hInputTokens": 39199,
+      "canonicalModel": "claude-sonnet-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "printed": "----------------------------------------\n2 areas tested \u00b7 2 issues\n\n6 more detected automatically (6 major)\n\n [!!] 1 major\n  [!] 1 minor\n\nno critical issues\n\nfix first: Increase text/background contrast.\n\nreport: .haunt-reports/2026-11-12-localhost-4143.md\n----------------------------------------"
+}

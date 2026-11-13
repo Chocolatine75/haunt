@@ -1,0 +1,29 @@
+{
+  "app": 4,
+  "model": "sonnet",
+  "haunt": "HEAD@7680ba0",
+  "date": "2026-11-12 20:28",
+  "seconds": 200,
+  "cost_usd": 0.4939900999999998,
+  "turns": 7,
+  "is_error": false,
+  "model_usage": {
+    "claude-sonnet-5-5": {
+      "inputTokens": 58,
+      "outputTokens": 6442,
+      "cacheReadInputTokens": 1163571,
+      "cacheCreationInputTokens": 101432,
+      "webSearchRequests": 0,
+      "costUSD": 0.4939900999999998,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 441,
+      "cacheCreationEphemeral5mInputTokens": 61754,
+      "cacheCreationEphemeral1hInputTokens": 39678,
+      "canonicalModel": "claude-sonnet-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "printed": "```\n----------------------------------------\n2 areas tested \u00b7 1 issues\n\n3 more detected automatically (2 major)\n\n [!!] 1 major\n\nno critical issues\n\nfix first: Wire the Quick View button to open the recipe preview.\n\nreport: .haunt-reports/2026-11-12-localhost-4104.md\n----------------------------------------\n```"
+}

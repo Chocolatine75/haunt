@@ -1,0 +1,207 @@
+{
+  "agents": [
+    {
+      "role": "orchestrator",
+      "tools": {
+        "ToolSearch": {
+          "calls": 1,
+          "chars": 0,
+          "max_chars": 0,
+          "errors": 0
+        },
+        "Bash": {
+          "calls": 1,
+          "chars": 27,
+          "max_chars": 27,
+          "errors": 0
+        },
+        "haunt_scout": {
+          "calls": 1,
+          "chars": 65,
+          "max_chars": 65,
+          "errors": 0
+        },
+        "Agent": {
+          "calls": 1,
+          "chars": 1098,
+          "max_chars": 1098,
+          "errors": 0
+        },
+        "haunt_sweep": {
+          "calls": 1,
+          "chars": 89,
+          "max_chars": 89,
+          "errors": 0
+        },
+        "haunt_generate_report": {
+          "calls": 1,
+          "chars": 4297,
+          "max_chars": 4297,
+          "errors": 0
+        }
+      },
+      "context_tokens": [
+        24861,
+        30698,
+        30989,
+        31568,
+        32396,
+        33180,
+        35523
+      ],
+      "output_tokens": 1067,
+      "images": 0,
+      "turns": 7,
+      "max_context_tokens": 35523,
+      "input_tokens_total": 219215,
+      "tool_chars_total": 5576
+    },
+    {
+      "role": "haunt:haunt-tester",
+      "tools": {
+        "haunt_spawn": {
+          "calls": 2,
+          "chars": 66,
+          "max_chars": 66,
+          "errors": 0
+        },
+        "haunt_capture_state": {
+          "calls": 8,
+          "chars": 8604,
+          "max_chars": 3181,
+          "errors": 0
+        },
+        "haunt_plan": {
+          "calls": 2,
+          "chars": 2092,
+          "max_chars": 1046,
+          "errors": 0
+        },
+        "haunt_act": {
+          "calls": 28,
+          "chars": 22071,
+          "max_chars": 3532,
+          "errors": 0
+        },
+        "haunt_end_session": {
+          "calls": 8,
+          "chars": 2543,
+          "max_chars": 822,
+          "errors": 1
+        },
+        "SubagentHandback": {
+          "calls": 1,
+          "chars": 61,
+          "max_chars": 61,
+          "errors": 0
+        }
+      },
+      "context_tokens": [
+        16359,
+        16554,
+        19127,
+        20781,
+        22022,
+        22724,
+        24619,
+        25338,
+        25807,
+        26696,
+        28394,
+        30954,
+        32021,
+        35661,
+        36748,
+        38692,
+        39140,
+        39626,
+        40183,
+        41048,
+        41573,
+        42128,
+        42660
+      ],
+      "output_tokens": 5286,
+      "images": 4,
+      "turns": 23,
+      "max_context_tokens": 42660,
+      "input_tokens_total": 708855,
+      "tool_chars_total": 35437
+    }
+  ],
+  "held_back": 2,
+  "act_refused_without_case": 0,
+  "sessions": {
+    "fd239df0-4e7a-4fd5-b94e-4ae48488e48d": {
+      "steps": 23
+    }
+  },
+  "coverage": {
+    "controls": {
+      "listed": 23,
+      "exercised": 13
+    },
+    "cases": {
+      "planned": 2,
+      "run": 2,
+      "passed": 1,
+      "failed": 1
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "link",
+          "name": "Terms & Conditions"
+        },
+        {
+          "area": "/",
+          "role": "link",
+          "name": "Privacy Policy"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\u00d7 \ud83c\udfa1 Spin the Wheel! Click SPIN and watch where fate takes you! \ud83c\udfb0 SPIN"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "\ud835\udd4f Tweet"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "\ud83d\udcac WhatsApp"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "\ud83d\udd17 Copy Link"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": ""
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\ud83c\udf89 Congratulations! You won: 10% Off! BEAN-43SK-UHGM \ud83d\udccb Copy Code \ud83c\udf9f Share for a Bonus Entry! Share to enter our gran..."
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "\u00d7 \ud83c\udfc6 Your Prizes \ud83c\udfc6 20% Off BEAN-X1MU-UOXL Won from: Spin Wheel \ud83c\udfc6 10% Off BEAN-43SK-UHGM Won from: Dice Roll"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Use your mouse or finger to scratch the golden card!"
+        }
+      ],
+      "cases": []
+    }
+  },
+  "transcripts_found": true
+}

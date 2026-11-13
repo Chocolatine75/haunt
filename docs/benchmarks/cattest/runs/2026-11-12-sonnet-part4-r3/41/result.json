@@ -1,0 +1,29 @@
+{
+  "app": 41,
+  "model": "sonnet",
+  "haunt": "HEAD@7680ba0",
+  "date": "2026-11-12 21:36",
+  "seconds": 72,
+  "cost_usd": 0.2927466,
+  "turns": 3,
+  "is_error": false,
+  "model_usage": {
+    "claude-sonnet-5-5": {
+      "inputTokens": 46,
+      "outputTokens": 4589,
+      "cacheReadInputTokens": 635406,
+      "cacheCreationInputTokens": 51434,
+      "webSearchRequests": 0,
+      "costUSD": 0.2927466,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 147,
+      "cacheCreationEphemeral5mInputTokens": 15008,
+      "cacheCreationEphemeral1hInputTokens": 36426,
+      "canonicalModel": "claude-sonnet-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "printed": "----------------------------------------\n2 areas tested \u00b7 1 issues\n\n1 more detected automatically (1 major)\n\n [!!] 1 major\n\nno critical issues\n\nfix first: Wire the button to a checkout/order flow or confirmation.\n\nreport: .haunt-reports/2026-11-12-localhost-4141.md\n----------------------------------------"
+}

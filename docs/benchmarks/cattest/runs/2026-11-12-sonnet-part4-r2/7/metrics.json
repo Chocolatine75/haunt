@@ -1,0 +1,194 @@
+{
+  "agents": [
+    {
+      "role": "orchestrator",
+      "tools": {
+        "ToolSearch": {
+          "calls": 1,
+          "chars": 0,
+          "max_chars": 0,
+          "errors": 0
+        },
+        "Bash": {
+          "calls": 2,
+          "chars": 58,
+          "max_chars": 31,
+          "errors": 0
+        },
+        "haunt_scout": {
+          "calls": 1,
+          "chars": 53,
+          "max_chars": 53,
+          "errors": 0
+        },
+        "Agent": {
+          "calls": 1,
+          "chars": 700,
+          "max_chars": 350,
+          "errors": 0
+        },
+        "haunt_sweep": {
+          "calls": 1,
+          "chars": 197,
+          "max_chars": 197,
+          "errors": 0
+        },
+        "haunt_generate_report": {
+          "calls": 1,
+          "chars": 3179,
+          "max_chars": 3179,
+          "errors": 0
+        }
+      },
+      "context_tokens": [
+        23068,
+        34970,
+        41675,
+        41785,
+        42955,
+        43235,
+        44973
+      ],
+      "output_tokens": 1104,
+      "images": 0,
+      "turns": 7,
+      "max_context_tokens": 44973,
+      "input_tokens_total": 272661,
+      "tool_chars_total": 4187
+    },
+    {
+      "role": "haunt:haunt-tester",
+      "tools": {
+        "haunt_spawn": {
+          "calls": 2,
+          "chars": 407,
+          "max_chars": 407,
+          "errors": 0
+        },
+        "haunt_capture_state": {
+          "calls": 8,
+          "chars": 34227,
+          "max_chars": 13069,
+          "errors": 0
+        },
+        "haunt_plan": {
+          "calls": 6,
+          "chars": 8762,
+          "max_chars": 1682,
+          "errors": 0
+        },
+        "haunt_act": {
+          "calls": 16,
+          "chars": 20931,
+          "max_chars": 3889,
+          "errors": 0
+        },
+        "haunt_end_session": {
+          "calls": 2,
+          "chars": 915,
+          "max_chars": 915,
+          "errors": 0
+        },
+        "SubagentHandback": {
+          "calls": 1,
+          "chars": 61,
+          "max_chars": 61,
+          "errors": 0
+        }
+      },
+      "context_tokens": [
+        16359,
+        19706,
+        27445,
+        30326,
+        31191,
+        35223,
+        36072,
+        37980,
+        39395,
+        40451,
+        41507,
+        43111,
+        50868,
+        51472,
+        51765
+      ],
+      "output_tokens": 4594,
+      "images": 4,
+      "turns": 15,
+      "max_context_tokens": 51765,
+      "input_tokens_total": 552871,
+      "tool_chars_total": 65303
+    }
+  ],
+  "held_back": 0,
+  "act_refused_without_case": 0,
+  "sessions": {
+    "ead154e0-45b4-414a-ac6a-e783d5d470ee": {
+      "steps": 17
+    }
+  },
+  "coverage": {
+    "controls": {
+      "listed": 17,
+      "exercised": 8
+    },
+    "cases": {
+      "planned": 6,
+      "run": 6,
+      "passed": 4,
+      "failed": 2
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "option",
+          "name": "Chicken Parmesan recipe"
+        },
+        {
+          "area": "/",
+          "role": "option",
+          "name": "chicken breast ingredient"
+        },
+        {
+          "area": "/",
+          "role": "option",
+          "name": "Chicken Tacos al Pastor recipe"
+        },
+        {
+          "area": "/",
+          "role": "option",
+          "name": "chicken thighs ingredient"
+        },
+        {
+          "area": "/",
+          "role": "option",
+          "name": "Green Curry with Chicken recipe"
+        },
+        {
+          "area": "/",
+          "role": "option",
+          "name": "Thai Basil Chicken Stir-Fry recipe"
+        },
+        {
+          "area": "/",
+          "role": "option",
+          "name": "ground chicken ingredient"
+        },
+        {
+          "area": "/",
+          "role": "option",
+          "name": "Butter Chicken recipe"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Chicken Parmesan"
+        }
+      ],
+      "cases": []
+    }
+  },
+  "transcripts_found": true
+}

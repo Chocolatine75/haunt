@@ -1,0 +1,198 @@
+{
+  "agents": [
+    {
+      "role": "orchestrator",
+      "tools": {
+        "ToolSearch": {
+          "calls": 1,
+          "chars": 0,
+          "max_chars": 0,
+          "errors": 0
+        },
+        "Bash": {
+          "calls": 2,
+          "chars": 58,
+          "max_chars": 31,
+          "errors": 0
+        },
+        "haunt_scout": {
+          "calls": 1,
+          "chars": 80,
+          "max_chars": 80,
+          "errors": 0
+        },
+        "Agent": {
+          "calls": 1,
+          "chars": 700,
+          "max_chars": 350,
+          "errors": 0
+        },
+        "haunt_sweep": {
+          "calls": 1,
+          "chars": 89,
+          "max_chars": 89,
+          "errors": 0
+        },
+        "haunt_generate_report": {
+          "calls": 1,
+          "chars": 3889,
+          "max_chars": 3889,
+          "errors": 0
+        }
+      },
+      "context_tokens": [
+        23068,
+        34970,
+        41481,
+        41623,
+        41733,
+        42901,
+        43106,
+        45150
+      ],
+      "output_tokens": 1165,
+      "images": 0,
+      "turns": 8,
+      "max_context_tokens": 45150,
+      "input_tokens_total": 314032,
+      "tool_chars_total": 4816
+    },
+    {
+      "role": "haunt:haunt-tester",
+      "tools": {
+        "haunt_spawn": {
+          "calls": 2,
+          "chars": 375,
+          "max_chars": 375,
+          "errors": 0
+        },
+        "haunt_capture_state": {
+          "calls": 2,
+          "chars": 2985,
+          "max_chars": 2985,
+          "errors": 0
+        },
+        "haunt_plan": {
+          "calls": 4,
+          "chars": 7010,
+          "max_chars": 1791,
+          "errors": 0
+        },
+        "haunt_act": {
+          "calls": 12,
+          "chars": 11632,
+          "max_chars": 3136,
+          "errors": 0
+        },
+        "haunt_end_session": {
+          "calls": 8,
+          "chars": 3905,
+          "max_chars": 1047,
+          "errors": 0
+        },
+        "SubagentHandback": {
+          "calls": 1,
+          "chars": 61,
+          "max_chars": 61,
+          "errors": 0
+        }
+      },
+      "context_tokens": [
+        16359,
+        19690,
+        22481,
+        24424,
+        25595,
+        27270,
+        28372,
+        29094,
+        29895,
+        31416,
+        31959,
+        32497,
+        32985
+      ],
+      "output_tokens": 3266,
+      "images": 1,
+      "turns": 13,
+      "max_context_tokens": 32985,
+      "input_tokens_total": 352037,
+      "tool_chars_total": 25968
+    }
+  ],
+  "held_back": 3,
+  "act_refused_without_case": 0,
+  "sessions": {
+    "3c30ccb1-e325-47d7-9d23-046672669251": {
+      "steps": 14
+    }
+  },
+  "coverage": {
+    "controls": {
+      "listed": 19,
+      "exercised": 9
+    },
+    "cases": {
+      "planned": 4,
+      "run": 4,
+      "passed": 2,
+      "failed": 2
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "link",
+          "name": "How It Works"
+        },
+        {
+          "area": "/",
+          "role": "link",
+          "name": "Book Now"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "AFTER BEFORE"
+        },
+        {
+          "area": "/",
+          "role": "slider",
+          "name": "Front Yard comparison slider"
+        },
+        {
+          "area": "/",
+          "role": "slider",
+          "name": "Commercial Property comparison slider"
+        },
+        {
+          "area": "/",
+          "role": "slider",
+          "name": "Patio and Garden comparison slider"
+        },
+        {
+          "area": "/",
+          "role": "link",
+          "name": "Home"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Green Scape Pro Gallery How It Works Book Now"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Green Scape Pro"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Scape"
+        }
+      ],
+      "cases": []
+    }
+  },
+  "transcripts_found": true
+}

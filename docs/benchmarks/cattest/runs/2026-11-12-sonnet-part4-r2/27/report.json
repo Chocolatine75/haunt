@@ -1,0 +1,443 @@
+{
+  "target_url": "http://localhost:4127/",
+  "date": "2026-11-12",
+  "coverage": {
+    "controls": {
+      "listed": 79,
+      "exercised": 24
+    },
+    "cases": {
+      "planned": 9,
+      "run": 9,
+      "passed": 8,
+      "failed": 1
+    },
+    "left": {
+      "controls": [
+        {
+          "area": "/",
+          "role": "button",
+          "name": "Cancel"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "AI Agents"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "AI Agents"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Quantum Computing"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Spatial Computing (AR/VR)"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "Spatial Computing (AR/VR)"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Blockchain/Web3"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "Blockchain/Web3"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Biotech/Neurotech"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "Biotech/Neurotech"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Edge Computing"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "Edge Computing"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "▼ Discussion & Q&A 3"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "▲ 12"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "💬 Reply (2)"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "▲ 8"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "▲ 5"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "▲ 7"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "💬 Reply (1)"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "▲ 4"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Rust"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Go"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "TypeScript"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Python"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Zig"
+        },
+        {
+          "area": "/",
+          "role": "checkbox",
+          "name": "Zig"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Swift"
+        },
+        {
+          "area": "/",
+          "role": "checkbox",
+          "name": "Swift"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Kotlin"
+        },
+        {
+          "area": "/",
+          "role": "checkbox",
+          "name": "Kotlin"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Elixir"
+        },
+        {
+          "area": "/",
+          "role": "checkbox",
+          "name": "Elixir"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "▼ Discussion & Q&A 2"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "▲ 9"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "▲ 6"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "▲ 3"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "GitHub Copilot"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "GitHub Copilot"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Claude"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "Claude"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "ChatGPT"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Cursor"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "Cursor"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "Codeium"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "Codeium"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "None — I prefer unassisted coding"
+        },
+        {
+          "area": "/",
+          "role": "radio",
+          "name": "None — I prefer unassisted coding"
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "▲ 11"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "D Dana ⚙️"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "🗳️ Someone just voted on \"What's your preferred AI coding assistan...\""
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "▲ 2"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "TechPulse Weekly Tech Debates & Discussions 🌙 A Alex ⚙️"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "TechPulse"
+        },
+        {
+          "area": "/",
+          "role": "generic",
+          "name": "🗳️ Someone just voted on \"What will be the most impactful technolo...\""
+        },
+        {
+          "area": "/",
+          "role": "button",
+          "name": "☀️"
+        }
+      ],
+      "cases": []
+    }
+  },
+  "issues": [
+    {
+      "severity": "minor",
+      "category": "ux",
+      "description": "Clicking Join the Debate with an empty name does nothing and shows no message. Clicking Ask with a blank question also does nothing and shows no message.",
+      "page_url": "http://localhost:4127/",
+      "recommendation": "Show a validation message, or disable the button until there is input.",
+      "signal": "s2",
+      "verification": {
+        "status": "confirmed",
+        "attempts": 3,
+        "reproduced": 3,
+        "rate": 1,
+        "bundle": ".haunt-reports/evidence/c44bad47-561c-4836-bf42-bec942ce0020/issue-2"
+      },
+      "signals": [
+        {
+          "id": "s2",
+          "kind": "dead_control",
+          "url": "http://localhost:4127/",
+          "step": 1,
+          "message": "Clicking the button \"Join the Debate\" changed nothing",
+          "severity": "major",
+          "count": 1,
+          "ref": "e2",
+          "role": "button",
+          "name": "Join the Debate"
+        }
+      ]
+    },
+    {
+      "severity": "minor",
+      "category": "accessibility",
+      "description": "The welcome screen has a color-contrast violation.",
+      "page_url": "http://localhost:4127/",
+      "recommendation": "Raise the contrast of the flagged element to at least 4.5:1.",
+      "signal": "s1",
+      "verification": {
+        "status": "confirmed",
+        "attempts": 3,
+        "reproduced": 3,
+        "rate": 1,
+        "bundle": ".haunt-reports/evidence/c44bad47-561c-4836-bf42-bec942ce0020/issue-3"
+      },
+      "signals": [
+        {
+          "id": "s1",
+          "kind": "a11y",
+          "url": "http://localhost:4127/",
+          "step": 0,
+          "message": "Elements must meet minimum color contrast ratio thresholds (1 element)",
+          "severity": "major",
+          "count": 1,
+          "rule": "color-contrast",
+          "impact": "serious",
+          "nodes": 1,
+          "refs": [
+            "e2"
+          ],
+          "help": "Elements must meet minimum color contrast ratio thresholds"
+        }
+      ]
+    },
+    {
+      "severity": "minor",
+      "category": "ux",
+      "description": "The Share button gives no feedback when clicked: no copied message and no visible change.",
+      "page_url": "http://localhost:4127/",
+      "recommendation": "Show a copied confirmation or a toast after Share.",
+      "case": "share",
+      "verification": {
+        "status": "confirmed",
+        "attempts": 3,
+        "reproduced": 3,
+        "rate": 1,
+        "bundle": ".haunt-reports/evidence/c44bad47-561c-4836-bf42-bec942ce0020/issue-4"
+      }
+    }
+  ],
+  "flaky": [],
+  "unverified": [],
+  "unchecked": [
+    {
+      "severity": "major",
+      "category": "ux",
+      "description": "The same user can upvote the same question repeatedly; clicking the upvote button on a question I just posted took it from 1 to 2 with no toggle or block.",
+      "page_url": "http://localhost:4127/",
+      "recommendation": "Allow one upvote per user per question, and make a second click remove the vote.",
+      "expected": "A second click on the upvote button toggles it off or is ignored, so the count stays at 1 or goes back to 0",
+      "actual": "The count went from 1 to 2",
+      "verification": {
+        "status": "unchecked",
+        "attempts": 3,
+        "reproduced": 3,
+        "rate": 1,
+        "bundle": ".haunt-reports/evidence/c44bad47-561c-4836-bf42-bec942ce0020/issue-1"
+      }
+    }
+  ],
+  "rejected": [],
+  "signals": [
+    {
+      "id": "s1",
+      "kind": "a11y",
+      "url": "http://localhost:4127/",
+      "step": 0,
+      "message": "Elements must meet minimum color contrast ratio thresholds (1 element)",
+      "severity": "major",
+      "count": 1,
+      "rule": "color-contrast",
+      "impact": "serious",
+      "nodes": 1,
+      "refs": [
+        "e2"
+      ],
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "id": "s2",
+      "kind": "dead_control",
+      "url": "http://localhost:4127/",
+      "step": 1,
+      "message": "Clicking the button \"Join the Debate\" changed nothing",
+      "severity": "major",
+      "count": 1,
+      "ref": "e2",
+      "role": "button",
+      "name": "Join the Debate"
+    },
+    {
+      "id": "s3",
+      "kind": "dead_control",
+      "url": "http://localhost:4127/",
+      "step": 24,
+      "message": "Clicking the button \"Ask\" changed nothing",
+      "severity": "major",
+      "count": 1,
+      "ref": "e97",
+      "role": "button",
+      "name": "Ask"
+    }
+  ],
+  "signal_counts": {
+    "total": 1,
+    "major": 1,
+    "minor": 0
+  }
+}
